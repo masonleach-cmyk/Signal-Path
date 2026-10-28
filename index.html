@@ -208,7 +208,8 @@ button:focus-visible,.knob:focus-visible{outline:1px solid var(--c1);outline-off
 .lessons .grp .gs{font-size:12.5px;color:var(--faint);font-weight:500}
 .lessons .g0 .lab{color:var(--c1);text-shadow:0 0 6px var(--c1)}
 .lessons .g1 .lab{color:var(--c2);text-shadow:0 0 6px var(--c2)}
-.lessons .g2 .lab{color:var(--c4);text-shadow:0 0 6px var(--c4)}
+.lessons .g2 .lab{color:var(--c3);text-shadow:0 0 6px var(--c3)}
+.lessons .g3 .lab{color:var(--c4);text-shadow:0 0 6px var(--c4)}
 .lessons button.is-rec .num{color:var(--c3);text-shadow:0 0 6px var(--c3)}
 .lessons button.is-rec .t{text-shadow:0 0 10px rgba(242,245,248,.45)}
 .lessons .p.rec{color:var(--c3);font-family:var(--f-ui);font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:10px;text-shadow:0 0 6px var(--c3)}
@@ -260,7 +261,7 @@ button:focus-visible,.knob:focus-visible{outline:1px solid var(--c1);outline-off
         <div class="seg" id="modeSeg" data-hint="modeSeg">
           <button data-m="wave" class="on">Wave</button><button data-m="spec">Spectrum</button><button data-m="env">Env</button>
         </div>
-        <button class="chip lab run" id="runBtn">Run</button>
+        <button class="chip lab run" id="runBtn" data-hint="run">Run</button>
       </div>
       <div class="sbar" id="tapBar">
         <div class="seg" id="tapSeg" data-hint="tapSeg">
@@ -347,7 +348,7 @@ button:focus-visible,.knob:focus-visible{outline:1px solid var(--c1);outline-off
 class SynthDSP {
   constructor(sr){
     this.sr = sr;
-    this.p = {o1w:2,o1oct:0,o1pw:.5,glide:0,bl:1,o2w:2,o2oct:0,o2semi:0,o2fine:7,sync:0,fm:0,mix1:.8,mix2:.6,noise:0,vol:.7,
+    this.p = {o1w:2,o1oct:0,o1pw:.5,glide:0,bl:1,o2w:2,o2oct:0,o2semi:0,o2fine:7,sync:0,fm:0,ring:0,mix1:.8,mix2:.6,noise:0,vol:.7,
       ftype:0,cut:2400,res:.25,fenv:1.5,kt:.5,drive:.1,fA:.005,fD:.35,fS:.3,fR:.3,aA:.005,aD:.3,aS:.8,aR:.35,lshape:0,lrate:5,lpitch:0,lcut:0,lpw:0};
     this.k = {};
     this.p1 = 0; this.p2 = 0; this.lp = 0; this.sh = 0;
@@ -388,7 +389,7 @@ class SynthDSP {
   render(o0, o1, o2, o3, n){
     const p = this.p, k = this.k, sr = this.sr;
     const ftype = p.ftype | 0, o1w = p.o1w | 0, o2w = p.o2w | 0, ls = p.lshape | 0;
-    const bl = p.bl ? 1 : 0, sync = p.sync ? 1 : 0, fm = p.fm;
+    const bl = p.bl ? 1 : 0, sync = p.sync ? 1 : 0, fm = p.fm, ring = p.ring ? 1 : 0;
     const kk = p.res * 4.15, kq = 2 - 1.9 * p.res, drv = 1 + p.drive * 4, dcomp = 1 / (1 + p.drive * 1.5);
     const lcBase = Math.log2(Math.max(20, p.cut)), maxF = sr * 0.45;
     const r2 = Math.pow(2, p.o2oct + (p.o2semi + p.o2fine / 100) / 12), r1 = Math.pow(2, p.o1oct);
@@ -423,6 +424,7 @@ class SynthDSP {
       let v2;
       if (fm > 0.001) { let q = this.p2 + fm * v1 * 0.15915494309189535; q -= Math.floor(q); v2 = this.wave(o2w, q, dt2, pw, 0); }
       else v2 = this.wave(o2w, this.p2, dt2, pw, sync ? 0 : bl);
+      if (ring) v2 *= v1;
       const mix = (v1 * p.mix1 + v2 * p.mix2 + this.rnd() * p.noise) * 0.6;
       const tgt = lcBase + p.fenv * this.fe + p.lcut * lfo + (this.cur - 60) / 12 * p.kt;
       this.lc += (tgt - this.lc) * 0.02;
@@ -472,7 +474,7 @@ registerProcessor('sp-synth', SPProc);`;
 /* =====================================================================
    Parameters
    ===================================================================== */
-const INIT = {o1w:2,o1oct:0,o1pw:.5,glide:0,bl:1,o2w:2,o2oct:0,o2semi:0,o2fine:7,sync:0,fm:0,mix1:.8,mix2:.6,noise:0,vol:.7,
+const INIT = {o1w:2,o1oct:0,o1pw:.5,glide:0,bl:1,o2w:2,o2oct:0,o2semi:0,o2fine:7,sync:0,fm:0,ring:0,mix1:.8,mix2:.6,noise:0,vol:.7,
   ftype:0,cut:2400,res:.25,fenv:1.5,kt:.5,drive:.1,fA:.005,fD:.35,fS:.3,fR:.3,aA:.005,aD:.3,aS:.8,aR:.35,lshape:0,lrate:5,lpitch:0,lcut:0,lpw:0};
 const params = {...INIT};
 
@@ -519,10 +521,10 @@ const SEGS = {
   ftype:{l:'Type',o:[[null,'LP24'],[null,'LP12'],[null,'HP'],[null,'BP']]},
   lshape:{l:'Shape',o:[['tri','Tri'],['pulse','Sqr'],['sawdn','Dn'],['saw','Up'],['sh','S&H']]},
 };
-const TOGS = { bl:{l:'Anti-alias',s:'PolyBLEP'}, sync:{l:'Hard Sync',s:'to OSC 1'} };
+const TOGS = { bl:{l:'Anti-alias',s:'PolyBLEP'}, sync:{l:'Hard Sync',s:'to OSC 1'}, ring:{l:'Ring Mod',s:'OSC 1 × 2'} };
 const TABS = [
   {id:'osc1',l:'Osc 1',seg:'o1w',rows:[['o1oct','o1pw','glide'],['bl']]},
-  {id:'osc2',l:'Osc 2',seg:'o2w',rows:[['o2oct','o2semi','o2fine'],['fm','sync']]},
+  {id:'osc2',l:'Osc 2',seg:'o2w',rows:[['o2oct','o2semi','o2fine'],['fm','sync','ring']]},
   {id:'mix',l:'Mix',rows:[['mix1','mix2','noise'],['vol']]},
   {id:'filter',l:'Filter',seg:'ftype',rows:[['cut','res','fenv'],['kt','drive']]},
   {id:'env',l:'Env',env:1},
@@ -602,7 +604,7 @@ const Engine = {
    ===================================================================== */
 const $ = id => document.getElementById(id);
 const state = {page:0, tab:'osc1', mode:'wave', tap:'filter', ghost:true, lin:false, zoomL2:9.5, run:true,
-  hold:false, latched:null, held:[], gateOn:false, gates:0, base:48, lastNote:57, hints:new Set(), nchg:{}};
+  hold:false, latched:null, held:[], gateOn:false, gates:0, base:48, lastNote:57, hints:new Set(), nchg:{}, ui:{}};
 const TAPI = {out:0, osc:1, filter:2};
 const store = {
   get(k, d){ try { const v = localStorage.getItem('sp.' + k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
@@ -747,16 +749,17 @@ $('pageSeg').addEventListener('click', e => { const b = e.target.closest('button
 $('miniScreen').addEventListener('click', () => goPage(1));
 
 /* ---------- scope controls ---------- */
+const bump = k => { state.ui[k] = (state.ui[k] || 0) + 1; };
 function setMode(m){
-  state.mode = m;
+  state.mode = m; bump('mode');
   [...$('modeSeg').children].forEach(b => b.classList.toggle('on', b.dataset.m === m));
   $('tapBar').hidden = m === 'env';
   $('linBtn').hidden = m !== 'spec';
   $('zIn').hidden = $('zOut').hidden = m !== 'wave';
 }
-function setTap(t){ state.tap = t; [...$('tapSeg').children].forEach(b => b.classList.toggle('on', b.dataset.t === t)); }
-function setGhost(v){ state.ghost = v; $('ghostBtn').classList.toggle('on', v); }
-function setLin(v){ state.lin = v; $('linBtn').textContent = v ? 'Lin' : 'Log'; $('linBtn').classList.toggle('on', v); }
+function setTap(t){ state.tap = t; bump('tap'); [...$('tapSeg').children].forEach(b => b.classList.toggle('on', b.dataset.t === t)); }
+function setGhost(v){ state.ghost = v; bump('ghost'); $('ghostBtn').classList.toggle('on', v); }
+function setLin(v){ state.lin = v; bump('lin'); $('linBtn').textContent = v ? 'Lin' : 'Log'; $('linBtn').classList.toggle('on', v); }
 function setZoom(z){ state.zoomL2 = Math.min(13, Math.max(4.6, z)); }
 $('modeSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setMode(b.dataset.m); });
 $('tapSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setTap(b.dataset.t); });
@@ -765,7 +768,7 @@ $('linBtn').addEventListener('click', () => setLin(!state.lin));
 $('zIn').addEventListener('click', () => setZoom(state.zoomL2 - 0.5));
 $('zOut').addEventListener('click', () => setZoom(state.zoomL2 + 0.5));
 $('runBtn').addEventListener('click', () => {
-  state.run = !state.run;
+  state.run = !state.run; bump('run');
   $('runBtn').textContent = state.run ? 'Run' : 'Stop';
   $('runBtn').classList.toggle('stop', !state.run);
 });
@@ -877,13 +880,15 @@ const fmtF = f => f >= 1000 ? (f / 1000).toFixed(f >= 10000 ? 0 : 1).replace(/\.
 function drawSpec(s){
   const g = s.g, W = s.w, H = s.h, d = s.dpr, nyq = SR / 2, binHz = SR / N, lin = state.lin;
   const top = (s.mini ? 6 : 34) * d, bot = H - (s.mini ? 4 : 16) * d, dbT = 0, dbB = -110;
-  const fx = f => lin ? f / nyq * W : Math.log(Math.max(f, 1) / 20) / Math.log(nyq / 20) * W;
-  const xf = x => lin ? x / W * nyq : 20 * Math.pow(nyq / 20, x / W);
+  const fmax = lin ? Math.min(nyq, Math.max(2000, tele.f0 * 16)) : nyq;
+  const fx = f => lin ? f / fmax * W : Math.log(Math.max(f, 1) / 20) / Math.log(nyq / 20) * W;
+  const xf = x => lin ? x / W * fmax : 20 * Math.pow(nyq / 20, x / W);
   const yd = db => top + (dbT - Math.max(dbB, Math.min(dbT, db))) / (dbT - dbB) * (bot - top);
   // grid
   g.lineWidth = 1; g.strokeStyle = C.grat; g.setLineDash([1 * d, 5 * d]); g.beginPath();
   for (let db = -20; db > dbB; db -= 20) { const y = Math.round(yd(db)) + .5; g.moveTo(0, y); g.lineTo(W, y); }
-  const ticks = lin ? Array.from({length: Math.floor(nyq / 4000)}, (_, i) => (i + 1) * 4000) : [50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000].filter(f => f < nyq);
+  const lstep = (() => { const r = fmax / 6, e = Math.pow(10, Math.floor(Math.log10(r))), m = r / e; return (m < 1.5 ? 1 : m < 3.5 ? 2 : 5) * e; })();
+  const ticks = lin ? Array.from({length: Math.floor(fmax / lstep)}, (_, i) => (i + 1) * lstep).filter(f => f < fmax) : [50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000].filter(f => f < nyq);
   ticks.forEach(f => { const x = Math.round(fx(f)) + .5; g.moveTo(x, top); g.lineTo(x, bot); });
   g.stroke(); g.setLineDash([]);
   if (!s.mini) {
@@ -924,7 +929,7 @@ function drawSpec(s){
     g.font = `${9 * d}px "IBM Plex Mono", monospace`; g.textAlign = 'center'; g.textBaseline = 'top';
     let lastX = -99;
     g.beginPath();
-    for (let n = 1; n * f0 < nyq && n < 400; n++) {
+    for (let n = 1; n * f0 < (lin ? fmax : nyq) && n < 400; n++) {
       const x = fx(n * f0); if (x - lastX < 5 * d) continue;
       g.moveTo(x, top - 5 * d); g.lineTo(x, top - 1 * d);
       if (!s.mini && x - lastX >= 16 * d && (n <= 12 || lin)) g.fillText(n, x, 21 * d);
@@ -1100,7 +1105,7 @@ function figADSR(){
 }
 const FIGS = {flow0:() => figFlow(0), flow1:() => figFlow(1), flow2:() => figFlow(2), flow:() => figFlow(-1), adsr:figADSR};
 
-const BASE = {o1w:2,o1oct:0,o1pw:.5,mix1:1,mix2:0,noise:0,sync:0,fm:0,ftype:0,cut:20000,res:0,fenv:0,kt:0,drive:0,aA:.005,aS:1,aR:.25,lpitch:0,lcut:0,lpw:0,bl:1};
+const BASE = {o1w:2,o1oct:0,o1pw:.5,mix1:1,mix2:0,noise:0,sync:0,fm:0,ring:0,glide:0,ftype:0,cut:20000,res:0,fenv:0,kt:0,drive:0,aA:.005,aS:1,aR:.25,lpitch:0,lcut:0,lpw:0,bl:1};
 
 const LESSONS = [
 /* ============================ FOUNDATIONS ============================ */
@@ -1140,6 +1145,17 @@ const LESSONS = [
   {x:"Back to Saw: every harmonic, each a bit weaker than the one before. More strong spikes on the right means a brighter sound.", focus:['o1w'], goal:S=>S.p.o1w===2,
    more:{h:'Timbre is a recipe', b:['Two instruments playing the same note share spike 1. What makes them sound different is how strong each of the other harmonics is. That recipe is the timbre.', 'A saw\'s harmonics shrink as 1/n, which on this log axis is a steady slope of about 6 dB per octave. A synth starts from a rich recipe like this and carves it with a filter, which is coming up.'], m:'saw(t) = (2/π) · Σ (−1)ⁿ⁺¹ · sin(nωt) / n'}},
   ]},
+{ id:'pw', g:0, t:'Pulse width', s:'One knob that reshapes the pulse wave.',
+  setup:{...BASE, o1w:3, o1pw:.5}, hold:57, go:{page:0, tab:'osc1', mode:'wave', tap:'osc', zoom:10, ghost:false},
+  steps:[
+  {x:"This pulse is high for half of each cycle and low for the other half: a 50% width, also called a square wave.",
+   more:{h:'Duty cycle', b:['Pulse width is the fraction of each cycle the wave spends high. It is the same idea as the duty cycle of a PWM output driving a valve or a heater. At 50% the wave is perfectly symmetric.']}},
+  {x:"Turn Pulse Width down to about 25%. The high part narrows and the sound turns thinner and more nasal.", focus:['o1pw'], goal:S=>S.p.o1pw<=.28},
+  {x:"Go further, to about 10%. Very narrow pulses sound reedy and buzzy, a bit like a harmonica.", focus:['o1pw'], goal:S=>S.p.o1pw<=.12},
+  {x:"Now sweep it slowly back up to 50% while you listen. Moving the width is one of the most expressive moves on a synth.", focus:['o1pw'], goal:S=>S.p.o1pw>=.45,
+   more:{h:'What changes in the sound', b:['Narrowing the pulse moves energy from the low harmonics toward the high ones, and makes certain harmonics vanish entirely.', 'Past 50% the wave is the same narrow pulse flipped upside down, so 75% sounds just like 25%.']}},
+  {x:"Tap Scope, switch to Spectrum, and set the width to about 33%. Every third spike drops out. The deep dive “Harmonics in depth” explains why.", focus:['modeSeg','o1pw'], goal:S=>S.mode==='spec'&&inR(S.p.o1pw,.31,.36)},
+  ]},
 { id:'flow', g:0, t:'The signal path', s:'Oscillator → filter → amp, and where each one sits.',
   setup:{...BASE, res:.2, aD:.3, aS:.8, aR:.4}, hold:null, go:{page:1, mode:'wave', tap:'osc', zoom:10, ghost:false},
   steps:[
@@ -1150,6 +1166,18 @@ const LESSONS = [
   {fig:'flow2', x:"Back on Scope, tap Out. That's after the amp, which stays shut until a key is pressed. Hold a key, then let go.", focus:['tapSeg'], goal:(S,E)=>S.tap==='out'&&S.gates>E.gates&&!S.playing,
    more:{h:'The amp is a gate', b:['The oscillator never stops; the amp is what starts and stops notes. Pressing a key sends a <b>gate</b> signal, and the amp opens following the amp envelope (the Shaping sound lessons).', 'On analog synths this stage is the VCA, a voltage-controlled amplifier: a control voltage sets its gain, much like an analog command signal sets a drive\'s output.']}},
   {fig:'flow', x:"The Osc and Filter test points kept running with no key down, while Out went flat. Every patch you build passes through these three stages in this order."},
+  ]},
+{ id:'scope', g:0, t:'Using the scope', s:'Freeze, zoom, test points, and the two axes.',
+  setup:{...BASE, mix2:.6, o2w:2, o2fine:7, cut:900, res:.35}, hold:45, go:{page:1, mode:'wave', tap:'filter', zoom:10.5, ghost:true},
+  steps:[
+  {x:"Tap Stop to freeze the screen, then tap it again to Run. Freezing lets you study one moment of the signal.", focus:['run'], goal:(S,E)=>(S.ui.run||0)-(E.ui.run||0)>=2,
+   more:{h:'Run and Stop', b:['Like the Run/Stop button on a bench scope, Stop holds the last frame. The sound keeps playing; only the picture pauses. It works in every view, including Spectrum and Env.']}},
+  {x:"Cyan is the Filter test point; the faint white line is the raw oscillator. Tap Ghost off and back on to compare them.", focus:['ghost'], goal:(S,E)=>(S.ui.ghost||0)-(E.ui.ghost||0)>=2},
+  {x:"Zoom out (−) until you see about ten cycles, then back in. The readout under the screen counts cycles and time per grid square.", focus:['zoom'], goal:(S,E)=>moved(S.zoom,E.zoom,1.5)},
+  {x:"Switch to Spectrum, then tap Log so it reads Lin. Log spaces octaves evenly, like a piano; Lin spaces hertz evenly, so harmonics sit at equal gaps.", focus:['modeSeg','lin'], goal:S=>S.mode==='spec'&&S.lin,
+   more:{h:'Log vs. linear', b:['On the log axis every doubling of frequency takes the same width, which matches how we hear pitch. That is the default here.', 'On the linear axis every 1 kHz takes the same width. Harmonics, which are evenly spaced in hertz, line up like fence posts. That makes missing harmonics or stray aliasing lines easy to spot.']}},
+  {x:"Height is in decibels: each grid line down is 20 dB, a tenth of the amplitude. On the Filter tab, raise Resonance and watch the peak near the dashed line climb.", focus:['res'], goal:S=>S.p.res>=.7,
+   more:{h:'Decibels', b:['Decibels squeeze huge ratios into small numbers: +6 dB is about twice the amplitude, +20 dB is ten times, +40 dB a hundred times. Hearing works roughly on this kind of ratio scale, which is why audio gear uses dB everywhere.'], m:'dB = 20 · log₁₀(A / A_ref)'}},
   ]},
 { id:'filter', g:0, t:'Filter basics', s:'Cutoff, resonance, and lowpass vs. highpass.',
   setup:{...BASE, cut:6000}, hold:45, go:{page:0, tab:'filter', mode:'spec', tap:'filter', lin:false, ghost:true},
@@ -1162,6 +1190,16 @@ const LESSONS = [
   {x:"Change Type from LP24 to HP. Now the bottom is removed instead: thin and airy.", focus:['ftype'], goal:S=>S.p.ftype===2,
    more:{h:'Types and slopes', b:['<b>LP</b> (lowpass) keeps the lows, <b>HP</b> (highpass) keeps the highs, <b>BP</b> (bandpass) keeps a band around the cutoff.', 'The number is the slope, how hard it cuts past the cutoff. LP24 removes 24 dB per octave: steep and smooth. LP12 removes 12 dB per octave: gentler and a bit brighter. At 24 dB/oct, one octave above cutoff a harmonic ends up about 16× smaller.']}},
   {nord:1, x:"On your Nord, find the filter's frequency and resonance controls and do the same slow sweep. Its filter offers LP12, LP24, HP and BP too, plus a ladder model called LP M."},
+  ]},
+{ id:'noise', g:0, t:'Noise and the mixer', s:'The one source with no pitch, and how sources blend.',
+  setup:{...BASE, mix1:.8}, hold:57, go:{page:0, tab:'mix', mode:'spec', tap:'osc', lin:false, ghost:false},
+  steps:[
+  {x:"On the Mix tab, turn OSC 1 down to 0 and Noise up to about 60%. Pure hiss: every frequency at once.", focus:['mix1','noise'], goal:S=>S.p.mix1<=.02&&S.p.noise>=.5,
+   more:{h:'White noise', b:['White noise is a new random value every sample. It never repeats, so it has no pitch, and its energy spreads evenly across all frequencies. On the spectrum it is a flat, fuzzy band instead of spikes.']}},
+  {x:"Open the Filter tab and lower Cutoff to about 1 kHz. Filtered noise turns into a soft rush, like wind.", focus:['cut'], goal:S=>S.p.cut<=1300},
+  {x:"Raise Resonance to about 85% and sweep Cutoff slowly. The resonant peak gives the noise a whistling, tuned edge.", focus:['res','cut'], goal:(S,E)=>S.p.res>=.8&&moved(S.p.cut,E.p.cut,1.5)},
+  {x:"Back on Mix, bring OSC 1 up to about 70% and Noise down to about 15%. A little noise under a tone adds breath, like air in a flute.", setup:{res:.2, cut:3000}, focus:['mix1','noise'], goal:S=>S.p.mix1>=.6&&inR(S.p.noise,.05,.3),
+   more:{h:'The mixer', b:['The mixer is where the sources meet before the filter. Everything sums into one signal, so the filter shapes all of it together.', 'Levels matter: a hotter mix drives the filter harder, which colours the tone. The Drive lesson shows that effect on purpose.']}},
   ]},
 /* ============================ SHAPING SOUND ============================ */
 { id:'ampenv', g:1, t:'The amp envelope', s:'Attack, decay, sustain, release: shaping each note.',
@@ -1185,6 +1223,37 @@ const LESSONS = [
   {x:"Set Filter env Sustain to 0. Each note now bites, then mellows while you hold it.", focus:['fS'], goal:S=>S.p.fS<=.05},
   {x:"Now set Env Amt back to 0 and play. Flat and lifeless. Filter movement is what makes most synth sounds feel alive.", focus:['fenv'], goal:S=>Math.abs(S.p.fenv)<=.2},
   ]},
+{ id:'filttypes', g:1, t:'Filter types', s:'LP12 vs LP24, highpass and bandpass, by ear and by eye.',
+  setup:{...BASE, cut:800, res:.2}, hold:45, go:{page:0, tab:'filter', mode:'spec', tap:'filter', lin:false, ghost:true},
+  steps:[
+  {x:"This is LP24 at 800 Hz. Notice how fast the spikes fall past the dashed line.",
+   more:{h:'Poles and slopes', b:['A single RC stage, one pole, rolls off at 6 dB per octave past its cutoff. LP12 behaves like two poles, LP24 like four. More poles, steeper wall.', 'Same idea as a first-order versus a fourth-order low-pass on a sensor signal: the higher the order, the sharper the transition.'], m:'slope ≈ −6 dB/oct × number of poles'}},
+  {x:"Switch to LP12. Same cutoff, but more of the upper harmonics leak through: brighter and buzzier.", focus:['ftype'], goal:S=>S.p.ftype===1},
+  {x:"Switch to HP. Now the low spikes vanish and the sound goes thin. Highpass is handy for clearing mud from pads.", focus:['ftype'], goal:S=>S.p.ftype===2},
+  {x:"Switch to BP and raise Resonance to about 60%. Only a band near the cutoff survives: nasal, like a telephone.", focus:['ftype','res'], goal:S=>S.p.ftype===3&&S.p.res>=.55},
+  {x:"Sweep Cutoff with BP on. It sounds like a moving vowel, the basis of wah-style sounds.", focus:['cut'], goal:(S,E)=>moved(S.p.cut,E.p.cut,1.5)},
+  {nord:1, x:"Your Nord's filter has all of these, plus LP+BP, which blends lowpass and bandpass for a full body with a nasal edge."},
+  ]},
+{ id:'keytrack', g:1, t:'Key tracking', s:'Make the filter follow the keyboard.',
+  setup:{...BASE, cut:500, res:.35, kt:0}, hold:null, go:{page:0, tab:'filter', mode:'spec', tap:'filter', lin:false, ghost:true},
+  steps:[
+  {x:"Key Track is at 0. Play a low C, then shift up twice (▲▲) and play a high C. The high note sounds dull and quiet.", goal:(S,E)=>S.note>=72&&S.gates>E.gates,
+   more:{h:'Why high notes go dull', b:['With a fixed cutoff, higher notes have fewer harmonics below it. At 500 Hz, a C3 (131 Hz) keeps three or four harmonics; a C5 (523 Hz) keeps barely its fundamental.']}},
+  {x:"Set Key Track to 100% and play low and high again. Every note now has the same brightness.", focus:['kt'], goal:S=>S.p.kt>=.95,
+   more:{h:'How tracking works', b:['At 100%, the cutoff rises one octave for every octave you play, so it sits at the same harmonic for every note.', 'At 50%, it rises half an octave per octave. High notes stay a little darker, which often sounds natural, the way acoustic instruments behave.'], m:'cutoff = Cutoff knob × 2^(Key Track × (note − C4) / 12)'}},
+  {x:"Try settings around 33% and 67%. Your Nord's Filter Tracking uses exactly these steps: Off, 1/3, 2/3 and Full.", focus:['kt'], goal:S=>inR(S.p.kt,.28,.72)},
+  {x:"Rule of thumb: basses often use little tracking so high notes don't get harsh; leads use more so they stay present up high."},
+  ]},
+{ id:'drive', g:1, t:'Drive and saturation', s:'Push the filter harder and new harmonics appear.',
+  setup:{...BASE, o1w:0, drive:0}, hold:45, go:{page:1, mode:'spec', tap:'filter', lin:false, ghost:true},
+  steps:[
+  {x:"A pure sine through the filter: one spike. On the Patch page, Filter tab, raise Drive slowly.", focus:['drive'], goal:S=>S.p.drive>=.5},
+  {x:"New spikes appear at 3×, 5×, 7×. Drive squashes the peaks of the wave, and that flattening creates odd harmonics.",
+   more:{h:'Soft clipping', b:['Drive boosts the signal into a saturating stage, modelled here with tanh, the curve a transistor pair follows. Large peaks get rounded off.', 'A symmetric squash like this adds odd harmonics only, which is why it sounds warm rather than harsh.'], m:'y = tanh(g · x)'}},
+  {x:"Switch the scope to Wave: the sine's tops are flattened toward a square.", focus:['modeSeg'], goal:S=>S.mode==='wave'},
+  {x:"Switch OSC 1 to Saw. Cutoff and Resonance are set for you. Sweep Drive up and down: it thickens the sound and tames the resonant peak.", setup:{cut:600, res:.7}, focus:['o1w','drive'], goal:(S,E)=>S.p.o1w===2&&(S.n.drive||0)-(E.n.drive||0)>=6},
+  {nord:1, x:"Your Nord has Filter Drive with steps Off, 1, 2 and 3. Same idea: more drive, more grit."},
+  ]},
 { id:'lfo', g:1, t:'LFO: movement', s:'A slow oscillator that turns knobs for you.',
   setup:{...BASE, cut:1200, res:.35, lshape:0, lrate:5}, hold:57, go:{page:0, tab:'lfo', mode:'env'},
   steps:[
@@ -1194,6 +1263,27 @@ const LESSONS = [
   {x:"Set → Pitch back to 0 and raise → Cutoff to about 1.5 oct. Now brightness wobbles, and the dashed cutoff line in the screen waves along.", focus:['lpitch','lcut'], goal:S=>S.p.lpitch<=.05&&S.p.lcut>=1.2},
   {x:"Try the Shape row. Sqr jumps between two settings; S&H picks a new random value each cycle, the classic computer burble.", focus:['lshape'], goal:S=>S.p.lshape===4},
   {nord:1, x:"Your Nord's LFO has the same shapes: square, triangle, ramp down, ramp up and sample & hold. Same shapes, same ideas."},
+  ]},
+{ id:'lfo2', g:1, t:'More LFO tricks', s:'PWM, ramps, and sample-and-hold on the filter.',
+  setup:{...BASE, o1w:3, o1pw:.5, cut:1500, res:.4, lshape:0, lrate:1}, hold:57, go:{page:0, tab:'lfo', mode:'wave', tap:'osc', zoom:10},
+  steps:[
+  {x:"Raise → PW to about 30%. The pulse width now sweeps by itself: watch the high part stretch and shrink.", focus:['lpw'], goal:S=>S.p.lpw>=.25,
+   more:{h:'PWM', b:['Pulse-width modulation: the LFO pushes the width up and down around the Pulse Width knob. The moving harmonics create a chorus-like shimmer, the core of classic string machines and pads.']}},
+  {x:"Set → PW back to 0, raise → Cutoff to about 2 oct, and pick Up in the Shape row: the filter climbs, then snaps shut.", focus:['lpw','lcut','lshape'], goal:S=>S.p.lpw<=.02&&S.p.lcut>=1.5&&S.p.lshape===3},
+  {x:"Pick Dn instead: the filter snaps open, then falls. A ramp down at a few hertz makes a rhythmic pulse.", focus:['lshape'], goal:S=>S.p.lshape===2},
+  {x:"Pick S&H and set Rate to about 6 Hz. Random cutoff steps: the bubbling computer sound of old sci-fi.", focus:['lshape','lrate'], goal:S=>S.p.lshape===4&&S.p.lrate>=4,
+   more:{h:'Sample and hold', b:['Sample & hold grabs a random value at each LFO cycle and holds it until the next. The output is a staircase of random levels.', 'In controls terms it is a zero-order hold sampling white noise at the LFO rate.']}},
+  {x:"On the Filter tab, raise Resonance to about 75% so each step rings. Then slow the Rate to taste.", focus:['res'], goal:S=>S.p.res>=.7},
+  ]},
+{ id:'glide', g:1, t:'Glide', s:'Slide between notes, mono-synth style.',
+  setup:{...BASE, mix2:.5, o2w:2, o2fine:7, cut:1800, res:.25, glide:0}, hold:null, go:{page:0, tab:'osc1', mode:'wave', tap:'osc', zoom:10.5},
+  steps:[
+  {x:"This synth plays one note at a time. Hold one key, press another, then let go of the first. The pitch jumps instantly.", goal:(S,E)=>S.gates>=E.gates+2,
+   more:{h:'Mono vs. poly', b:['A monophonic synth has a single voice, so a new key takes over the oscillators. Many polyphonic synths can switch into a mono mode for basses and leads, because glide and smooth note changes only make sense with one voice.']}},
+  {x:"On the Osc 1 tab, raise Glide to about 150 ms. Play two notes far apart: the pitch now slides.", focus:['glide'], goal:S=>S.p.glide>=.1},
+  {x:"Turn Glide up to about 600 ms for a slow swoop. Watch the cycles squeeze or stretch in the screen as it slides.", focus:['glide'], goal:S=>S.p.glide>=.45,
+   more:{h:'How glide works', b:['Instead of jumping, the pitch chases the new note exponentially, like a first-order lag on a setpoint. The Glide time sets the time constant.', 'It moves in semitones (log pitch), so a two-octave slide sounds evenly paced rather than rushing at the bottom.']}},
+  {x:"Set Glide back to about 80 ms and play a melody with overlapping notes. Short glides are the secret behind smooth lead lines.", focus:['glide'], goal:S=>inR(S.p.glide,.04,.15)},
   ]},
 { id:'detune', g:1, t:'Two oscillators', s:'Detune, octave stacks and intervals.',
   setup:{...BASE, o2w:2, mix1:.8, mix2:0, o2oct:0, o2semi:0, o2fine:0, cut:3000, res:.1}, hold:57, go:{page:0, tab:'mix', mode:'wave', tap:'osc', zoom:10.6, ghost:false},
@@ -1207,6 +1297,16 @@ const LESSONS = [
    more:{h:'Intervals are ratios', b:['Seven semitones up multiplies the frequency by about 1.498, almost exactly 3:2. Simple ratios share many harmonics, so they blend smoothly.', 'That is also why the fifth shows up as harmonic 3 in the overtone series.'], m:'2^(7/12) ≈ 1.4983  ≈  3 / 2'}},
   {nord:1, x:"On your Nord, the oscillator's Detune configuration gives you this inside one oscillator section, and Unison stacks extra detuned voices on top."},
   ]},
+{ id:'ring', g:1, t:'Ring modulation', s:'Multiply two oscillators for metallic tones.',
+  setup:{...BASE, o1w:0, o2w:0, mix1:0, mix2:1, o2oct:0, o2semi:0, o2fine:0, ring:0}, hold:57, go:{page:1, mode:'spec', tap:'osc', lin:true, ghost:false},
+  steps:[
+  {x:"Only OSC 2 is in the mix: a 220 Hz sine, one spike. On the Patch page, Osc 2 tab, turn on Ring Mod.", focus:['ring'], goal:S=>!!S.p.ring},
+  {x:"The 220 Hz spike is gone and one appears an octave up. Ring mod multiplies the two oscillators, which creates new frequencies and removes the originals.",
+   more:{h:'Sum and difference', b:['Multiplying two sines gives two new sines: one at the sum of their frequencies and one at the difference. The originals disappear.', 'At equal pitch the sum is 440 Hz, an octave up, and the difference is 0 Hz, a steady offset you cannot hear.'], m:'sin a · sin b = ½ [cos(a − b) − cos(a + b)]'}},
+  {x:"Set OSC 2 Semi to +7. Two spikes appear, at the sum and the difference, and neither is a harmonic of the note you're playing.", focus:['o2semi'], goal:S=>S.p.o2semi===7},
+  {x:"Switch one oscillator to Saw. Every pair of harmonics makes its own sum and difference: clangy, bell-like and metallic.", focus:['o1w','o2w'], goal:S=>S.p.o1w===2||S.p.o2w===2},
+  {nord:1, x:"Ring Mod is one of your Nord's oscillator configurations. Try it on a simple patch and change the pitch relationship to hear the same clang."},
+  ]},
 { id:'recipes', g:1, t:'First patches', s:'Put it together: a punchy bass, then a slow pad.',
   setup:{...BASE, o2w:2, mix1:.8, mix2:.6, o2oct:0, o2semi:0, o2fine:7, cut:1200, res:.2, kt:.3, fA:.005, fD:.5, fS:.3, fR:.3, aD:.4, aS:.9, aR:.25}, hold:null, go:{page:0, tab:'osc2', mode:'wave', tap:'filter'},
   steps:[
@@ -1216,8 +1316,55 @@ const LESSONS = [
   {x:"Pad, part 2: on LFO set Rate to about 0.3 Hz and → Cutoff to about 1 oct. The pad now breathes slowly.", focus:['lrate','lcut'], goal:S=>S.p.lrate<=.6&&S.p.lcut>=.7},
   {nord:1, x:"Rebuild the pad on your Nord: slow amp attack, long release, and a slow LFO if you want movement. Same recipe, your own instrument."},
   ]},
+/* ============================ PATCH RECIPES ============================ */
+{ id:'brass', g:2, t:'Synth brass', s:'Two saws and a filter envelope that blooms.',
+  setup:{...BASE, o2w:2, mix1:.8, mix2:.8, o2fine:8, cut:400, res:.15, kt:.5, fA:.005, fD:.6, fS:.15, fR:.3, aA:.01, aD:.4, aS:.9, aR:.3, lrate:5}, hold:null, go:{page:0, tab:'filter', mode:'env'},
+  steps:[
+  {x:"Two detuned saws through a fairly closed filter. On the Filter tab, set Env Amt to about +2.5 oct.", focus:['fenv'], goal:S=>S.p.fenv>=2.2},
+  {x:"On the Env tab, give the filter envelope a slower Attack, about 80 ms. The brightness now swells in like a horn player's breath.", focus:['fA'], goal:S=>inR(S.p.fA,.05,.2),
+   more:{h:'Why brass needs a filter attack', b:['A real brass note starts dark and quickly brightens as the player\'s lips buzz harder. A filter envelope with a short but not instant attack copies that bloom.', 'Too fast and it clicks like a pluck; too slow and it turns into a pad.']}},
+  {x:"Set Filter Sustain to about 50% and hold some longer notes. The tone settles into a steady brass body.", focus:['fS'], goal:S=>inR(S.p.fS,.35,.65)},
+  {x:"Add a touch of vibrato: on the LFO tab, → Pitch to about 10 ct.", focus:['lpitch'], goal:S=>inR(S.p.lpitch,.05,.4)},
+  {nord:1, x:"On your Nord: a detuned saw, the Mod Envelope on the filter with a small attack, and a little vibrato. Same brass."},
+  ]},
+{ id:'strings', g:2, t:'String pad', s:'PWM, slow envelopes and a gentle filter.',
+  setup:{...BASE, o1w:3, o1pw:.5, o2w:2, mix1:.8, mix2:.5, o2fine:6, ftype:1, cut:2500, res:.1, kt:.5, aD:.4, aS:.9, aR:.3, lshape:0, lrate:.8}, hold:null, go:{page:0, tab:'lfo', mode:'wave', tap:'osc'},
+  steps:[
+  {x:"A pulse plus a detuned saw, through the gentler 12 dB filter. On the LFO tab, raise → PW to about 25% for shimmer.", focus:['lpw'], goal:S=>S.p.lpw>=.2},
+  {x:"On the Env tab, set Amp Attack to about 0.6 s and Amp Release to about 1.5 s. Notes now bow in and fade away.", focus:['aA','aR'], goal:S=>S.p.aA>=.4&&S.p.aR>=1},
+  {x:"Pads should sit back in a mix. On the Filter tab, lower Cutoff to about 1.5 kHz.", focus:['cut'], goal:S=>S.p.cut<=1700},
+  {x:"Hold a long note and listen to the slow motion. Too seasick? Lower the LFO Rate or the → PW depth.",
+   more:{h:'Where string pads came from', b:['1970s string machines got their lushness from many slightly detuned, slowly modulated oscillators, gently filtered. PWM from an LFO is the single-oscillator version of that trick.']}},
+  ]},
+{ id:'acid', g:2, t:'Acid bass', s:'High resonance, a short decay and slides.',
+  setup:{...BASE, cut:350, res:.75, kt:.3, fenv:2.5, fA:.002, fD:.25, fS:0, fR:.15, aA:.002, aD:.4, aS:.8, aR:.08, drive:.3}, hold:null, go:{page:0, tab:'filter', mode:'wave', tap:'filter'},
+  steps:[
+  {x:"One saw, high resonance and a snappy filter envelope: the core of the Roland TB-303 sound. Play a few low notes.", goal:(S,E)=>S.gates>=E.gates+3},
+  {x:"Sweep Cutoff slowly while you play. The squelch is the resonant peak riding the envelope.", focus:['cut'], goal:(S,E)=>moved(S.p.cut,E.p.cut,1.5)},
+  {x:"On the Env tab, change Filter Decay: very short (about 100 ms) is clicky, longer (about 500 ms) is a wow.", focus:['fD'], goal:(S,E)=>moved(S.p.fD,E.p.fD,1.5)},
+  {x:"On the Osc 1 tab, set Glide to about 60 ms. Play overlapping notes: they slide into each other.", focus:['glide'], goal:S=>inR(S.p.glide,.03,.12),
+   more:{h:'The 303 recipe', b:['The TB-303 was a simple bass machine: one oscillator (saw or square), a resonant lowpass, a short decay envelope, and accent and slide on each step of its sequencer.', 'Glide on overlapping notes mimics its slide. Accent, a louder and brighter step, would need velocity, which this synth doesn\'t have.']}},
+  {x:"On the Filter tab, turn Drive up for grit. Acid lines are often pushed into distortion for exactly this edge.", focus:['drive'], goal:S=>S.p.drive>=.6},
+  ]},
+{ id:'synclead', g:2, t:'Sync lead', s:'Hard sync plus vibrato and glide.',
+  setup:{...BASE, o2w:2, mix1:0, mix2:1, sync:1, o2semi:5, cut:5000, res:.2, aS:.9, aR:.3, glide:.06, lrate:5.5}, hold:null, go:{page:0, tab:'osc2', mode:'spec', tap:'filter', lin:false},
+  steps:[
+  {x:"OSC 2 is synced to OSC 1. Play a note and slowly turn OSC 2 Semi up and down: a vowel-like sweep.", focus:['o2semi'], goal:(S,E)=>Math.abs(S.p.o2semi-E.p.o2semi)>=6,
+   more:{h:'Why sync screams', b:['Sync forces OSC 2 to restart on every OSC 1 cycle. The abrupt restarts create a strong band of harmonics whose position follows OSC 2\'s pitch, much like a vowel formant in a voice. The Hard sync deep dive shows it in detail.']}},
+  {x:"Leave Semi around +12 for a bright, vocal tone.", focus:['o2semi'], goal:S=>inR(S.p.o2semi,10,14)},
+  {x:"On the LFO tab, set → Pitch to about 15 ct for vibrato.", focus:['lpitch'], goal:S=>S.p.lpitch>=.1},
+  {x:"Play a melody with overlapping notes. The short glide joins them into a singing line.", goal:(S,E)=>S.gates>=E.gates+4},
+  ]},
+{ id:'wind', g:2, t:'Wind and surf', s:'Noise, a resonant filter and a slow LFO.',
+  setup:{...BASE, mix1:0, noise:.7, ftype:3, cut:800, res:.6, lshape:0, lrate:.15, aA:.6, aR:1.5}, hold:57, go:{page:0, tab:'lfo', mode:'spec', tap:'filter', lin:false, ghost:false},
+  steps:[
+  {x:"Noise only, through a bandpass filter. On the LFO tab, raise → Cutoff to about 2 oct. The band drifts up and down: wind.", focus:['lcut'], goal:S=>S.p.lcut>=1.7},
+  {x:"Slow the Rate to about 0.1 Hz for long gusts, or speed it up to about 0.3 Hz for waves on a beach.", focus:['lrate'], goal:(S,E)=>moved(S.p.lrate,E.p.lrate,.6)},
+  {x:"On the Filter tab, switch Type to LP24 and raise Resonance to about 85%. Now the wind whistles.", focus:['ftype','res'], goal:S=>S.p.ftype===0&&S.p.res>=.8},
+  {x:"Back on LFO, try S&H at a slow rate for unpredictable gusts.", focus:['lshape'], goal:S=>S.p.lshape===4},
+  ]},
 /* ============================ DEEP DIVES ============================ */
-{ id:'sampling', g:2, t:'Samples & aliasing', s:'What the DAC actually draws, and where fold-back comes from.',
+{ id:'sampling', g:3, t:'Samples & aliasing', s:'What the DAC actually draws, and where fold-back comes from.',
   setup:{...BASE}, hold:57, go:{page:1, mode:'wave', tap:'osc', zoom:9.6},
   steps:[
   {x:"This is OSC 1, a 220 Hz saw. Tap + a few times to zoom in, until the line turns into separate dots.", focus:['zoom'], goal:S=>S.zoom<=110,
@@ -1236,7 +1383,7 @@ const LESSONS = [
    more:{h:'PolyBLEP', b:['The aliasing comes from the instant jump in the saw. PolyBLEP (polynomial band-limited step) adds a tiny correction curve over the two samples around each jump, so the jump\'s highest harmonics are mostly gone before they can fold back.', 'Commercial engines use this or similar tricks, plus oversampling: computing at a higher rate internally, then filtering down.']}},
   {nord:1, x:"Play a bright saw high up on your Nord and listen for the same whistle. Band-limited waves and oversampling are how commercial engines keep it quiet."},
   ]},
-{ id:'harmonics', g:2, t:'Harmonics in depth', s:'Pulse width, the 1/n² triangle, and PWM.',
+{ id:'harmonics', g:3, t:'Harmonics in depth', s:'Pulse width, the 1/n² triangle, and PWM.',
   setup:{...BASE}, hold:45, go:{page:1, mode:'spec', tap:'osc', lin:false},
   steps:[
   {x:"A 110 Hz saw has every harmonic at strength 1/n. On this log axis that is a straight slope of about −6 dB per octave.", m:'saw(t) = (2/π) Σ (−1)ⁿ⁺¹ sin(nωt) / n'},
@@ -1251,7 +1398,7 @@ const LESSONS = [
   {x:"Back on Pulse. On the LFO tab, raise → PW. Notches sweeping through the spectrum give the classic PWM string sound.", setup:{o1w:3,o1pw:.5,lshape:0,lrate:.6}, go:{mode:'spec'}, focus:['lpw'], goal:S=>S.p.lpw>=.15},
   {nord:1, x:"If your Nord's oscillator offers a Shape setting on the square wave, that is pulse width. Sweep it slowly for the same hollow-to-nasal move."},
   ]},
-{ id:'moog', g:2, t:'The Moog ladder', s:'Minimoog Model D: 24 dB/oct, resonance and self-oscillation.',
+{ id:'moog', g:3, t:'The Moog ladder', s:'Minimoog Model D: 24 dB/oct, resonance and self-oscillation.',
   setup:{...BASE, cut:600}, hold:45, go:{page:1, mode:'spec', tap:'filter', lin:false, ghost:true},
   steps:[
   {x:"The Model D's sound comes from Bob Moog's transistor ladder: four simple filter stages in a row, inside a feedback loop. Cyan is after the filter; the faint white ghost is the raw oscillator.",
@@ -1269,7 +1416,7 @@ const LESSONS = [
   {x:"On the Env tab, drop Filter Sustain to 0 and Decay to about 250 ms. Play short notes: the thump is the cutoff snapping shut.", focus:['fS','fD'], goal:S=>S.p.fS<=.05&&S.p.fD<=.4},
   {nord:1, x:"Pick the LP M filter (the ladder model), raise Res, set Filter Tracking to Full, and repeat steps 3 to 7. Listen for how close it gets to ringing on its own."},
   ]},
-{ id:'env', g:2, t:'Envelopes in depth', s:'RC-curve contours, inverted and swelling filters.',
+{ id:'env', g:3, t:'Envelopes in depth', s:'RC-curve contours, inverted and swelling filters.',
   setup:{...BASE, mix2:.5, o2w:2, o2oct:0, o2fine:7, cut:400, res:.3, kt:.3, drive:.1, aD:.4, aS:.8, aR:.4, fA:.005, fD:.4, fS:.5, fR:.4}, hold:null, go:{page:1, mode:'env'},
   steps:[
   {x:"This chart recorder shows the amp envelope, filter envelope and cutoff over the last 4 seconds. Hold a key for a moment, then let go.", goal:(S,E)=>S.gates>E.gates&&!S.playing},
@@ -1282,7 +1429,19 @@ const LESSONS = [
   {x:"Swell: Env Amt positive again, filter Attack around 1 s. Hold a long note. Pads breathe this way.", setup:{aS:.9,aD:.5,aR:1.2,fS:.4}, focus:['fenv','fA'], goal:S=>S.p.fenv>=1.5&&S.p.fA>=.7},
   {nord:1, x:"Your Nord's Mod Envelope can drive the filter the same way. Rebuild the pluck there (short decay, no sustain, amount up) and compare by ear."},
   ]},
-{ id:'syncfm', g:2, t:'Hard sync & FM', s:'Phase resets, Bessel sidebands and bells.',
+{ id:'bode', g:3, t:'Measuring a filter', s:'Noise in, frequency response out: a Bode plot on the scope.',
+  setup:{...BASE, mix1:0, noise:1, cut:1000, res:0, kt:0}, hold:57, go:{page:1, mode:'spec', tap:'filter', lin:false, ghost:true},
+  steps:[
+  {x:"Noise is flat, so whatever shape you see after the filter is the filter's own response. You're watching a live magnitude plot.",
+   more:{h:'Noise as a test signal', b:['White noise has every frequency at equal average strength. Through a system, the output spectrum is that flat line multiplied by the system\'s gain at each frequency: |H(f)|.', 'It is the audio version of a frequency sweep on a servo loop, with every frequency at once. The white ghost is the flat input, for reference.']}},
+  {x:"Past the 1 kHz cutoff, the curve falls about 24 dB for every doubling of frequency. That's four poles.",
+   more:{h:'Reading the slope', b:['On this log axis, 1 kHz to 2 kHz is one octave, 2 to 4 kHz the next. Each octave the LP24 drops about one grid line (20 dB) plus a bit.', 'Near the corner the curve bends gradually rather than at a sharp angle. The straight asymptotes are what a hand-drawn Bode plot shows.'], m:'|H| ≈ (fc / f)⁴   for f ≫ fc   →   −24 dB/oct'}},
+  {x:"On the Filter tab, switch to LP12. The slope halves to about 12 dB per octave.", focus:['ftype'], goal:S=>S.p.ftype===1},
+  {x:"Raise Resonance to about 80%. A peak rises at the cutoff: the underdamped bump of a second-order system.", focus:['res'], goal:S=>S.p.res>=.75,
+   more:{h:'Q and damping', b:['LP12 here is a classic second-order state-variable filter. Resonance sets its damping ratio ζ, or equivalently Q = 1/(2ζ).', 'Low Q gives a smooth knee. High Q gives a tall peak at the corner, and in the time domain a longer, slower-decaying ring after any sharp edge.'], m:'H(s) = ω₀² / (s² + (ω₀/Q)·s + ω₀²)'}},
+  {x:"Try HP and BP too. You're reading each filter's frequency response directly, the same way you'd check a loop filter.", focus:['ftype'], goal:S=>S.p.ftype===2||S.p.ftype===3},
+  ]},
+{ id:'syncfm', g:3, t:'Hard sync & FM', s:'Phase resets, Bessel sidebands and bells.',
   setup:{...BASE, o2w:2, mix1:0, mix2:1, sync:1, o2oct:0, o2semi:0, o2fine:0}, hold:45, go:{page:1, mode:'wave', tap:'osc', zoom:10.2},
   steps:[
   {x:"OSC 2 is hard-synced to OSC 1: each time OSC 1 starts a new cycle, OSC 2 is forced to restart too. Only OSC 2 is in the mix.",
@@ -1300,14 +1459,15 @@ const LESSONS = [
   ]},
 ];
 const GROUPS = [
-  {t:'Foundations', s:'Start here: waves, pitch, harmonics, the signal path, filters.'},
-  {t:'Shaping sound', s:'Envelopes, LFOs, oscillator stacks, your first patches.'},
+  {t:'Foundations', s:'Start here: waves, pitch, harmonics, the scope, filters and noise.'},
+  {t:'Shaping sound', s:'Envelopes, filter types, tracking, drive, LFOs, glide and oscillator tricks.'},
+  {t:'Patch recipes', s:'Build classic sounds step by step: brass, strings, acid, leads, wind.'},
   {t:'Deep dives', s:'The engineering underneath. Best after the first two sections.'},
 ];
 
 const coach = {L:null, i:0, E:null, met:false, timer:0, done:false};
 const prog = store.get('progress', {});
-const HINT_PAGE = {zoom:1, modeSeg:1, lin:1, tapSeg:1, ghost:1, octUp:-1, pageScope:-1, pagePatch:-1};
+const HINT_PAGE = {zoom:1, modeSeg:1, lin:1, tapSeg:1, ghost:1, run:1, octUp:-1, pageScope:-1, pagePatch:-1};
 function applyHints(){
   document.querySelectorAll('.hint').forEach(e => e.classList.remove('hint'));
   document.querySelectorAll('.dot').forEach(e => e.classList.remove('dot'));
@@ -1347,14 +1507,14 @@ function goStep(i){
   if (st.setup) applyPatch(st.setup);
   if ('hold' in st) setHold(st.hold);
   if (st.go) applyGo(st.go);
-  coach.E = {p:{...params}, gates:state.gates, n:{...state.nchg}, zoom:Math.pow(2, state.zoomL2)};
+  coach.E = {p:{...params}, gates:state.gates, n:{...state.nchg}, ui:{...state.ui}, zoom:Math.pow(2, state.zoomL2)};
   state.hints = new Set(st.focus || []);
   const tabFocus = (st.focus || []).map(f => TAB_OF[f]).find(Boolean);
   if (tabFocus && tabFocus !== state.tab) showTab(tabFocus); else applyHints();
   prog[L.id] = {...(prog[L.id] || {}), step:i}; store.set('progress', prog);
   renderCoach();
 }
-function snapshot(){ return {p:params, n:state.nchg, page:state.page, mode:state.mode, tap:state.tap, lin:state.lin, zoom:Math.pow(2, state.zoomL2), hz:tele.f1, note:state.lastNote, playing:state.gateOn, gates:state.gates}; }
+function snapshot(){ return {p:params, n:state.nchg, ui:state.ui, run:state.run, ghost:state.ghost, page:state.page, mode:state.mode, tap:state.tap, lin:state.lin, zoom:Math.pow(2, state.zoomL2), hz:tele.f1, note:state.lastNote, playing:state.gateOn, gates:state.gates}; }
 function fillText(x){ return (typeof x === 'function' ? x(snapshot()) : x).replace('{sr}', SR.toLocaleString() + ' Hz').replace('{nyq}', fHz(SR / 2)); }
 function renderCoach(){
   const ct = $('ctext'), fg = $('cfig');
