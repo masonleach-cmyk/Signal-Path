@@ -252,16 +252,19 @@ button:focus-visible,.knob:focus-visible{outline:1px solid var(--c1);outline-off
 .lg.on{color:var(--ink);text-shadow:0 0 6px rgba(125,255,208,.6)}
 .lg.on i{opacity:1;text-shadow:0 0 5px rgba(125,255,208,.6)}
 .lg.on::after{opacity:1}
-.lgrid{grid-auto-rows:50px;min-height:104px;align-content:start}
+.lgrid{grid-auto-rows:50px;min-height:158px;align-content:start}
 .fxlib .lt.hint{animation:pulse 1.5s ease-in-out infinite}
 .seg.dense{gap:0}
+/* type pickers with more than six choices wrap onto two rows */
+.seg.wrap{display:grid;row-gap:3px}
+.seg.wrap>button{height:26px}
 .seg.dense>button{font-size:9.5px;letter-spacing:.05em}
 .mod-row.dense .lab{min-width:40px}
 /* a pedal under your finger while you drag it */
 #fxGhost{position:fixed;left:0;top:0;z-index:60;pointer-events:none;will-change:transform;transform-origin:50% 40%}
 #fxGhost.gone{opacity:0;transition:opacity .18s}
 #fxGhost.rmv{animation:flkOff .4s step-end both}
-@media (max-height:720px){.fxb{height:64px}.lt{height:42px}.lgrid{grid-auto-rows:42px;min-height:88px}.lg{height:27px}.lt canvas{top:6px;height:15px}.lt span{font-size:8px}.li{min-height:22px;align-items:center}.li b{font-size:15px}.li span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}.lh{padding-top:2px}.fxhead{min-height:24px}}
+@media (max-height:720px){.fxb{height:64px}.lt{height:42px}.lgrid{grid-auto-rows:42px;min-height:134px}.lg{height:27px}.lt canvas{top:6px;height:15px}.lt span{font-size:8px}.li{min-height:22px;align-items:center}.li b{font-size:15px}.li span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}.lh{padding-top:2px}.fxhead{min-height:24px}}
 
 /* scope page */
 .sbar{display:flex;gap:8px;align-items:center;flex:0 0 auto}
@@ -715,6 +718,11 @@ class SynthDSP {
     this.preLen = p2(sr * 0.27 + 600); this.pLen = p2(sr * 0.13); this.wLen = p2(sr * 0.035); this.spLen = Math.ceil(sr * 0.045);
     this.fxm = {};
     this.fxU = []; this.fxM = new Map();
+    // glitch pedals keep the last few seconds of sound; freeze and resonator buffers are sized for this sample rate
+    this.gbLen = p2(sr * 5.2); this.fzLen = Math.ceil(sr * 0.52); this.mdLen = p2(sr * 0.03);
+    // a Hilbert transformer: two chains of all-pass filters whose outputs stay 90° apart across the audio band (frequency shifter, barber-pole)
+    this.HA = [0.6923878, 0.9360654322959, 0.9882295226860, 0.9987488452737, 0.4021921162426, 0.8561710882420, 0.9722909545651, 0.9952884791278].map(a => a * a);
+    this.trigN = 0;
     this.arpN = []; this.arpSeq = []; this.arpI = 0; this.arpCnt = 0; this.arpOff = 0;
     this.act = [];
     this.tele = {a:0,f:0,l:0,c:2400,g:0,f1:220,f2:220,f0:220,n:57,nv:0};
@@ -796,7 +804,25 @@ class SynthDSP {
     const m = p.arpMode | 0;
     this.arpSeq = m === 1 ? up.slice().reverse() : m === 2 ? up.concat(up.slice(1, -1).reverse()) : up;
   }
-  trig(v, n){ v.note = n; v.gate = 1; v.aSt = 1; v.fSt = 1; v.cr = 0; v.age = ++this.ageC; }
+  trig(v, n){ v.note = n; v.gate = 1; v.aSt = 1; v.fSt = 1; v.cr = 0; v.age = ++this.ageC; this.trigN++; }
+  // one Hilbert step: s.re and s.im come out a quarter-cycle apart
+  hil(s, x){
+    const A = this.HA, X = s.x, Y = s.y; let p = x, q = x;
+    for (let i = 0; i < 4; i++) { const k = i * 2, y = A[i] * (p + Y[k + 1]) - X[k + 1]; X[k + 1] = X[k]; X[k] = p; Y[k + 1] = Y[k]; Y[k] = y; p = y; }
+    for (let i = 0; i < 4; i++) { const k = 8 + i * 2, y = A[4 + i] * (q + Y[k + 1]) - X[k + 1]; X[k + 1] = X[k]; X[k] = q; Y[k + 1] = Y[k]; Y[k] = y; q = y; }
+    s.re = s.d; s.d = p; s.im = q;
+  }
+  // freeze: read the looped slice with two overlapping fades, so the loop point never shows
+  fzRd(u, s, Z, ch){ const q = u.fzQ % Z, q2 = (q + (Z >> 1)) % Z, g1 = Math.sin(Math.PI * q / Z), g2 = Math.sin(Math.PI * q2 / Z); return s[ch][q] * g1 * g1 + s[ch][q2] * g2 * g2; }
+  hilNew(){ return {x:new Float64Array(16), y:new Float64Array(16), d:0, re:0, im:0}; }
+  hilClr(s){ s.x.fill(0); s.y.fill(0); s.d = s.re = s.im = 0; }
+  // the harmonizer's interval: how many semitones up or down a scale step lands from note n, in the chosen key and scale
+  hmSemi(n, key, minor, deg){
+    const S = minor ? [0, 2, 3, 5, 7, 8, 10] : [0, 2, 4, 5, 7, 9, 11], rel = ((Math.round(n) - key) % 12 + 12) % 12;
+    let i = 0; for (let j = 0; j < 7; j++) if (S[j] <= rel) i = j;
+    const t = i + Math.round(deg), o = Math.floor(t / 7), j = t - o * 7;
+    return o * 12 + S[j] - S[i];
+  }
   rel(v){ v.gate = 0; if (v.aSt) v.aSt = 3; if (v.fSt) v.fSt = 3; }
   release(){ this.rel(this.V[0]); }
   allOff(){ for (const v of this.V) this.rel(v); }
@@ -818,12 +844,15 @@ class SynthDSP {
      settings and its own buffers. The UI sends the whole chain in order; units keep their state across updates by id. */
   fxNew(f, id){
     const u = {id, f, t:0, act:false, on:false, p:null, c:{}, mtr:0};
-    if (f === 'fx1') { u.ph = 0; u.wE = 0; u.wC = 0; u.wG = 0.1; u.wL = [0, 0]; u.wB = [0, 0]; u.sg = 1; }
+    if (f === 'fx1') { u.ph = 0; u.wE = 0; u.wC = 0; u.wG = 0.1; u.wL = [0, 0]; u.wB = [0, 0]; u.sg = 1; u.xo = [0, 0]; }
     else if (f === 'amp' || f === 'eq') { const z = () => [new Float64Array(4), new Float64Array(4), new Float64Array(4)]; u.sL = z(); u.sR = z(); }
     else if (f === 'mod') { u.chB = new Float32Array(4096); u.chW = 0; u.chP = 0; u.enP = 0; u.flL = new Float32Array(2048); u.flR = new Float32Array(2048); u.flW = 0;
       u.phX = [new Float64Array(6), new Float64Array(6)]; u.phY = [new Float64Array(6), new Float64Array(6)]; u.phO = [0, 0]; u.phA = [0, 0]; u.phC = 0;
-      u.vbZ = [new Float64Array(4), new Float64Array(4)]; u.vbA = [new Float64Array(4), new Float64Array(4)]; u.vbG = [1, 1]; }
-    else if (f === 'delay') { u.dBL = new Float32Array(this.dLen); u.dBR = new Float32Array(this.dLen); u.dW = 0; u.dTs = 0.35 * this.sr; u.dLpL = 0; u.dLpR = 0; u.wow = 0; u.flt = 0; }
+      u.vbZ = [new Float64Array(4), new Float64Array(4)]; u.vbA = [new Float64Array(4), new Float64Array(4)]; u.vbG = [1, 1];
+      u.bp = [this.hilNew(), this.hilNew()]; u.bpO = [0, 0]; u.bpP = 0; u.jLp = [0, 0]; }
+    else if (f === 'delay') { u.dBL = new Float32Array(this.dLen); u.dBR = new Float32Array(this.dLen); u.dW = 0; u.dTs = 0.35 * this.sr; u.dLpL = 0; u.dLpR = 0; u.wow = 0; u.flt = 0;
+      // diffuse: four all-pass smearers per side inside the echo loop; bbd: a second pole of darkening
+      u.df = [142, 107, 379, 277, 151, 113, 397, 263].map(l => ({b:new Float32Array(Math.max(8, Math.round(l * this.sr / 48000))), i:0})); u.bLp = [0, 0]; }
     else if (f === 'reverb') { u.rvB = this.rvL.map(l => new Float32Array(l)); u.rvI = new Int32Array(8); u.rvLp = new Float64Array(8); u.rvY = new Float64Array(8);
       u.ap = this.apL.map(l => ({b:new Float32Array(l), i:0}));
       u.pre = new Float32Array(this.preLen); u.preW = 0;
@@ -836,6 +865,18 @@ class SynthDSP {
     else if (f === 'pitch') { u.pB = new Float32Array(this.pLen); u.pW = 0; u.pS = [{d:0}, {d:0}, {d:0}]; }
     else if (f === 'rot') { u.hb = new Float32Array(1024); u.db = new Float32Array(1024); u.rw = 0; u.hs = 0.83; u.ds = 0.67; u.hp = 0; u.dp = 0.37; u.lo = 0; }
     else if (f === 'wide') { u.wB = new Float32Array(this.wLen); u.wW = 0; u.sLp = 0; u.hz = 0; }
+    else if (f === 'geq' || f === 'cab') { const n = f === 'geq' ? 7 : 4, z = () => Array.from({length:n}, () => new Float64Array(4)); u.sL = z(); u.sR = z(); }
+    else if (f === 'mb') { const z = () => Array.from({length:4}, () => new Float64Array(4)); u.xL = z(); u.xR = z(); u.mE = new Float64Array(3); u.mG = new Float64Array(3); }
+    else if (f === 'pump') { u.ph = 0; u.env = 0; }
+    else if (f === 'swell') { u.lt = this.trigN; u.ramp = 1; u.g = 1; }
+    else if (f === 'fshift') { u.hL = this.hilNew(); u.hR = this.hilNew(); u.ph = 0; u.fL = 0; u.fR = 0; }
+    else if (f === 'shep') { u.pB = new Float32Array(this.pLen); u.pW = 0; u.pS = [{d:0}, {d:0}, {d:0}]; u.ph = 0; u.lp = 0; }
+    else if (f === 'reso') { u.rB = [0, 1, 2, 3].map(() => new Float32Array(4096)); u.rW = 0; u.rLp = new Float64Array(4); u.dc = 0; }
+    else if (f === 'lofi') { u.bL = new Float32Array(this.mdLen); u.bR = new Float32Array(this.mdLen); u.bW = 0; u.wo = 0; u.fl = 0; u.fv = 0; u.ft = 0; u.cr = 0; u.crV = 0; u.hs = 0; u.rb = 0; u.fade = 1;
+      const z = () => [new Float64Array(4), new Float64Array(4), new Float64Array(4)]; u.qL = z(); u.qR = z(); }
+    else if (f === 'glitch') { u.gL = new Float32Array(this.gbLen); u.gR = new Float32Array(this.gbLen); u.gW = 0; u.n = 0; u.run = 0; u.k = 0; u.src = 0; u.rev = 0; u.rp = 0; u.mtr = 0;
+      u.fz = [0, 1].map(() => [new Float32Array(this.fzLen), new Float32Array(this.fzLen)]); u.fzA = 0; u.fzX = 1; u.fzN = 0; u.fzQ = 0; u.lt = this.trigN; u.cap = -1; u.has = 0;
+      u.gr = Array.from({length:24}, () => ({on:0, pos:0, k:0, len:1, r:1, pl:1, pr:1})); u.gNext = 0; }
     return u;
   }
   // a pedal coming back from silence starts with empty buffers, so no stale echoes replay
@@ -853,11 +894,23 @@ class SynthDSP {
     else if (u.f === 'pitch') { u.pB.fill(0); }
     else if (u.f === 'rot') { u.hb.fill(0); u.db.fill(0); u.lo = 0; }
     else if (u.f === 'wide') { u.wB.fill(0); u.sLp = 0; }
+    else if (u.f === 'mb') { u.xL.forEach(a => a.fill(0)); u.xR.forEach(a => a.fill(0)); u.mE.fill(0); u.mG.fill(0); }
+    else if (u.f === 'pump') { u.ph = 0; u.env = 0; }
+    else if (u.f === 'swell') { u.lt = this.trigN; u.ramp = 1; u.g = 1; }
+    else if (u.f === 'fshift') { this.hilClr(u.hL); this.hilClr(u.hR); u.fL = u.fR = 0; }
+    else if (u.f === 'shep') { u.pB.fill(0); u.lp = 0; }
+    else if (u.f === 'reso') { u.rB.forEach(b => b.fill(0)); u.rLp.fill(0); u.dc = 0; }
+    else if (u.f === 'lofi') { u.bL.fill(0); u.bR.fill(0); u.qL.forEach(a => a.fill(0)); u.qR.forEach(a => a.fill(0)); u.crV = 0; u.hs = 0; u.rb = 0; }
+    else if (u.f === 'glitch') { u.gL.fill(0); u.gR.fill(0); u.n = 0; u.run = 0; u.k = 0; u.fz.forEach(s => s.forEach(b => b.fill(0))); u.fzX = 1; u.has = 0; u.cap = -1; u.lt = this.trigN; u.gr.forEach(g => g.on = 0); }
+    if (u.f === 'fx1' && u.xo) u.xo[0] = u.xo[1] = 0;
+    if (u.f === 'mod' && u.bp) { this.hilClr(u.bp[0]); this.hilClr(u.bp[1]); u.bpO[0] = u.bpO[1] = 0; u.jLp[0] = u.jLp[1] = 0; }
+    if (u.f === 'delay' && u.df) { u.df.forEach(a => a.b.fill(0)); u.bLp = [0, 0]; }
+    if (u.f === 'reverb' && u.rvR) { u.rvR[0].fill(0); u.rvR[1].fill(0); u.gE = 0; u.gG = 0; u.gH = 0; }
   }
   fxCalc(u){
     const p = u.p, sr = this.sr, c = u.c, on = u.on, TAU = 6.283185307179586;
     const tc = s => 1 - Math.exp(-1 / (Math.max(s, 0.00002) * sr)), lp1 = f => 1 - Math.exp(-TAU * Math.min(f, sr * 0.45) / sr);
-    if (u.f === 'fx1') { const ty = p.e1Type | 0; u.t = ty === 4 ? 11 : ty === 5 ? 12 : ty >= 1 && ty <= 3 ? ty : 0; u.act = on && u.t > 0;
+    if (u.f === 'fx1') { const ty = p.e1Type | 0; u.t = ty === 4 ? 11 : ty === 5 ? 12 : ty === 6 ? 28 : ty >= 1 && ty <= 3 ? ty : 0; u.act = on && u.t > 0; c.xo = lp1(Math.max(40, p.e1Freq));
       c.rate = p.e1Rate; c.dep = p.e1Depth; c.wQk = 2 - 1.85 * p.e1Q; c.wSens = p.e1Sens * 14; c.wRange = p.e1Depth * 4.5;
       c.rf = p.e1Freq; c.div = Math.max(0, Math.min(4, p.e1Div | 0)); c.duty = p.e1Duty; c.sm = tc(0.0025); }
     else if (u.f === 'amp') {
@@ -868,7 +921,13 @@ class SynthDSP {
       c.aG = 1 + p.ampDrive * 20; c.aNorm = 1 / Math.tanh(0.35 * c.aG + 0.25); c.aLvl = p.ampLvl * 1.3; }
     else if (u.f === 'eq') { u.t = 5; u.act = on && (Math.abs(p.eqLo) > 0.05 || Math.abs(p.eqMid) > 0.05 || Math.abs(p.eqHi) > 0.05);
       c.C = [this.bq('ls', 180, .7, p.eqLo), this.bq('pk', p.eqFreq, .9, p.eqMid), this.bq('hs', 4500, .7, p.eqHi)]; }
-    else if (u.f === 'mod') { const mt = Math.max(0, Math.min(5, p.modType | 0)); u.t = mt <= 2 ? 6 + mt : 10 + mt; u.act = on && p.chMix > 0.001;
+    else if (u.f === 'mod') { const mt = Math.max(0, Math.min(8, p.modType | 0)); u.t = mt <= 2 ? 6 + mt : mt <= 5 ? 10 + mt : 23 + mt; u.act = on && p.chMix > 0.001;
+      // juno: a triangle LFO swings two bucket-brigade taps in opposite directions (I, II, or both buttons: fast and shallow)
+      const jm = Math.max(0, Math.min(2, p.jnMode | 0)); c.jR = [0.513, 0.863, 9.75][jm]; c.jBase = 0.0035 * sr; c.jDep = [0.00185, 0.00185, 0.0003][jm] * sr; c.jLp = lp1(8500);
+      // dimension: a slow, shallow sweep with each side's wet signal cross-fed inverted into the other, so it widens without wobbling
+      const dm = Math.max(0, Math.min(3, p.dmMode | 0)); c.dR = [0.25, 0.3, 0.38, 0.5][dm]; c.dDep = [0.00025, 0.0004, 0.0006, 0.0008][dm] * sr; c.dBase = 0.0045 * sr;
+      // barber-pole: a frequency shifter a few Hz up (or down) mixed with the dry sound: the notches glide one way forever
+      c.bpInc = (p.bpUp ? 1 : -1) * p.chRate / sr;
       c.rate = p.chRate; c.depth = p.chDepth; c.fb = p.chFb;
       c.chBase = 0.007 * sr; c.chDep = 0.005 * sr * p.chDepth; c.chDry = 1 - 0.45 * p.chMix; c.chWet = 0.8 * p.chMix;
       c.flBase = 0.0006 * sr; c.flDep = 0.004 * sr * p.chDepth; c.mDry = 1 - 0.5 * p.chMix; c.mWet = p.chMix * 0.75;
@@ -876,17 +935,22 @@ class SynthDSP {
       c.enBase = 0.009 * sr; c.enDep = 0.004 * sr * p.chDepth; c.enFast = 0.0003 * sr * (0.3 + 0.7 * p.chDepth);
       // vibrato: one copy whose delay wobbles, heard on its own (Mix 100%) or under the dry sound (chorus)
       c.viDep = 0.003 * sr * p.chDepth; c.viBase = 0.0008 * sr + c.viDep; c.viDry = 1 - p.chMix; c.viWet = p.chMix; }
-    else if (u.f === 'delay') { u.t = 9; u.act = on && p.dMix > 0.001; const tape = (p.dType | 0) === 1;
-      c.dTc = 1 - Math.exp(-TAU * Math.min(tape ? Math.min(p.dTone, 7000) : p.dTone, sr * 0.45) / sr); c.dry = 1 - 0.3 * p.dMix; c.mix = p.dMix; c.fb = p.dFb; c.ping = !tape && !!p.dPing;
-      c.tape = tape; c.wowA = 0.0016 * sr * p.dWow; c.flA = 0.00012 * sr * p.dWow; c.wowR = 0.55 / sr; c.flR = 6.3 / sr; }
+    else if (u.f === 'delay') { u.t = 9; u.act = on && p.dMix > 0.001; const dty = Math.max(0, Math.min(4, p.dType | 0)), tape = dty === 1; c.ty = dty; c.apg = 0.72 * p.dDiff;
+      c.dTc = 1 - Math.exp(-TAU * Math.min(tape ? Math.min(p.dTone, 7000) : p.dTone, sr * 0.45) / sr); c.dry = 1 - 0.3 * p.dMix; c.mix = p.dMix; c.fb = p.dFb; c.ping = dty === 0 && !!p.dPing;
+      c.tape = tape; c.wowA = (dty === 3 ? 0.0004 : 0.0016) * sr * p.dWow; c.flA = 0.00012 * sr * p.dWow; c.wowR = 0.55 / sr; c.flR = 6.3 / sr; }
     else if (u.f === 'reverb') { u.t = 10; u.act = on && p.rvMix > 0.001;
-      const ty = Math.max(0, Math.min(4, p.rvType | 0)), s2 = p.rvSize * p.rvSize; c.ty = ty;
-      const t60 = [0.3 + s2 * 9.7, 0.15 + s2 * 1.6, 0.4 + s2 * 5.6, 0.9 + s2 * 4.5, 1.5 + s2 * 13.5][ty];
-      const sc = [1, 0.42, 0.68, 1, 1][ty];
+      const ty = Math.max(0, Math.min(6, p.rvType | 0)), s2 = p.rvSize * p.rvSize; c.ty = ty;
+      const t60 = [0.3 + s2 * 9.7, 0.15 + s2 * 1.6, 0.4 + s2 * 5.6, 0.9 + s2 * 4.5, 1.5 + s2 * 13.5, 0.8 + s2 * 4, 1.2 + s2 * 4.8][ty];
+      const sc = [1, 0.42, 0.68, 1, 1, 0.8, 0.6][ty];
       c.len = this.rvL.map(l => Math.max(16, Math.round(l * sc)));
       c.G = c.len.map(l => Math.pow(10, -3 * l / (t60 * sr)));
-      c.D = (0.05 + p.rvDamp * 0.8) * (ty === 2 ? 0.5 : ty === 4 ? 0.7 : 1);
-      c.nap = ty === 2 ? 5 : 3; c.apg = ty === 2 ? 0.7 : 0.6;
+      c.D = (0.05 + p.rvDamp * 0.8) * (ty === 2 || ty === 6 ? 0.5 : ty === 4 ? 0.7 : 1);
+      c.nap = ty === 2 || ty === 6 ? 5 : 3; c.apg = ty === 2 || ty === 6 ? 0.7 : 0.6;
+      // reverse: the tail is cut into windows and each one is played backwards, so it swells up instead of dying away
+      if (ty === 5 && !u.rvR) { let n = 256; while (n < sr * 3.3) n <<= 1; u.rvR = [new Float32Array(n), new Float32Array(n)]; u.rvRw = 0; u.rvRn = 0; u.gE = 0; u.gG = 0; u.gH = 0; }
+      c.rW = Math.max(256, Math.round((0.3 + 1.2 * p.rvSize) * sr));
+      // gated: a big dense tail, chopped off by a gate that stays open for Hold after the input goes quiet
+      c.gHold = Math.round(p.rvGate * sr); c.gAt = tc(0.001); c.gRl = tc(0.01); c.gEa = tc(0.0005); c.gEr = tc(0.03); if (u.gE == null) { u.gE = 0; u.gG = 0; u.gH = 0; }
       c.pre = Math.max(0, Math.min(this.preLen - 600, Math.round(p.rvPre * sr)));
       // a small room's first, distinct reflections off the walls
       c.er = ty === 1 ? 0.75 : 0; c.erT = [4.3, 7.9, 11.6, 15.2, 19.8, 23.9].map(ms => Math.round(ms * 0.001 * sr)); c.erG = [0.9, 0.8, -0.65, 0.6, 0.45, -0.4];
@@ -896,20 +960,23 @@ class SynthDSP {
       // shimmer: the tail is pitched up an octave and fed back in, so it climbs
       c.shW = Math.round(0.07 * sr); c.shFb = 0.18 + 0.17 * p.rvSize;
       c.dry = 1 - 0.4 * p.rvMix; c.mix = p.rvMix; }
-    else if (u.f === 'dyn') { const ty = Math.max(0, Math.min(3, p.dyType | 0)); u.t = ty === 2 ? 17 : ty === 3 ? 18 : 16; u.act = on;
+    else if (u.f === 'dyn') { const ty = Math.max(0, Math.min(5, p.dyType | 0)); u.t = ty === 2 ? 17 : ty === 3 ? 18 : ty === 4 ? 32 : ty === 5 ? 33 : 16; u.act = on;
+      c.er = Math.max(0, p.dyRatio - 1); c.ceil = Math.pow(10, p.dyThr / 20); c.kn = Math.max(0.02, p.dySoft); c.gin = Math.pow(10, p.dyGain / 20);
       c.ty = ty; c.thr = p.dyThr; c.slope = ty === 1 ? 1 : 1 - 1 / Math.max(1, p.dyRatio); c.knee = ty === 1 ? 1 : 6;
       c.at = tc(ty === 1 ? 0.0002 : p.dyAtk); c.rl = tc(p.dyRel); c.mk = Math.pow(10, p.dyGain / 20);
       c.gAt = tc(Math.max(0.0002, p.dyAtk)); c.gRl = tc(p.dyRel / 6.9); c.dAt = tc(0.0004); c.dRl = tc(0.04);
       c.punch = p.dyPunch; c.sus = p.dySus; c.fa = tc(0.0004); c.fr = tc(0.025); c.sa = tc(0.03); c.lr = tc(0.35); }
-    else if (u.f === 'drv') { const ty = Math.max(0, Math.min(3, p.drvType | 0)); u.t = 19; u.act = on; c.ty = ty;
-      c.g = [1 + p.drvAmt * 30, 2 + p.drvAmt * 120, 1 + p.drvAmt * 60, 1 + p.drvAmt * 7][ty];
+    else if (u.f === 'drv') { const ty = Math.max(0, Math.min(5, p.drvType | 0)); u.t = 19; u.act = on; c.ty = ty;
+      c.g = [1 + p.drvAmt * 30, 2 + p.drvAmt * 120, 1 + p.drvAmt * 60, 1 + p.drvAmt * 7, 1 + p.drvAmt * 24, 1 + p.drvAmt * 5][ty];
       c.bias = p.drvBias * (ty === 3 ? 0.9 : 0.45); c.off = this.shp(c.bias, ty); c.tc = lp1(600 * Math.pow(2, p.drvTone * 4.5));
-      c.lvl = p.drvLvl * [0.65, 0.7, 0.6, 0.76][ty]; }
+      c.lvl = p.drvLvl * [0.65, 0.7, 0.6, 0.76, 0.9, 0.85][ty]; }
     else if (u.f === 'crush') { u.t = 20; u.act = on && p.crMix > 0.001;
       c.inc = Math.min(1, p.crRate / sr); c.q = Math.pow(2, Math.max(2, Math.round(p.crBits)) - 1); c.mix = p.crMix; }
     else if (u.f === 'filt') { u.t = 21; u.act = on; c.ty = Math.max(0, Math.min(2, p.afType | 0));
-      c.rate = p.afRate; c.cut = p.afCut; c.dep = p.afDepth; c.k = 2 - 1.9 * p.afRes; c.on = 0.6 + 0.4 * c.k; }
-    else if (u.f === 'pitch') { const ty = (p.psType | 0) === 1 ? 1 : 0; u.t = ty ? 23 : 22;
+      c.rate = p.afRate; c.cut = p.afCut; c.dep = p.afDepth; c.k = 2 - 1.9 * p.afRes; c.on = 0.6 + 0.4 * c.k;
+      c.step = !!p.afStep; c.div = Math.max(0, Math.min(4, p.afDiv | 0)); c.glide = p.afGlide; if (u.stV == null) { u.stV = 0; u.stT = 0; } }
+    else if (u.f === 'pitch') { const pt = Math.max(0, Math.min(2, p.psType | 0)), ty = pt ? 1 : 0; u.t = ty ? 23 : 22;
+      c.hm = pt === 2; c.hKey = Math.round(p.hmKey) | 0; c.hMin = p.hmScale ? 1 : 0; c.hDeg = Math.round(p.hmDeg);
       u.act = on && (ty ? p.psMix > 0.001 : true);
       c.r = Math.pow(2, Math.round(p.psSemi) / 12); c.W = Math.round(0.05 * sr); c.Wd = Math.round(0.06 * sr); c.Wu = Math.round(0.035 * sr);
       c.sub = p.psSub; c.up = p.psUp; c.dry = p.psDry; c.mix = p.psMix; }
@@ -918,12 +985,48 @@ class SynthDSP {
       c.drv = 1 + p.rtDrive * 8; c.pg = 1 / (1 + 0.8 * p.rtDrive); c.xo = lp1(800); c.spr = p.rtSpread * Math.PI;
       c.hBase = 0.0012 * sr; c.hDep = 0.00044 * sr; c.dBase = 0.0008 * sr; c.dDep = 0.00025 * sr; }
     else if (u.f === 'wide') { u.t = 27; u.act = on; c.w = p.wdWidth; c.hz = Math.min(this.wLen - 4, p.wdHaas * sr); c.hp = lp1(Math.max(1, p.wdLow)); }
+    else if (u.f === 'geq') { const G = [p.gq1, p.gq2, p.gq3, p.gq4, p.gq5, p.gq6, p.gq7];
+      u.t = 35; u.act = on && G.some(v => Math.abs(v) > 0.05); c.C = [63, 160, 400, 1000, 2500, 6300, 16000].map((f, i) => this.bq('pk', f, 1.1, G[i])); }
+    else if (u.f === 'mb') { u.t = 36; u.act = on;
+      // three bands split at 120 Hz and 2.5 kHz by subtraction, so they always add back up to the input exactly
+      c.X1 = this.bq('lp', 120, 0.7071, 0); c.X2 = this.bq('lp', 2500, 0.7071, 0);
+      c.thD = -26; c.sD = 1 - 1 / (1 + 7 * p.mbAmt); c.thU = -44; c.sU = 0.65 * p.mbUp; c.maxU = 18 * p.mbUp;
+      c.at = tc(0.005 * p.mbTime); c.rl = tc(0.12 * p.mbTime); c.mk = Math.pow(10, 0.45 * 26 * c.sD / 20); c.gb = [p.mbLo, p.mbMid, p.mbHi].map(db => Math.pow(10, db / 20) * c.mk); }
+    else if (u.f === 'pump') { u.t = 37; u.act = on && p.pmDepth > 0.001; c.dep = p.pmDepth; c.div = Math.max(0, Math.min(3, p.pmDiv | 0)); c.rel = Math.max(0.05, p.pmRel); }
+    else if (u.f === 'swell') { u.t = 38; u.act = on && p.swDepth > 0.001; c.inc = 1 / Math.max(1, p.swRise * sr); c.cur = 1 + 3 * p.swCurve; c.dep = p.swDepth; c.dn = tc(0.004); }
+    else if (u.f === 'fshift') { u.t = 39; u.act = on && p.fsMix > 0.001; c.inc = p.fsHz / sr; c.fb = p.fsFb; c.mix = p.fsMix; c.st = !!p.fsSt; }
+    else if (u.f === 'shep') { u.t = 40; u.act = on && p.sgMix > 0.001; c.inc = p.sgRate / sr; c.mix = p.sgMix; if (!c.W) c.W = Math.round(0.05 * sr); c.tone = lp1(5000); }
+    else if (u.f === 'reso') { u.t = 41; u.act = on && p.rsMix > 0.001;
+      // four combs tuned to a chord on the key, from the C below middle C; each one rings for Decay
+      const CH = [[0, 4, 7, 12], [0, 3, 7, 12], [0, 5, 7, 12], [0, 7, 12, 19], [0, 4, 7, 11], [0, 3, 7, 10]][Math.max(0, Math.min(5, p.rsChord | 0))];
+      c.len = CH.map(st => sr / (130.8128 * Math.pow(2, ((Math.round(p.rsKey) | 0) + st) / 12)));
+      c.g = c.len.map(l => Math.pow(10, -3 * l / (Math.max(0.05, p.rsDecay) * sr))); c.lp = lp1(900 * Math.pow(2, p.rsBright * 4)); c.mix = p.rsMix; }
+    else if (u.f === 'cab') { u.t = 42; u.act = on;
+      // speaker cabinets: [low cut, body Hz, body dB, presence Hz, presence dB, top cut]; the mic moving off-centre darkens it
+      const cb = [[90, 130, 3, 2500, 4, 5200], [75, 110, 4, 2000, 3, 5600], [60, 95, 5, 1600, 4.5, 4600], [380, 900, 5, 3000, 2, 3800]][Math.max(0, Math.min(3, p.cbType | 0))];
+      c.C = [this.bq('hp', cb[0], .7, 0), this.bq('pk', cb[1], 1.2, cb[2]), this.bq('pk', cb[3], 1, cb[4] - 4 * p.cbMic), this.bq('lp', cb[5] * Math.pow(2, -1.3 * p.cbMic), .8, 0)];
+      c.lvl = p.cbLvl * 1.1; }
+    else if (u.f === 'lofi') { const ty = Math.max(0, Math.min(2, p.lfType | 0)); u.t = 43; u.act = on && p.lfMix > 0.001; c.ty = ty;
+      // cassette: wow, flutter, hiss and a soft squash; vinyl: a slow warp, crackle and rumble; radio: a narrow band, static and fading
+      const top = (ty === 2 ? 1800 : 3000) * Math.pow(2, p.lfTone * (ty === 2 ? 1.4 : 2.3));
+      c.C = [this.bq('hp', ty === 2 ? 420 : ty === 1 ? 35 : 45, .7, 0), this.bq('lp', top, .7, 0), this.bq('pk', ty === 2 ? 1500 : 220, .8, ty === 2 ? 4 : 1.5)];
+      c.woA = (ty === 0 ? 0.0011 : ty === 1 ? 0.0009 : 0.0001) * sr * p.lfWow; c.woR = (ty === 1 ? 0.555 : 0.45) / sr;
+      c.flA = (ty === 0 ? 0.00012 : 0.00004) * sr * p.lfWow; c.flR = 7.2 / sr; c.base = 0.004 * sr + c.woA * 2 + c.flA * 2;
+      c.hiss = p.lfNoise * (ty === 0 ? 0.012 : ty === 2 ? 0.02 : 0.004); c.crk = ty === 1 ? p.lfNoise * 0.0006 : 0; c.rmb = ty === 1 ? p.lfNoise * 0.02 : 0;
+      c.sat = ty === 0 ? 1.6 : ty === 2 ? 2.2 : 1; c.fadeA = ty === 2 ? p.lfWow * 0.5 : 0; c.mix = p.lfMix; c.hk = lp1(5000); }
+    else if (u.f === 'glitch') { const ty = Math.max(0, Math.min(5, p.gbType | 0)); u.t = 44; u.act = on && p.gbMix > 0.001; c.ty = ty;
+      c.div = [1, .5, .25, .125, 1 / 3, 1 / 6][Math.max(0, Math.min(5, p.gbDiv | 0))]; c.amt = p.gbAmt; c.rev = p.gbRev; c.mix = p.gbMix;
+      c.len = [0.25, 0.5, 1, 2, 4][Math.max(0, Math.min(4, p.gbLen | 0))]; c.every = [1, 2, 4][Math.max(0, Math.min(2, p.gbEvery | 0))];
+      c.size = Math.max(64, Math.min(this.fzLen - 4, Math.round(p.gbSize * sr))); c.fade = 1 / Math.max(1, p.gbFade * sr);
+      c.dens = p.gbDens / sr; c.pitch = p.gbPitch; c.fd = Math.round(0.003 * sr); }
   }
   // the drive pedal's four curves (x is the boosted input)
   shp(x, ty){
     if (ty === 0) return Math.tanh(x);
     if (ty === 1) return x > 0 ? 1 - Math.exp(-x) : -0.85 * (1 - Math.exp(1.4 * x));
     if (ty === 2) return x >= 1 ? 1 : x <= -1 ? -1 : 1.5 * (x - x * x * x / 3);
+    if (ty === 4) return Math.tanh(Math.abs(x)) * 1.2;  // rectifier: the bottom half flipped up, an octave above
+    if (ty === 5) return x >= 0 ? Math.tanh(x) : Math.tanh(0.7 * x) / 0.85;  // saturation: gentle and a little lopsided, like tape
     return Math.sin(x * 1.5707963267948966);
   }
   rdm(buf, m, pos){ const i0 = Math.floor(pos), f = pos - i0; return buf[i0 & m] * (1 - f) + buf[(i0 + 1) & m] * f; }
@@ -1014,6 +1117,10 @@ class SynthDSP {
     for (const u of FU) {
       if (u.f === 'delay') { const q = u.p; u.c.dTgt = Math.min(this.dLen - 4, Math.max(16, (q.dSync ? 60 / p.tempo * this.DDIV[q.dDiv | 0] : q.dTime) * sr)); }
       else if (u.t === 12) u.c.slr = p.tempo / 60 / this.ADIV[u.c.div];
+      if (u.f === 'delay' && u.c.ty === 3) { const T = u.c.dTgt / sr; u.c.bTc = 1 - Math.exp(-TAU * Math.min(u.p.dTone, 1843 / T, sr * 0.45) / sr); }
+      else if (u.f === 'filt' && u.c.step) { const st = Math.max(16, 60 / p.tempo * this.ADIV[u.c.div] * sr); u.c.slr = 1 / st; u.c.glk = u.c.glide < 0.01 ? 1 : 1 - Math.exp(-1 / (u.c.glide * st * 0.35)); }
+      else if (u.f === 'pump') u.c.inc = p.tempo / 60 / [2, 1, .5, .25][u.c.div] / sr;
+      else if (u.f === 'glitch') { u.c.beat = 60 / p.tempo * sr; u.c.G = Math.max(64, Math.round(u.c.beat * u.c.div)); }
     }
     const arpOn = p.arpOn && this.arpSeq.length > 0, stepS = Math.max(64, 60 / p.tempo * this.ADIV[p.arpDiv | 0] * sr);
     const fOn = p.pwFlt !== 0, poly = this.polyOn, pg = poly ? 0.6 : 1, mix1 = p.mix1, mix2 = p.mix2, noise = p.noise, aS = p.aS, fS = p.fS, o1pw = p.o1pw, lpw = p.lpw, lpwN = lpw / 0.45, res = p.res;
@@ -1029,6 +1136,12 @@ class SynthDSP {
       const win = half => Math.min(cap, 2 * per * Math.max(1, Math.round(half * sr / per)));
       for (const u of FU) if (u.f === 'pitch') { u.c.W = win(0.025); u.c.Wd = win(0.03); u.c.Wu = win(0.0175); }
     }
+    // the harmonizer follows the lowest sounding note; the Shepard voices use a window a few cycles of that note long
+    for (const u of FU) {
+      if (u.f === 'pitch' && u.c.hm) u.c.r = Math.pow(2, this.hmSemi(tv.note, u.c.hKey, u.c.hMin, u.c.hDeg) / 12);
+      else if (u.f === 'shep') { const per = sr / Math.max(20, 440 * Math.pow(2, (tv.cur - 69) / 12) * (useP2 ? r2 : r1)); u.c.W = Math.min(this.pLen - 8, Math.max(Math.round(0.03 * sr), Math.round(per * Math.max(2, Math.round(0.04 * sr / per))))); }
+    }
+    const trigN = this.trigN;
     let lfo = 0, nv = 0;
     for (let i = 0; i < n; i++) {
       if (arpOn) {
@@ -1191,15 +1304,28 @@ class SynthDSP {
             const len = this.dLen;
             u.dTs += (c.dTgt - u.dTs) * 0.0004;
             let off = u.dTs;
-            if (c.tape) { u.wow += c.wowR; if (u.wow >= 1) u.wow -= 1; u.flt += c.flR; if (u.flt >= 1) u.flt -= 1; off += c.wowA * (1 + Math.sin(TAU * u.wow)) + c.flA * Math.sin(TAU * u.flt); }
+            const ty = c.ty;
+            if (c.tape || ty === 3) { u.wow += c.wowR * (ty === 3 ? 0.8 : 1); if (u.wow >= 1) u.wow -= 1; u.flt += c.flR; if (u.flt >= 1) u.flt -= 1; off += c.wowA * (1 + Math.sin(TAU * u.wow)) + (ty === 3 ? 0 : c.flA * Math.sin(TAU * u.flt)); }
             const dl = this.rd(u.dBL, len, u.dW - off), dr = this.rd(u.dBR, len, u.dW - off);
-            u.dLpL += (dl - u.dLpL) * c.dTc; u.dLpR += (dr - u.dLpR) * c.dTc;
-            const fL = u.dLpL * c.fb, fR = u.dLpR * c.fb;
+            let eL, eR;
+            if (ty === 3) {
+              // bucket brigade: two poles of darkening that close in as the time gets longer (a slower clock), so long echoes are murkier
+              const k = c.bTc || c.dTc; u.dLpL += (dl - u.dLpL) * k; u.dLpR += (dr - u.dLpR) * k; u.bLp[0] += (u.dLpL - u.bLp[0]) * k; u.bLp[1] += (u.dLpR - u.bLp[1]) * k; eL = u.bLp[0]; eR = u.bLp[1];
+            } else { u.dLpL += (dl - u.dLpL) * c.dTc; u.dLpR += (dr - u.dLpR) * c.dTc; eL = u.dLpL; eR = u.dLpR; }
+            let fL = eL * c.fb, fR = eR * c.fb;
+            if (ty === 4) {
+              // diffuse: the repeats go round through all-pass smearers, so every pass blurs a little more, towards a reverb
+              const D = u.df, g = c.apg;
+              for (let a = 0; a < 4; a++) { const A = D[a], dd = A.b[A.i], w = fL - g * dd; fL = dd + g * w; A.b[A.i] = w; A.i = A.i + 1 >= A.b.length ? 0 : A.i + 1; }
+              for (let a = 4; a < 8; a++) { const A = D[a], dd = A.b[A.i], w = fR - g * dd; fR = dd + g * w; A.b[A.i] = w; A.i = A.i + 1 >= A.b.length ? 0 : A.i + 1; }
+            }
             if (c.ping) { u.dBL[u.dW] = (L + R) * 0.5 + fR; u.dBR[u.dW] = fL; }
             else if (c.tape) { u.dBL[u.dW] = Math.tanh((L + fL) * 1.25) * 0.8; u.dBR[u.dW] = Math.tanh((R + fR) * 1.25) * 0.8; }
+            else if (ty === 3) { const nz = this.rnd() * 0.0004; u.dBL[u.dW] = Math.tanh((L + fL) * 1.4) * 0.72 + nz; u.dBR[u.dW] = Math.tanh((R + fR) * 1.4) * 0.72 + nz; }
+            else if (ty === 2) { u.dBL[u.dW] = Math.tanh((L + fL) * 1.15) * 0.87; u.dBR[u.dW] = Math.tanh((R + fR) * 1.15) * 0.87; }
             else { u.dBL[u.dW] = L + fL; u.dBR[u.dW] = R + fR; }
             u.dW = (u.dW + 1) % len;
-            L = L * c.dry + u.dLpL * c.mix; R = R * c.dry + u.dLpR * c.mix; break; }
+            L = L * c.dry + eL * c.mix; R = R * c.dry + eR * c.mix; break; }
           case 10: { // reverb: hall, room, plate, spring or shimmer, after an optional pre-delay
             const PB = u.pre, pm = this.preLen - 1;
             PB[u.preW] = (L + R) * 0.5;
@@ -1230,6 +1356,20 @@ class SynthDSP {
               for (let j = 0; j < 8; j++) { B[j][I[j]] = (Y[j] - h) * G[j] + xi * ((j & 1) ? -0.3 : 0.3); I[j] = (I[j] + 1) % LN[j]; }
               wl = (Y[0] - Y[3] + Y[4] - Y[7]) * 0.6; wrr = (Y[1] - Y[2] + Y[5] - Y[6]) * 0.6;
               if (c.ty === 4) { const sm = this.pLen - 1; u.shB[u.shW] = (wl + wrr) * 0.5; u.shO = Math.tanh(this.shf(u.shB, sm, u.shW, u.shS, c.shW, 2)); u.shW = (u.shW + 1) & sm; }
+              if (c.ty === 5 && u.rvR) {
+                // reverse: two read heads run backwards through the last window of tail, faded so the jumps never show
+                const B0 = u.rvR[0], B1 = u.rvR[1], m2 = B0.length - 1, W = c.rW, w = u.rvRw; B0[w] = wl; B1[w] = wrr;
+                const n1 = u.rvRn, n2 = n1 + (W >> 1) >= W ? n1 + (W >> 1) - W : n1 + (W >> 1);
+                const g1 = Math.sin(Math.PI * n1 / W), g2 = Math.sin(Math.PI * n2 / W), a1 = g1 * g1, a2 = g2 * g2;
+                wl = (B0[(w - 2 * n1) & m2] * a1 + B0[(w - 2 * n2) & m2] * a2) * 1.15; wrr = (B1[(w - 2 * n1) & m2] * a1 + B1[(w - 2 * n2) & m2] * a2) * 1.15;
+                u.rvRw = (w + 1) & m2; u.rvRn = n1 + 1 >= W ? 0 : n1 + 1;
+              } else if (c.ty === 6) {
+                // gated: the gate opens on the dry sound, stays open for Hold after it stops, then slams shut on the tail
+                const ax = Math.abs((L + R) * 0.5); u.gE += (ax - u.gE) * (ax > u.gE ? c.gEa : c.gEr);
+                if (u.gE > 0.01) u.gH = c.gHold; else if (u.gH > 0) u.gH--;
+                const tg = u.gH > 0 ? 1 : 0; u.gG += (tg - u.gG) * (tg > u.gG ? c.gAt : c.gRl);
+                wl *= u.gG * 1.3; wrr *= u.gG * 1.3; u.mtr = u.gG;
+              }
             }
             L = L * c.dry + (wl + erL) * c.mix; R = R * c.dry + (wrr + erR) * c.mix; break; }
           case 11: { // ring modulator: multiply by a sine carrier
@@ -1308,8 +1448,13 @@ class SynthDSP {
             u.cph += c.inc; if (u.cph >= 1) { u.cph -= 1; u.hL = Math.round(L * c.q) / c.q; u.hR = Math.round(R * c.q) / c.q; }
             L = L * (1 - c.mix) + u.hL * c.mix; R = R * (1 - c.mix) + u.hR * c.mix; break; }
           case 21: { // filter pedal: a resonant filter swept by its own LFO
-            u.ph += c.rate / sr; if (u.ph >= 1) u.ph -= 1;
-            if (u.fC-- <= 0) { u.fC = 3; const fc = Math.min(sr * 0.45, Math.max(20, c.cut * Math.pow(2, c.dep * Math.sin(TAU * u.ph)))); u.fG = Math.tan(Math.PI * fc / sr); }
+            let lv;
+            if (c.step) {
+              // step filter: a new random cutoff on every step of the tempo, with Glide easing between them
+              u.ph += c.slr; if (u.ph >= 1) { u.ph -= 1; u.stT = this.rnd(); }
+              u.stV += (u.stT - u.stV) * c.glk; lv = u.stV;
+            } else { u.ph += c.rate / sr; if (u.ph >= 1) u.ph -= 1; lv = Math.sin(TAU * u.ph); }
+            if (u.fC-- <= 0) { u.fC = 3; const fc = Math.min(sr * 0.45, Math.max(20, c.cut * Math.pow(2, c.dep * lv))); u.fG = Math.tan(Math.PI * fc / sr); }
             const g = u.fG, k = c.k, a1 = 1 / (1 + g * (g + k)), a2 = g * a1, a3 = g * a2, FL = u.fL, FB = u.fB, ty = c.ty;
             for (let ch = 0; ch < 2; ch++) {
               const x = ch ? R : L, v3 = x - FB[ch], b1 = a1 * FL[ch] + a2 * v3, l2 = FB[ch] + a2 * FL[ch] + a3 * v3;
@@ -1348,6 +1493,180 @@ class SynthDSP {
             const M = (L + Rd) * 0.5; let S = (L - Rd) * 0.5;
             u.sLp += (S - u.sLp) * c.hp; S = (S - u.sLp) * c.w;
             L = M + S; R = M - S; break; }
+          case 28: { // harmonic tremolo: lows and highs pulse in turn, so the tone sways as well as the level
+            u.ph += c.rate / sr; if (u.ph >= 1) u.ph -= 1;
+            const s1 = Math.sin(TAU * u.ph), gl = 1 - c.dep * (0.5 + 0.5 * s1), gh = 1 - c.dep * (0.5 - 0.5 * s1), X = u.xo;
+            X[0] += (L - X[0]) * c.xo; X[1] += (R - X[1]) * c.xo;
+            L = X[0] * gl + (L - X[0]) * gh; R = X[1] * gl + (R - X[1]) * gh; break; }
+          case 29: { // juno chorus: one bucket-brigade line, two taps swung in opposite directions by a triangle LFO
+            u.chP += c.jR / sr; if (u.chP >= 1) u.chP -= 1;
+            const tri = u.chP < 0.5 ? 4 * u.chP - 1 : 3 - 4 * u.chP;
+            u.chB[u.chW] = (L + R) * 0.5;
+            let wl = this.rd(u.chB, 4096, u.chW - c.jBase - c.jDep * tri), wrr = this.rd(u.chB, 4096, u.chW - c.jBase + c.jDep * tri);
+            u.chW = (u.chW + 1) & 4095;
+            u.jLp[0] += (wl - u.jLp[0]) * c.jLp; u.jLp[1] += (wrr - u.jLp[1]) * c.jLp; wl = u.jLp[0]; wrr = u.jLp[1];
+            L = L * c.chDry + wl * c.chWet * 1.1; R = R * c.chDry + wrr * c.chWet * 1.1; break; }
+          case 30: { // dimension: a slow, shallow sweep; each side's wet signal is fed inverted into the other, so it spreads without wobble
+            u.chP += c.dR / sr; if (u.chP >= 1) u.chP -= 1;
+            const tri = u.chP < 0.5 ? 4 * u.chP - 1 : 3 - 4 * u.chP;
+            u.chB[u.chW] = (L + R) * 0.5;
+            const wl = this.rd(u.chB, 4096, u.chW - c.dBase - c.dDep * tri), wrr = this.rd(u.chB, 4096, u.chW - c.dBase + c.dDep * tri);
+            u.chW = (u.chW + 1) & 4095;
+            L = L * c.chDry + (wl - 0.45 * wrr) * c.chWet; R = R * c.chDry + (wrr - 0.45 * wl) * c.chWet; break; }
+          case 31: { // barber-pole phaser: frequency-shift by a few Hz and mix with the dry sound; feedback deepens the notches
+            u.bpP += c.bpInc; if (u.bpP >= 1) u.bpP -= 1; else if (u.bpP < 0) u.bpP += 1;
+            const th = TAU * u.bpP, cs = Math.cos(th), sn = Math.sin(th), H = u.bp, O = u.bpO;
+            this.hil(H[0], L + O[0] * c.fb * 0.85); O[0] = H[0].re * cs + H[0].im * sn;
+            this.hil(H[1], R + O[1] * c.fb * 0.85); O[1] = H[1].re * Math.cos(th + 1.5708) + H[1].im * Math.sin(th + 1.5708);
+            L = L * c.mDry + O[0] * c.mWet * 1.1; R = R * c.mDry + O[1] * c.mWet * 1.1; break; }
+          case 32: { // expander: below the threshold the level is pushed down further, by Ratio, instead of slammed shut like a gate
+            const ax = Math.max(Math.abs(L), Math.abs(R)); u.e1 += (ax - u.e1) * (ax > u.e1 ? c.dAt : c.dRl);
+            const ed = u.e1 > 1e-6 ? 8.685889638065035 * Math.log(u.e1) : -120;
+            const gr = ed < c.thr ? Math.min(48, (c.thr - ed) * c.er) : 0;
+            u.dG += (gr - u.dG) * (gr > u.dG ? c.rl : c.at);
+            const gn = Math.exp(-u.dG * 0.11512925464970229); L *= gn; R *= gn;
+            if (u.dG > u.mtr) u.mtr = u.dG; break; }
+          case 33: { // clipper: push the level in with Gain, then round the peaks off at the ceiling; Knee sets how softly
+            const C = c.ceil, kn = c.kn, lo = C * (1 - kn); let pk = 0;
+            for (let ch = 0; ch < 2; ch++) {
+              const x = (ch ? R : L) * c.gin, ax = Math.abs(x);
+              let y = ax <= lo ? ax : lo + C * kn * Math.tanh((ax - lo) / (C * kn));
+              if (ax > 1e-9) pk = Math.max(pk, 8.685889638065035 * Math.log(ax / Math.max(1e-9, y)));
+              y = x < 0 ? -y : y; if (ch) R = y; else L = y;
+            }
+            if (pk > u.mtr) u.mtr = pk; break; }
+          case 35: { // graphic EQ: seven fixed bands, each its own peak filter
+            const C = c.C, sL = u.sL, sR = u.sR;
+            for (let b = 0; b < 7; b++) { L = this.bqRun(C[b], sL[b], L); R = this.bqRun(C[b], sR[b], R); }
+            break; }
+          case 36: { // multiband compressor: lows, mids and highs each squashed from above and lifted from below on their own
+            const XL = u.xL, XR = u.xR;
+            const loL = this.bqRun(c.X1, XL[1], this.bqRun(c.X1, XL[0], L)), loR = this.bqRun(c.X1, XR[1], this.bqRun(c.X1, XR[0], R));
+            const rL = L - loL, rR = R - loR;
+            const miL = this.bqRun(c.X2, XL[3], this.bqRun(c.X2, XL[2], rL)), miR = this.bqRun(c.X2, XR[3], this.bqRun(c.X2, XR[2], rR));
+            const bL = [loL, miL, rL - miL], bR = [loR, miR, rR - miR]; let oL = 0, oR = 0, mx = 0;
+            for (let b = 0; b < 3; b++) {
+              const ax = Math.max(Math.abs(bL[b]), Math.abs(bR[b])); u.mE[b] += (ax - u.mE[b]) * (ax > u.mE[b] ? c.at : c.rl);
+              const ed = u.mE[b] > 1e-6 ? 8.685889638065035 * Math.log(u.mE[b]) : -120;
+              let gd = ed > c.thD ? -(ed - c.thD) * c.sD : ed < c.thU && ed > -80 ? Math.min(c.maxU, (c.thU - ed) * c.sU) * Math.min(1, (ed + 80) / 12) : 0;
+              u.mG[b] += (gd - u.mG[b]) * 0.02;
+              const gn = Math.exp(u.mG[b] * 0.11512925464970229) * c.gb[b]; oL += bL[b] * gn; oR += bR[b] * gn;
+              if (Math.abs(u.mG[b]) > mx) mx = Math.abs(u.mG[b]);
+            }
+            L = oL; R = oR; if (mx > u.mtr) u.mtr = mx; break; }
+          case 37: { // pump: the level ducks hard on every beat and swells back up, the sidechain sound
+            u.ph += c.inc; if (u.ph >= 1) u.ph -= 1;
+            const ph = u.ph, e = ph < 0.015 ? ph / 0.015 : Math.max(0, 1 - (ph - 0.015) / c.rel);
+            u.env += (e * e * (3 - 2 * e) - u.env) * 0.08;
+            const gn = 1 - c.dep * u.env; L *= gn; R *= gn; u.mtr = u.env; break; }
+          case 38: { // swell: every new note starts silent and fades in over Rise, like a volume pedal
+            if (u.lt !== trigN) { u.lt = trigN; u.ramp = 0; }
+            if (u.ramp < 1) u.ramp = Math.min(1, u.ramp + c.inc);
+            const tg = 1 - c.dep * (1 - Math.pow(u.ramp, c.cur)); u.g += (tg - u.g) * (tg < u.g ? c.dn : 0.05);
+            L *= u.g; R *= u.g; u.mtr = u.g; break; }
+          case 39: { // frequency shifter: every frequency moved by the same number of Hz, so harmonics stop lining up
+            u.ph += c.inc; if (u.ph >= 1) u.ph -= 1; else if (u.ph < 0) u.ph += 1;
+            const th = TAU * u.ph, cs = Math.cos(th), sn = Math.sin(th);
+            this.hil(u.hL, L + u.fL * c.fb); u.fL = u.hL.re * cs + u.hL.im * sn;
+            this.hil(u.hR, R + u.fR * c.fb); u.fR = c.st ? u.hR.re * cs - u.hR.im * sn : u.hR.re * cs + u.hR.im * sn;
+            L = L * (1 - c.mix) + u.fL * c.mix; R = R * (1 - c.mix) + u.fR * c.mix; break; }
+          case 40: { // shepard: three pitch-shifted copies an octave apart, all gliding; each fades in at the bottom and out at the top
+            const pm = this.pLen - 1, m0 = (L + R) * 0.5; u.pB[u.pW] = m0;
+            u.ph += c.inc; if (u.ph >= 1) u.ph -= 1; else if (u.ph < 0) u.ph += 1;
+            let w = 0;
+            for (let v = 0; v < 3; v++) { let q = u.ph + v / 3; if (q >= 1) q -= 1;
+              const g = Math.sin(Math.PI * q); w += this.shf(u.pB, pm, u.pW, u.pS[v], c.W, Math.pow(2, (q * 36 - 18) / 12)) * g * g; }
+            u.pW = (u.pW + 1) & pm; u.lp += (w / 1.5 - u.lp) * c.tone;
+            L = L * (1 - c.mix) + u.lp * c.mix; R = R * (1 - c.mix) + u.lp * c.mix; break; }
+          case 41: { // resonator: four combs tuned to a chord; whatever you play sets them ringing like sympathetic strings
+            const x = (L + R) * 0.5 * 0.3, B = u.rB, w = u.rW; let oL = 0, oR = 0;
+            for (let j = 0; j < 4; j++) {
+              const b = B[j], y = this.rdm(b, 4095, w - c.len[j]); u.rLp[j] += (y - u.rLp[j]) * c.lp;
+              b[w] = x + u.rLp[j] * c.g[j];
+              if (j & 1) oR += y; else oL += y;
+            }
+            u.rW = (w + 1) & 4095; u.dc += ((oL + oR) * 0.5 - u.dc) * 0.0005;
+            oL = Math.tanh((oL - u.dc) * 0.7); oR = Math.tanh((oR - u.dc) * 0.7);
+            L = L * (1 - c.mix) + (oL * 0.8 + oR * 0.3) * c.mix; R = R * (1 - c.mix) + (oR * 0.8 + oL * 0.3) * c.mix; break; }
+          case 42: { // speaker cabinet on its own: low cut, the box's boom, presence, and the top end rolled off by the mic
+            const C = c.C, sL = u.sL, sR = u.sR;
+            for (let b = 0; b < 4; b++) { L = this.bqRun(C[b], sL[b], L); R = this.bqRun(C[b], sR[b], R); }
+            L *= c.lvl; R *= c.lvl; break; }
+          case 43: { // lo-fi: a wobbling tape path, a narrow band, saturation and the noise of the medium
+            const m = this.mdLen - 1, w = u.bW; u.bL[w] = L; u.bR[w] = R; u.bW = (w + 1) & m;
+            u.wo += c.woR; if (u.wo >= 1) u.wo -= 1; u.fl += c.flR; if (u.fl >= 1) u.fl -= 1;
+            if (--u.ft <= 0) { u.ft = 1200; u.fv = this.rnd(); }
+            const off = c.base + c.woA * Math.sin(TAU * u.wo) + c.flA * (0.7 * Math.sin(TAU * u.fl) + 0.3 * u.fv);
+            let a = this.rdm(u.bL, m, w - off), b = this.rdm(u.bR, m, w - off);
+            const C = c.C;
+            for (let k = 0; k < 3; k++) { a = this.bqRun(C[k], u.qL[k], a); b = this.bqRun(C[k], u.qR[k], b); }
+            if (c.sat > 1) { a = Math.tanh(a * c.sat) / c.sat * 1.3; b = Math.tanh(b * c.sat) / c.sat * 1.3; }
+            u.hs += (this.rnd() - u.hs) * c.hk; let nz = u.hs * c.hiss;
+            if (c.crk > 0) { if (this.rnd() * 0.5 + 0.5 < c.crk) u.crV = this.rnd() * 0.35; nz += u.crV; u.crV *= 0.82; u.rb += (this.rnd() * 0.02 - u.rb) * 0.002; nz += u.rb * c.rmb * 40; }
+            if (c.fadeA > 0) { u.fade += ((0.5 + 0.5 * Math.sin(TAU * u.wo * 0.37)) - u.fade) * 0.0005; a *= 1 - c.fadeA * u.fade; b *= 1 - c.fadeA * u.fade; }
+            L = L * (1 - c.mix) + (a + nz) * c.mix; R = R * (1 - c.mix) + (b + nz) * c.mix; break; }
+          case 44: { // glitch: the last five seconds are always being recorded; each type plays them back differently
+            const GL = u.gL, GR = u.gR, m = this.gbLen - 1, w = u.gW, ty = c.ty, G = c.G, fd = c.fd;
+            GL[w] = L; GR[w] = R; u.gW = (w + 1) & m;
+            let oL = L, oR = R, act = 0;
+            if (ty <= 1) {
+              // stutter and scatter: decisions are made on the grid
+              if (u.n % G === 0) {
+                if (ty === 0) { if (u.run <= 0 && this.rnd() * 0.5 + 0.5 < c.amt) { u.run = Math.max(2 * G, Math.round(c.beat)); u.src = w - G; u.k = 0; u.rev = 0; } }
+                else if (this.rnd() * 0.5 + 0.5 < c.amt) { const back = Math.max(1, Math.min(16, Math.floor(c.beat * 4 / G))); u.run = G; u.k = 0; u.src = w - G * (1 + Math.floor((this.rnd() * 0.5 + 0.5) * back)); u.rev = this.rnd() * 0.5 + 0.5 < c.rev ? 1 : 0; }
+                else u.run = 0;
+              }
+              if (u.run > 0) {
+                const k = u.k % G, e = Math.min(1, k / fd, (G - k) / fd), i = (u.rev ? u.src + G - 1 - k : u.src + k) & m;
+                oL = GL[i] * e; oR = GR[i] * e; act = 1; u.k++; u.run--;
+              }
+            } else if (ty === 2) {
+              // halftime: each window plays its first half at half speed, an octave down
+              const W2 = 2 * G, k = u.n % W2, e = Math.min(1, k / fd, (W2 - k) / fd), pos = w - k + k * 0.5;
+              oL = this.rdm(GL, m, pos) * e; oR = this.rdm(GR, m, pos) * e; act = 1;
+            } else if (ty === 3) {
+              // tape stop: at the end of every cycle the tape slows to a halt, then the next cycle starts at full speed
+              const P = Math.round(c.beat * 4 * c.every), S = Math.min(P, Math.round(c.beat * c.len)), k = u.n % P;
+              if (k >= P - S) {
+                if (k === P - S) u.rp = w;
+                const x = (k - (P - S)) / S, v = Math.pow(1 - x, 1.6); u.rp += v;
+                const e = Math.min(1, (S - (k - (P - S))) / fd) * Math.sqrt(v);
+                oL = this.rdm(GL, m, u.rp) * e; oR = this.rdm(GR, m, u.rp) * e; act = 1;
+              } else if (k < fd) { const e = k / fd; oL *= e; oR *= e; }
+            } else if (ty === 4) {
+              // freeze: a moment after each new note, a slice is captured and looped with overlapping fades into an endless drone
+              if (u.lt !== trigN) { u.lt = trigN; u.cap = Math.round(0.06 * sr); }
+              if (u.cap > 0 && --u.cap === 0) {
+                const Z = c.size, s = u.fz[1 - u.fzA];
+                for (let j = 0; j < Z; j++) { const i = (w - Z + j) & m; s[0][j] = GL[i]; s[1][j] = GR[i]; }
+                u.fzZn = Z; if (u.has) { u.fzA = 1 - u.fzA; u.fzX = 0; u.fzZo = u.fzZ; } else { u.fzA = 1 - u.fzA; u.fzX = 1; }
+                u.fzZ = Z; u.has = 1;
+              }
+              if (u.has) {
+                let fL = this.fzRd(u, u.fz[u.fzA], u.fzZ, 0), fR = this.fzRd(u, u.fz[u.fzA], u.fzZ, 1);
+                if (u.fzX < 1) { const Zo = u.fzZo || u.fzZ, P = u.fz[1 - u.fzA]; u.fzX = Math.min(1, u.fzX + c.fade); fL = fL * u.fzX + this.fzRd(u, P, Zo, 0) * (1 - u.fzX); fR = fR * u.fzX + this.fzRd(u, P, Zo, 1) * (1 - u.fzX); }
+                u.fzQ++; oL = L + fL * 1.4 * c.mix; oR = R + fR * 1.4 * c.mix; act = 1;
+              }
+            } else {
+              // grain: short, windowed snippets from the last second, scattered in time and (with Pitch) in pitch
+              if ((u.gNext -= 1) <= 0) {
+                u.gNext = Math.max(1, Math.round((0.6 + 0.8 * (this.rnd() * 0.5 + 0.5)) / Math.max(1e-6, c.dens)));
+                const gg = u.gr.find(x => !x.on);
+                if (gg) { const Z = c.size, st = c.pitch > 0.01 ? Math.round(this.rnd() * c.pitch) : 0, r = Math.pow(2, st / 12), pan = this.rnd() * 0.8;
+                  gg.on = 1; gg.k = 0; gg.len = Z; gg.r = r; gg.pos = w - Z * Math.max(1, r) - 8 - Math.floor((this.rnd() * 0.5 + 0.5) * sr * 0.6); gg.pl = Math.sqrt(0.5 - pan * 0.5); gg.pr = Math.sqrt(0.5 + pan * 0.5); }
+              }
+              let sL = 0, sR = 0;
+              for (const gg of u.gr) { if (!gg.on) continue;
+                const x = gg.k / gg.len, e = Math.sin(Math.PI * x), p0 = gg.pos + gg.k * gg.r, a = (this.rdm(GL, m, p0) + this.rdm(GR, m, p0)) * 0.5 * e * e;
+                sL += a * gg.pl; sR += a * gg.pr; if (++gg.k >= gg.len) gg.on = 0; }
+              const nrm = 1 / Math.sqrt(Math.max(1, c.dens * c.size * 0.5));
+              oL = sL * 1.2 * nrm; oR = sR * 1.2 * nrm; act = 1;
+            }
+            u.n++;
+            if (ty === 4) { L = oL; R = oR; }
+            else { L = L * (1 - c.mix * act) + oL * c.mix * act; R = R * (1 - c.mix * act) + oR * c.mix * act; }
+            u.mtr = act;
+            break; }
         }
       }
       o0[i] = Math.tanh(L); o4[i] = Math.tanh(R);
@@ -1356,7 +1675,7 @@ class SynthDSP {
     }
     const lv = V[this.lastV], t = this.tele, fl = 440 * Math.pow(2, (lv.cur - 69) / 12), ft = 440 * Math.pow(2, (tv.cur - 69) / 12);
     // meters for the pedal pictures: gain reduction, gate opening, shaper gain, rotor speed (peaks held briefly)
-    const M = this.fxm; for (const u of FU) if (u.f === 'dyn' || u.f === 'rot') { M[u.id] = u.act ? u.mtr : 0; if (u.f === 'dyn') u.mtr *= 0.6; }
+    const M = this.fxm; for (const u of FU) if (u.f === 'dyn' || u.f === 'rot' || u.f === 'mb' || u.f === 'pump' || u.f === 'swell' || u.f === 'glitch') { M[u.id] = u.act ? u.mtr : 0; if (u.f === 'dyn' || u.f === 'mb') u.mtr *= 0.6; }
     t.fxm = M;
     t.a = lv.ae; t.f = lv.fe; t.l = lfo; t.c = lv.fc; t.g = lv.gate; t.f1 = fl * r1; t.f2 = fl * r2; t.f0 = ft * (useP2 ? r2 : r1); t.n = lv.note; t.nv = nv;
   }
@@ -1383,9 +1702,13 @@ const INIT = {o1w:2,o1oct:0,o1pw:.5,o1pos:0,o1vow:0,glide:0,bl:1,uniN:1,uniDet:2
   e1Freq:440,e1Div:2,e1Duty:.5,dType:0,dWow:.5,rvType:0,rvPre:0,
   dyType:0,dyThr:-20,dyRatio:4,dyAtk:.01,dyRel:.15,dyGain:6,dyPunch:.5,dySus:0,drvType:0,drvAmt:.5,drvTone:.6,drvBias:0,drvLvl:.6,crBits:6,crRate:8000,crMix:1,
   afType:0,afCut:700,afRes:.5,afRate:1,afDepth:2,psType:0,psSemi:7,psSub:.8,psUp:0,psDry:1,psMix:.5,rtSpd:0,rtAccel:1.5,rtDrive:.2,rtSpread:.6,wdWidth:1.4,wdHaas:.012,wdLow:150,
+  afStep:0,afDiv:2,afGlide:.1,jnMode:0,dmMode:1,bpUp:1,dDiff:.6,rvGate:.3,dySoft:.3,hmKey:0,hmScale:0,hmDeg:2,
+  gq1:0,gq2:0,gq3:0,gq4:0,gq5:0,gq6:0,gq7:0,mbAmt:.6,mbUp:.4,mbTime:1,mbLo:0,mbMid:0,mbHi:0,pmDepth:.8,pmDiv:1,pmRel:.6,swRise:.4,swCurve:.35,swDepth:1,
+  fsHz:40,fsFb:0,fsMix:.6,fsSt:0,sgRate:.03,sgMix:.6,rsKey:0,rsChord:0,rsDecay:1.5,rsBright:.5,rsMix:.4,cbType:1,cbMic:.3,cbLvl:.8,
+  lfType:0,lfWow:.5,lfNoise:.3,lfTone:.5,lfMix:1,gbType:0,gbDiv:2,gbAmt:.35,gbRev:.3,gbLen:2,gbEvery:0,gbSize:.12,gbFade:1,gbDens:12,gbPitch:0,gbMix:1,
   arpOn:0,arpMode:0,arpOct:1,arpGate:.5,arpDiv:1,tempo:120,
   // power switches: oscillators, filter and LFO start on; every effect starts bypassed with its settings ready, as on a Nord
-  pwO1:1,pwO2:1,pwFlt:1,pwLfo:1,pwFx1:0,pwAmp:0,pwEq:0,pwMod:0,pwDly:0,pwRev:0,pwDyn:0,pwDrv:0,pwCrs:0,pwAf:0,pwPs:0,pwRot:0,pwWid:0,
+  pwO1:1,pwO2:1,pwFlt:1,pwLfo:1,pwFx1:0,pwAmp:0,pwEq:0,pwMod:0,pwDly:0,pwRev:0,pwDyn:0,pwDrv:0,pwCrs:0,pwAf:0,pwPs:0,pwRot:0,pwWid:0,pwGeq:0,pwMb:0,pwPump:0,pwSwl:0,pwFs:0,pwSg:0,pwRs:0,pwCab:0,pwLf:0,pwGl:0,
   // the FX board: pedals in the order the signal meets them (empty = the signal goes straight through)
   fxc:[]};
 const params = {...INIT};
@@ -1395,11 +1718,14 @@ const params = {...INIT};
    "effective" value (an off oscillator's mix level becomes 0, a bypassed delay's Mix becomes 0, and so on). The filter is the
    one section the engine bypasses itself (pwFlt). The Arp's power switch is its existing arpOn param. */
 const PW = {osc1:'pwO1', osc2:'pwO2', filter:'pwFlt', lfo:'pwLfo', arp:'arpOn', fx1:'pwFx1', amp:'pwAmp', eq:'pwEq', mod:'pwMod', delay:'pwDly', reverb:'pwRev',
-  dyn:'pwDyn', drv:'pwDrv', crush:'pwCrs', filt:'pwAf', pitch:'pwPs', rot:'pwRot', wide:'pwWid'};
+  dyn:'pwDyn', drv:'pwDrv', crush:'pwCrs', filt:'pwAf', pitch:'pwPs', rot:'pwRot', wide:'pwWid',
+  geq:'pwGeq', mb:'pwMb', pump:'pwPump', swell:'pwSwl', fshift:'pwFs', shep:'pwSg', reso:'pwRs', cab:'pwCab', lofi:'pwLf', glitch:'pwGl'};
 const PW_SEC = Object.fromEntries(Object.entries(PW).map(([s, k]) => [k, s]));
-const PW_NAME = {osc1:'osc 1', osc2:'osc 2', filter:'filter', lfo:'lfo', arp:'arp', fx1:'fx1', amp:'amp', eq:'eq', mod:'mod', delay:'delay', reverb:'reverb', dyn:'dynamics', drv:'drive', crush:'crush', filt:'filter', pitch:'pitch', rot:'rotary', wide:'wide'};
-const FX_IDS = ['fx1', 'amp', 'eq', 'mod', 'delay', 'reverb', 'dyn', 'drv', 'crush', 'filt', 'pitch', 'rot', 'wide'], FX_SET = new Set(FX_IDS);
-const FX_L = {fx1:'FX1', amp:'Amp', eq:'EQ', mod:'Mod', delay:'Delay', reverb:'Reverb', dyn:'Dynamics', drv:'Drive', crush:'Crush', filt:'Filter', pitch:'Pitch', rot:'Rotary', wide:'Wide'};
+const PW_NAME = {osc1:'osc 1', osc2:'osc 2', filter:'filter', lfo:'lfo', arp:'arp', fx1:'fx1', amp:'amp', eq:'eq', mod:'mod', delay:'delay', reverb:'reverb', dyn:'dynamics', drv:'drive', crush:'crush', filt:'filter', pitch:'pitch', rot:'rotary', wide:'wide',
+  geq:'graphic eq', mb:'multiband', pump:'pump', swell:'swell', fshift:'freq shift', shep:'shepard', reso:'resonator', cab:'cab', lofi:'lo-fi', glitch:'glitch'};
+const FX_IDS = ['fx1', 'amp', 'eq', 'mod', 'delay', 'reverb', 'dyn', 'drv', 'crush', 'filt', 'pitch', 'rot', 'wide', 'geq', 'mb', 'pump', 'swell', 'fshift', 'shep', 'reso', 'cab', 'lofi', 'glitch'], FX_SET = new Set(FX_IDS);
+const FX_L = {fx1:'FX1', amp:'Amp', eq:'EQ', mod:'Mod', delay:'Delay', reverb:'Reverb', dyn:'Dynamics', drv:'Drive', crush:'Crush', filt:'Filter', pitch:'Pitch', rot:'Rotary', wide:'Wide',
+  geq:'Graphic', mb:'Multi', pump:'Pump', swell:'Swell', fshift:'Freq Shift', shep:'Shepard', reso:'Resonator', cab:'Cab', lofi:'Lo-Fi', glitch:'Glitch'};
 const EFFK = {mix1:'pwO1', mix2:'pwO2', lpitch:'pwLfo', lcut:'pwLfo', lpw:'pwLfo', e1Type:'pwFx1', ampType:'pwAmp', eqLo:'pwEq', eqMid:'pwEq', eqHi:'pwEq', chMix:'pwMod', dMix:'pwDly', rvMix:'pwRev'};
 const PW_DEPS = {}; for (const k in EFFK) (PW_DEPS[EFFK[k]] = PW_DEPS[EFFK[k]] || []).push(k);
 const effV = k => EFFK[k] && !params[EFFK[k]] ? 0 : params[k];
@@ -1408,7 +1734,7 @@ function effP(){ const o = {...params}; for (const k in EFFK) if (!params[EFFK[k
 const KEY_SEC = {mix1:'osc1', mix2:'osc2', fenv:'filter'};
 const LIVE = new Set(['glide', 'tempo']);
 // choosing a type switches an effect on; so does raising its amount from zero
-const SEG_ENGAGE = {e1Type:'fx1', ampType:'amp', modType:'mod', dType:'delay', rvType:'reverb', dyType:'dyn', drvType:'drv', afType:'filt', psType:'pitch'};
+const SEG_ENGAGE = {e1Type:'fx1', ampType:'amp', modType:'mod', dType:'delay', rvType:'reverb', dyType:'dyn', drvType:'drv', afType:'filt', psType:'pitch', cbType:'cab', lfType:'lofi', gbType:'glitch'};
 const AUTO_ENGAGE = {chMix:'mod', dMix:'delay', rvMix:'reverb', eqLo:'eq', eqMid:'eq', eqHi:'eq', crMix:'crush', psMix:'pitch'};
 // turn an older-style patch (e1Type 0 = FX1 off, Mix 0 = effect off) into switch settings
 function normPatch(obj){
@@ -1433,64 +1759,107 @@ const FXF = {
   fx1:{keys:['e1Type','e1Rate','e1Depth','e1Sens','e1Q','e1Freq','e1Div','e1Duty'], pw:'pwFx1'},
   amp:{keys:['ampType','ampDrive','ampTone','ampLvl'], pw:'pwAmp'},
   eq:{keys:['eqLo','eqMid','eqFreq','eqHi'], pw:'pwEq'},
-  mod:{keys:['modType','chRate','chDepth','chFb','chMix'], pw:'pwMod'},
-  delay:{keys:['dTime','dSync','dDiv','dFb','dTone','dMix','dPing','dType','dWow'], pw:'pwDly'},
-  reverb:{keys:['rvSize','rvDamp','rvMix','rvType','rvPre'], pw:'pwRev'},
-  dyn:{keys:['dyType','dyThr','dyRatio','dyAtk','dyRel','dyGain','dyPunch','dySus'], pw:'pwDyn'},
+  mod:{keys:['modType','chRate','chDepth','chFb','chMix','jnMode','dmMode','bpUp'], pw:'pwMod'},
+  delay:{keys:['dTime','dSync','dDiv','dFb','dTone','dMix','dPing','dType','dWow','dDiff'], pw:'pwDly'},
+  reverb:{keys:['rvSize','rvDamp','rvMix','rvType','rvPre','rvGate'], pw:'pwRev'},
+  dyn:{keys:['dyType','dyThr','dyRatio','dyAtk','dyRel','dyGain','dyPunch','dySus','dySoft'], pw:'pwDyn'},
   drv:{keys:['drvType','drvAmt','drvTone','drvBias','drvLvl'], pw:'pwDrv'},
   crush:{keys:['crBits','crRate','crMix'], pw:'pwCrs'},
-  filt:{keys:['afType','afCut','afRes','afRate','afDepth'], pw:'pwAf'},
-  pitch:{keys:['psType','psSemi','psSub','psUp','psDry','psMix'], pw:'pwPs'},
+  filt:{keys:['afType','afCut','afRes','afRate','afDepth','afStep','afDiv','afGlide'], pw:'pwAf'},
+  pitch:{keys:['psType','psSemi','psSub','psUp','psDry','psMix','hmKey','hmScale','hmDeg'], pw:'pwPs'},
   rot:{keys:['rtSpd','rtAccel','rtDrive','rtSpread'], pw:'pwRot'},
   wide:{keys:['wdWidth','wdHaas','wdLow'], pw:'pwWid'},
+  geq:{keys:['gq1','gq2','gq3','gq4','gq5','gq6','gq7'], pw:'pwGeq'},
+  mb:{keys:['mbAmt','mbUp','mbTime','mbLo','mbMid','mbHi'], pw:'pwMb'},
+  pump:{keys:['pmDepth','pmDiv','pmRel'], pw:'pwPump'},
+  swell:{keys:['swRise','swCurve','swDepth'], pw:'pwSwl'},
+  fshift:{keys:['fsHz','fsFb','fsMix','fsSt'], pw:'pwFs'},
+  shep:{keys:['sgRate','sgMix'], pw:'pwSg'},
+  reso:{keys:['rsKey','rsChord','rsDecay','rsBright','rsMix'], pw:'pwRs'},
+  cab:{keys:['cbType','cbMic','cbLvl'], pw:'pwCab'},
+  lofi:{keys:['lfType','lfWow','lfNoise','lfTone','lfMix'], pw:'pwLf'},
+  glitch:{keys:['gbType','gbDiv','gbAmt','gbRev','gbLen','gbEvery','gbSize','gbFade','gbDens','gbPitch','gbMix'], pw:'pwGl'},
 };
 const FXK = new Set(), KEY_FAM = {};
 for (const f in FXF) { FXF[f].keys.concat(FXF[f].pw).forEach(k => { FXK.add(k); KEY_FAM[k] = f; }); }
-// the pedals in the library, in seven groups. r is where "tap to add" puts one: filter, dynamics, pitch, drive and tone, motion,
-// space, and the master section last
+// the pedals in the library, in seven groups. r is where "tap to add" puts one: filter, dynamics, pitch, drive and tone,
+// modulation, rhythm, space, and the end-of-line tools (widener, pump, multiband, clipper, limiter) last
 const VAR = {
   wah:{f:'fx1', set:{e1Type:3, e1Depth:.6}, l:'Wah', g:'filter', r:0, d:'A resonant filter that opens on every attack and closes as the note fades. Funky and vocal.'},
   filt:{f:'filt', set:{}, l:'Filter', g:'filter', r:.1, d:'A resonant filter pedal swept up and down by its own LFO. Separate from the synth\'s filter.'},
+  step:{f:'filt', set:{afStep:1, afType:0, afCut:900, afRes:.6, afDepth:2, afDiv:2, afGlide:.1}, l:'Step', g:'filter', r:.12, d:'Step filter: the cutoff jumps to a new random spot on every step of the tempo. Sample-and-hold, as a pedal.'},
+  eq:{f:'eq', set:{eqLo:3, eqMid:-2, eqHi:3}, l:'EQ', g:'filter', r:3.4, d:'Boost or cut the bass, mids and treble to balance the tone.'},
+  geq:{f:'geq', set:{gq1:3, gq2:1, gq3:-1, gq4:-2, gq5:0, gq6:2, gq7:3}, l:'Graphic', g:'filter', r:3.45, d:'Graphic EQ: seven fixed bands, each a slider. The shape of the sliders is the shape of the curve.'},
   comp:{f:'dyn', set:{dyType:0}, l:'Comp', g:'dynamics', r:1, d:'Compressor: turns loud moments down so the level evens out, then lifts everything back up.'},
+  expander:{f:'dyn', set:{dyType:4, dyThr:-40, dyRatio:3, dyAtk:.002, dyRel:.12, dyGain:0}, l:'Expander', g:'dynamics', r:1.05, d:'Expander: below the threshold quiet sounds get quieter still. A gentle gate that fades tails instead of cutting them.'},
   gate:{f:'dyn', set:{dyType:2, dyThr:-40, dyAtk:.001, dyRel:.08, dyGain:0}, l:'Gate', g:'dynamics', r:1.1, d:'Noise gate: silences anything quieter than the threshold, cutting off tails and hiss.'},
+  swell:{f:'swell', set:{}, l:'Swell', g:'dynamics', r:1.15, d:'Auto-swell: every note starts silent and fades in, like a violin bow or a volume pedal.'},
   shaper:{f:'dyn', set:{dyType:3, dyGain:0, dyPunch:.6}, l:'Shaper', g:'dynamics', r:1.2, d:'Transient shaper: makes each attack snappier or softer, and each tail longer or shorter.'},
+  pump:{f:'pump', set:{}, l:'Pump', g:'dynamics', r:6.2, d:'Sidechain pump: the level ducks on every beat and swells back, the breathing sound of dance music.'},
+  mb:{f:'mb', set:{}, l:'Multi', g:'dynamics', r:6.3, d:'Multiband compressor: lows, mids and highs each squashed from above and lifted from below. Loud, dense and detailed.'},
+  clipper:{f:'dyn', set:{dyType:5, dyGain:6, dyThr:-3, dySoft:.3}, l:'Clipper', g:'dynamics', r:6.4, d:'Clipper: rounds off the peaks instantly, with no attack or release. Louder, at the cost of a little grit.'},
+  limiter:{f:'dyn', set:{dyType:1, dyThr:-6, dyRel:.08, dyGain:4}, l:'Limiter', g:'dynamics', r:6.5, d:'A compressor with an infinite ratio: nothing gets past the ceiling. Usually last on the line.'},
   octaver:{f:'pitch', set:{psType:0}, l:'Octave', g:'pitch', r:2, d:'Octaver: adds copies an octave below and an octave above what you play.'},
   shifter:{f:'pitch', set:{psType:1, psSemi:7, psMix:.5}, l:'Shift', g:'pitch', r:2.1, d:'Pitch shifter: a copy moved by any interval. Under the dry sound it plays a harmony.'},
+  harmony:{f:'pitch', set:{psType:2, hmDeg:2, hmKey:0, hmScale:0, psMix:.5}, l:'Harmony', g:'pitch', r:2.15, d:'Harmonizer: a copy that stays in key. A third above is sometimes 3 semitones, sometimes 4, depending on the note.'},
   ring:{f:'fx1', set:{e1Type:4, e1Depth:1}, l:'Ring', g:'pitch', r:2.2, d:'Ring modulator: multiplies the sound by a sine. New, unrelated frequencies appear: clangy and bell-like.'},
+  fshift:{f:'fshift', set:{}, l:'Freq Shift', g:'pitch', r:2.25, d:'Frequency shifter: moves every harmonic by the same number of Hz, so they stop lining up. Not a pitch shift.'},
+  reso:{f:'reso', set:{}, l:'Resonator', g:'pitch', r:2.3, d:'Resonator: four strings tuned to a chord ring along with whatever you play, like a piano with the pedal down.'},
+  shep:{f:'shep', set:{}, l:'Shepard', g:'pitch', r:2.35, d:'Shepard tone: three copies an octave apart glide up together, fading in and out, so the pitch seems to rise forever.'},
   drive:{f:'drv', set:{drvType:0}, l:'Drive', g:'tone', r:3, d:'Overdrive: soft clipping that warms up, then growls, like a tube pushed hard.'},
   fuzz:{f:'drv', set:{drvType:1, drvAmt:.6, drvLvl:.5}, l:'Fuzz', g:'tone', r:3.05, d:'Fuzz: so much gain that the wave turns almost square. Thick, buzzing, very 1960s.'},
   dist:{f:'drv', set:{drvType:2, drvAmt:.5}, l:'Dist', g:'tone', r:3.1, d:'Distortion: hard clipping flattens the peaks. Aggressive and bright.'},
+  rect:{f:'drv', set:{drvType:4, drvAmt:.5, drvTone:.6, drvBias:0, drvLvl:.6}, l:'Rectify', g:'tone', r:3.12, d:'Rectifier: the bottom half of the wave is flipped up. The pitch jumps an octave: the octave-fuzz sound.'},
   fold:{f:'drv', set:{drvType:3, drvAmt:.4, drvTone:.8}, l:'Folder', g:'tone', r:3.15, d:'Wavefolder: peaks fold back down instead of clipping, adding bright, shifting harmonics. West Coast style.'},
+  sat:{f:'drv', set:{drvType:5, drvAmt:.4, drvTone:.75, drvBias:.15, drvLvl:.7}, l:'Saturate', g:'tone', r:3.17, d:'Saturation: the gentle, lopsided rounding of tape or a mixing desk. Thicker and warmer before it ever sounds distorted.'},
   crush:{f:'crush', set:{}, l:'Crush', g:'tone', r:3.2, d:'Bitcrusher: fewer bits and a lower sample rate. Gritty, lo-fi, 8-bit.'},
+  lofi:{f:'lofi', set:{}, l:'Lo-Fi', g:'tone', r:3.25, d:'Lo-fi: a worn cassette, a dusty record or an AM radio. Wobble, a narrow band and the noise of the medium.'},
   amp:{f:'amp', set:{ampType:2, ampLvl:.5}, l:'Amp', g:'tone', r:3.3, d:'A tube-style preamp that clips softly, into a speaker cabinet. Warm to growling.'},
-  eq:{f:'eq', set:{eqLo:3, eqMid:-2, eqHi:3}, l:'EQ', g:'tone', r:3.4, d:'Boost or cut the bass, mids and treble to balance the tone.'},
+  cab:{f:'cab', set:{}, l:'Cab', g:'tone', r:3.35, d:'Speaker cabinet on its own: the boxy low end, the presence and the rolled-off top a speaker and mic give any sound.'},
   chorus:{f:'mod', set:{modType:0}, l:'Chorus', g:'motion', r:4, d:'A copy on a wobbling delay drifts against the dry sound: wide and shimmering.'},
   ensemble:{f:'mod', set:{modType:4, chRate:.4, chDepth:.6, chMix:.6}, l:'Ensemble', g:'motion', r:4.05, d:'Three chorus voices a third of a cycle apart: the lush string-machine sound.'},
+  juno:{f:'mod', set:{modType:6, jnMode:0, chMix:.5}, l:'Juno', g:'motion', r:4.07, d:'The Juno-60 chorus: one triangle LFO swings two delay taps in opposite directions. Modes I, II and both buttons.'},
+  dimension:{f:'mod', set:{modType:7, dmMode:1, chMix:.5}, l:'Dimension', g:'motion', r:4.08, d:'Dimension: a very slow, shallow chorus with each side fed into the other. Wider and richer, with almost no wobble.'},
   flanger:{f:'mod', set:{modType:1, chRate:.3, chMix:.6, chFb:.5}, l:'Flanger', g:'motion', r:4.1, d:'A very short sweeping delay carves a comb of notches: the jet-plane swoosh.'},
   phaser:{f:'mod', set:{modType:2, chRate:.4, chMix:.6}, l:'Phaser', g:'motion', r:4.2, d:'All-pass filters sweep a few wide notches: smooth and liquid.'},
+  barber:{f:'mod', set:{modType:8, chRate:.15, chFb:.4, chMix:.5, bpUp:1}, l:'Barber', g:'motion', r:4.22, d:'Barber-pole phaser: the notches glide in one direction forever, never coming back. A frequency shifter in disguise.'},
   vibe:{f:'mod', set:{modType:3, chRate:1.2, chDepth:.7, chMix:.5}, l:'Vibe', g:'motion', r:4.25, d:'A phaser with uneven stages and a lopsided sweep: the throbbing Uni-Vibe.'},
   vibrato:{f:'mod', set:{modType:5, chRate:5, chDepth:.35, chMix:1}, l:'Vibrato', g:'motion', r:4.3, d:'The pitch wobbles. It is a chorus with the dry sound taken out.'},
   rotary:{f:'rot', set:{}, l:'Rotary', g:'motion', r:4.35, d:'A rotating speaker: a spinning horn and drum, slow or fast. The classic organ sound.'},
-  trem:{f:'fx1', set:{e1Type:1}, l:'Trem', g:'motion', r:4.4, d:'Tremolo: an LFO pulses the volume up and down.'},
-  slicer:{f:'fx1', set:{e1Type:5, e1Depth:1}, l:'Slicer', g:'motion', r:4.45, d:'A gate locked to the tempo chops the sound into steps: the trance-gate stutter.'},
-  pan:{f:'fx1', set:{e1Type:2, e1Rate:.5, e1Depth:.8}, l:'Pan', g:'motion', r:4.5, d:'Auto-pan: an LFO swings the sound between your left and right ears.'},
+  trem:{f:'fx1', set:{e1Type:1}, l:'Trem', g:'rhythm', r:4.4, d:'Tremolo: an LFO pulses the volume up and down.'},
+  htrem:{f:'fx1', set:{e1Type:6, e1Rate:3, e1Depth:.7, e1Freq:700}, l:'H-Trem', g:'rhythm', r:4.42, d:'Harmonic tremolo: the lows and highs pulse in turn, so the tone sways as well as the level. The 1960s amp sound.'},
+  pan:{f:'fx1', set:{e1Type:2, e1Rate:.5, e1Depth:.8}, l:'Pan', g:'rhythm', r:4.44, d:'Auto-pan: an LFO swings the sound between your left and right ears.'},
+  slicer:{f:'fx1', set:{e1Type:5, e1Depth:1}, l:'Slicer', g:'rhythm', r:4.45, d:'A gate locked to the tempo chops the sound into steps: the trance-gate stutter.'},
+  stutter:{f:'glitch', set:{gbType:0, gbDiv:2, gbAmt:.35, gbMix:1}, l:'Stutter', g:'rhythm', r:4.6, d:'Stutter: now and then the last slice of sound repeats, machine-gun style, locked to the tempo.'},
+  scatter:{f:'glitch', set:{gbType:1, gbDiv:2, gbAmt:.5, gbRev:.3, gbMix:1}, l:'Scatter', g:'rhythm', r:4.62, d:'Scatter: slices of the last bar are played back out of order, some of them backwards.'},
+  half:{f:'glitch', set:{gbType:2, gbDiv:0, gbMix:1}, l:'Halftime', g:'rhythm', r:4.64, d:'Halftime: the sound plays at half speed, an octave down and twice as slow, in chunks that keep up with the beat.'},
+  stop:{f:'glitch', set:{gbType:3, gbLen:2, gbEvery:0, gbMix:1}, l:'Tape Stop', g:'rhythm', r:4.66, d:'Tape stop: at the end of every bar the tape slows to a halt, pitch diving, then snaps back to speed.'},
+  grain:{f:'glitch', set:{gbType:5, gbSize:.08, gbDens:15, gbPitch:0, gbMix:.6}, l:'Grain', g:'rhythm', r:4.7, d:'Granular: tiny windowed grains of the last second, scattered in time and space into a cloud.'},
+  freeze:{f:'glitch', set:{gbType:4, gbSize:.2, gbFade:1.5, gbMix:.6}, l:'Freeze', g:'rhythm', r:4.75, d:'Freeze: just after each new note, a slice is captured and held forever as a drone under what you play.'},
   delay:{f:'delay', set:{dType:0}, l:'Delay', g:'space', r:5, d:'Echoes that repeat and fade. Time spaces them; Feedback sets how many.'},
+  slap:{f:'delay', set:{dType:2, dTime:.11, dFb:.05, dTone:3500, dMix:.45, dSync:0}, l:'Slapback', g:'space', r:5.02, d:'Slapback: one quick echo, 80 to 140 ms behind. The 1950s rockabilly vocal sound.'},
   tape:{f:'delay', set:{dType:1, dTime:.38, dFb:.5, dTone:2800, dMix:.35}, l:'Tape', g:'space', r:5.05, d:'Tape echo: repeats that wobble, darken and saturate as they go round the loop.'},
+  bbd:{f:'delay', set:{dType:3, dTime:.32, dFb:.5, dTone:5000, dMix:.35, dWow:.3}, l:'BBD', g:'space', r:5.07, d:'Analog bucket-brigade delay: dark, gritty repeats that get murkier the longer the time.'},
+  diffuse:{f:'delay', set:{dType:4, dTime:.28, dFb:.55, dTone:6000, dMix:.4, dDiff:.6}, l:'Diffuse', g:'space', r:5.1, d:'Diffuse delay: each repeat is smeared a little more, so the echoes melt into a reverb.'},
   reverb:{f:'reverb', set:{rvType:0, rvMix:.3}, l:'Reverb', g:'space', r:5.5, d:'Thousands of blurred reflections put the sound in a hall.'},
   room:{f:'reverb', set:{rvType:1, rvMix:.3, rvSize:.5, rvPre:.004}, l:'Room', g:'space', r:5.51, d:'A small room: quick, distinct early reflections and a short tail.'},
   plate:{f:'reverb', set:{rvType:2, rvMix:.3, rvSize:.55, rvPre:.015}, l:'Plate', g:'space', r:5.52, d:'A steel plate set ringing: dense and bright from the first instant. The classic vocal reverb.'},
   spring:{f:'reverb', set:{rvType:3, rvMix:.35, rvSize:.4, rvDamp:.3}, l:'Spring', g:'space', r:5.53, d:'Sound bounced along metal springs: drippy and boingy, as in a guitar amp.'},
   shimmer:{f:'reverb', set:{rvType:4, rvMix:.4, rvSize:.7, rvPre:.03}, l:'Shimmer', g:'space', r:5.54, d:'A huge reverb whose tail is pitched up an octave and fed back in, so it rises.'},
-  wide:{f:'wide', set:{}, l:'Wide', g:'master', r:6, d:'Stereo widener: a short Haas delay and more side signal spread the sound; the bass stays mono.'},
-  limiter:{f:'dyn', set:{dyType:1, dyThr:-6, dyRel:.08, dyGain:4}, l:'Limiter', g:'master', r:6.5, d:'A compressor with an infinite ratio: nothing gets past the ceiling. Usually last on the line.'},
+  reverse:{f:'reverb', set:{rvType:5, rvMix:.45, rvSize:.5, rvPre:0}, l:'Reverse', g:'space', r:5.55, d:'Reverse reverb: the tail is played backwards, so it swells up into each note instead of dying away.'},
+  gated:{f:'reverb', set:{rvType:6, rvMix:.45, rvSize:.7, rvGate:.3, rvPre:0}, l:'Gated', g:'space', r:5.56, d:'Gated reverb: a huge, dense tail that is cut off dead. The big 1980s drum sound.'},
+  wide:{f:'wide', set:{}, l:'Wide', g:'space', r:6, d:'Stereo widener: a short Haas delay and more side signal spread the sound; the bass stays mono.'},
 };
-const VAR_OF = {fx1:['trem', 'trem', 'pan', 'wah', 'ring', 'slicer'], mod:['chorus', 'flanger', 'phaser', 'vibe', 'ensemble', 'vibrato'], dyn:['comp', 'limiter', 'gate', 'shaper'],
-  drv:['drive', 'fuzz', 'dist', 'fold'], delay:['delay', 'tape'], reverb:['reverb', 'room', 'plate', 'spring', 'shimmer'], pitch:['octaver', 'shifter']};
-const VAR_TY = {fx1:'e1Type', mod:'modType', dyn:'dyType', drv:'drvType', delay:'dType', reverb:'rvType', pitch:'psType'};
+const VAR_OF = {fx1:['trem', 'trem', 'pan', 'wah', 'ring', 'slicer', 'htrem'], mod:['chorus', 'flanger', 'phaser', 'vibe', 'ensemble', 'vibrato', 'juno', 'dimension', 'barber'],
+  dyn:['comp', 'limiter', 'gate', 'shaper', 'expander', 'clipper'], drv:['drive', 'fuzz', 'dist', 'fold', 'rect', 'sat'], delay:['delay', 'tape', 'slap', 'bbd', 'diffuse'],
+  reverb:['reverb', 'room', 'plate', 'spring', 'shimmer', 'reverse', 'gated'], pitch:['octaver', 'shifter', 'harmony'], filt:['filt', 'step'],
+  glitch:['stutter', 'scatter', 'half', 'stop', 'freeze', 'grain']};
+const VAR_TY = {fx1:'e1Type', mod:'modType', dyn:'dyType', drv:'drvType', delay:'dType', reverb:'rvType', pitch:'psType', filt:'afStep', glitch:'gbType'};
 const varOf = (f, P) => VAR_OF[f] ? VAR_OF[f][P[VAR_TY[f]] | 0] || VAR_OF[f][f === 'fx1' ? 1 : 0] : f === 'rot' ? 'rotary' : f;
 // older patches ran the effects in one fixed order; rebuilding their board in that order keeps them sounding exactly the same
 const legacyRank = (f, P) => f === 'fx1' ? ((P.e1Type | 0) === 2 ? 3.5 : (P.e1Type | 0) === 5 ? 3.6 : 0)
-  : f === 'dyn' ? ((P.dyType | 0) === 1 ? 6 : 0.5) : {filt:.1, pitch:.6, drv:.8, crush:.9, amp:1, eq:2, mod:3, rot:3.3, delay:4, reverb:5, wide:5.8}[f];
+  : f === 'dyn' ? ((P.dyType | 0) === 1 ? 6 : 0.5) : {filt:.1, pitch:.6, drv:.8, crush:.9, amp:1, eq:2, mod:3, rot:3.3, delay:4, reverb:5, wide:5.8,
+    swell:.55, fshift:.65, reso:.7, shep:.75, lofi:.95, cab:1.05, geq:2.1, glitch:3.8, pump:5.85, mb:5.9}[f];
 const fxPick = (src, f) => { const o = {}; FXF[f].keys.forEach(k => o[k] = src && k in src ? src[k] : INIT[k]); return o; };
 let FXID = 1;
 const fxB = (f, P = params) => (P.fxc || []).find(u => u.f === f && u.b) || null;
@@ -1502,7 +1871,9 @@ const fxAct = (u, P = params) => { if (!uOn(u, P)) return false; const q = uP(u,
   switch (u.f) {
     case 'fx1': return (q.e1Type | 0) > 0; case 'amp': return (q.ampType | 0) > 0; case 'eq': return ['eqLo', 'eqMid', 'eqHi'].some(k => Math.abs(q[k]) > 0.05);
     case 'mod': return q.chMix > 0.001; case 'delay': return q.dMix > 0.001; case 'reverb': return q.rvMix > 0.001; case 'crush': return q.crMix > 0.001;
-    case 'pitch': return (q.psType | 0) === 1 ? q.psMix > 0.001 : true; default: return true;
+    case 'pitch': return (q.psType | 0) >= 1 ? q.psMix > 0.001 : true; case 'geq': return [1, 2, 3, 4, 5, 6, 7].some(i => Math.abs(q['gq' + i]) > 0.05);
+    case 'pump': return q.pmDepth > 0.001; case 'swell': return q.swDepth > 0.001; case 'fshift': return q.fsMix > 0.001; case 'shep': return q.sgMix > 0.001;
+    case 'reso': return q.rsMix > 0.001; case 'lofi': return q.lfMix > 0.001; case 'glitch': return q.gbMix > 0.001; default: return true;
   } };
 function fxLoad(P, u){ FXF[u.f].keys.forEach(k => P[k] = u.p[k]); P[FXF[u.f].pw] = u.on ? 1 : 0; }
 // make any params object's board consistent: valid pedals, one bound pedal per family on the line, switches of absent families
@@ -1545,7 +1916,10 @@ const WT_NAMES = ['sine', 'warm', 'organ', 'hollow', 'saw', 'vocal', 'narrow', '
 const ADIV_L = ['1/4', '1/8', '1/16', '1/8T', '1/16T'];
 const LDIV_L = ['1 bar', '1/2', '1/4', '1/8', '1/16', '1/32', '1/4T', '1/8T'];
 const DDIV_L = ['1/4', '1/8 dot', '1/8', '1/8T', '1/16'];
-const RV_T60 = (s, ty) => [0.3 + s * s * 9.7, 0.15 + s * s * 1.6, 0.4 + s * s * 5.6, 0.9 + s * s * 4.5, 1.5 + s * s * 13.5][ty | 0] || 0.3 + s * s * 9.7;
+const RV_T60 = (s, ty) => [0.3 + s * s * 9.7, 0.15 + s * s * 1.6, 0.4 + s * s * 5.6, 0.9 + s * s * 4.5, 1.5 + s * s * 13.5, 0.8 + s * s * 4, 1.2 + s * s * 4.8][ty | 0] || 0.3 + s * s * 9.7;
+const fDb = v => sgn(v) + Math.abs(v).toFixed(1) + ' dB';
+const NOTE_NM = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
+const PDIV_L = ['1/2', '1/4', '1/8', '1/16'], GDIV_L = ['1/4', '1/8', '1/16', '1/32', '1/8T', '1/16T'];
 const INTV = {0:'unison', 3:'min 3rd', 4:'maj 3rd', 5:'4th', 7:'5th', 12:'octave'};
 const DEFS = {
   o1oct:{l:'Octave',min:-2,max:2,step:1,f:v=>sgn(v)+Math.abs(v)},
@@ -1635,6 +2009,34 @@ const DEFS = {
   wdWidth:{l:'Width',min:0,max:2,f:v=>v<.02?'mono':Math.round(v*100)+'%'},
   wdHaas:{l:'Haas',min:0,max:.03,f:v=>v<.0002?'off':(v*1000).toFixed(1)+' ms'},
   wdLow:{l:'Mono Bass',min:20,max:500,c:'log',f:fHz},
+  afDiv:{l:'Step',min:0,max:4,step:1,f:v=>ADIV_L[v]},
+  afGlide:{l:'Glide',min:0,max:1,f:v=>v<.01?'off':fPct(v)},
+  jnMode:{l:'Mode',min:0,max:2,step:1,f:v=>['I · slow','II · faster','I + II · fast'][v]},
+  dmMode:{l:'Mode',min:0,max:3,step:1,f:v=>'button '+(v+1)},
+  dDiff:{l:'Smear',min:0,max:1,f:fPct},
+  rvGate:{l:'Hold',min:.05,max:.8,c:'log',f:fT},
+  dySoft:{l:'Knee',min:0,max:1,f:v=>v<.03?'hard':fPct(v)},
+  hmKey:{l:'Key',min:0,max:11,step:1,f:v=>NOTE_NM[v]},
+  hmScale:{l:'Scale',min:0,max:1,step:1,f:v=>v?'minor':'major'},
+  hmDeg:{l:'Interval',min:-7,max:7,step:1,bip:1,f:v=>v===0?'unison':(v>0?'up a ':'down a ')+['','2nd','3rd','4th','5th','6th','7th','n octave'][Math.abs(v)]},
+  gq1:{l:'63',min:-12,max:12,bip:1,f:fDb}, gq2:{l:'160',min:-12,max:12,bip:1,f:fDb}, gq3:{l:'400',min:-12,max:12,bip:1,f:fDb}, gq4:{l:'1k',min:-12,max:12,bip:1,f:fDb},
+  gq5:{l:'2.5k',min:-12,max:12,bip:1,f:fDb}, gq6:{l:'6.3k',min:-12,max:12,bip:1,f:fDb}, gq7:{l:'16k',min:-12,max:12,bip:1,f:fDb},
+  mbAmt:{l:'Depth',min:0,max:1,f:fPct}, mbUp:{l:'Upward',min:0,max:1,f:fPct}, mbTime:{l:'Time',min:.2,max:5,c:'log',f:v=>'×'+v.toFixed(2)},
+  mbLo:{l:'Low',min:-12,max:12,bip:1,f:fDb}, mbMid:{l:'Mid',min:-12,max:12,bip:1,f:fDb}, mbHi:{l:'High',min:-12,max:12,bip:1,f:fDb},
+  pmDepth:{l:'Depth',min:0,max:1,f:fPct}, pmDiv:{l:'Rate',min:0,max:3,step:1,f:v=>PDIV_L[v]}, pmRel:{l:'Release',min:.05,max:1,f:v=>Math.round(v*100)+'% of step'},
+  swRise:{l:'Rise',min:.02,max:4,c:'log',f:fT}, swCurve:{l:'Curve',min:0,max:1,f:v=>v<.15?'straight':v>.7?'slow start':'eased'}, swDepth:{l:'Depth',min:0,max:1,f:fPct},
+  fsHz:{l:'Shift',min:-2000,max:2000,c:'bsq',bip:1,f:v=>{const a=Math.abs(v);return sgn(v)+(a<10?a.toFixed(2):a<100?a.toFixed(1):Math.round(a))+' Hz';}},
+  fsFb:{l:'Feedback',min:0,max:.9,f:fPct}, fsMix:{l:'Mix',min:0,max:1,f:fPct},
+  sgRate:{l:'Speed',min:-.25,max:.25,c:'bsq',bip:1,f:v=>Math.abs(v)<.0005?'still':(v>0?'rising ':'falling ')+Math.abs(v*36).toFixed(1)+' st/s'}, sgMix:{l:'Mix',min:0,max:1,f:fPct},
+  rsKey:{l:'Key',min:0,max:11,step:1,f:v=>NOTE_NM[v]}, rsChord:{l:'Chord',min:0,max:5,step:1,f:v=>['major','minor','sus4','fifths','maj7','min7'][v]},
+  rsDecay:{l:'Decay',min:.1,max:8,c:'log',f:fT}, rsBright:{l:'Bright',min:0,max:1,f:fPct}, rsMix:{l:'Mix',min:0,max:1,f:fPct},
+  cbMic:{l:'Mic',min:0,max:1,f:v=>v<.12?'centre':v>.85?'edge':'off-axis '+Math.round(v*100)+'%'}, cbLvl:{l:'Level',min:0,max:1,f:fPct},
+  lfWow:{l:'Wobble',min:0,max:1,f:fPct}, lfNoise:{l:'Noise',min:0,max:1,f:fPct},
+  lfTone:{l:'Tone',min:0,max:1,f:v=>{const r=(params.lfType|0)===2;return 'top '+fHz((r?1800:3000)*Math.pow(2,v*(r?1.4:2.3)));}}, lfMix:{l:'Mix',min:0,max:1,f:fPct},
+  gbDiv:{l:'Grid',min:0,max:5,step:1,f:v=>GDIV_L[v]}, gbAmt:{l:'Chance',min:0,max:1,f:fPct}, gbRev:{l:'Reverse',min:0,max:1,f:fPct},
+  gbLen:{l:'Length',min:0,max:4,step:1,f:v=>['1/16','1/8','1/4','1/2','1 bar'][v]}, gbEvery:{l:'Every',min:0,max:2,step:1,f:v=>['bar','2 bars','4 bars'][v]},
+  gbSize:{l:'Size',min:.01,max:.5,c:'log',f:fT}, gbFade:{l:'Morph',min:.05,max:6,c:'log',f:fT},
+  gbDens:{l:'Density',min:1,max:60,c:'log',f:v=>v.toFixed(v<10?1:0)+' /s'}, gbPitch:{l:'Pitch',min:0,max:12,step:1,f:v=>v?'±'+v+' st':'none'}, gbMix:{l:'Mix',min:0,max:1,f:fPct},
   tempo:{l:'Tempo',min:40,max:220,step:1,f:v=>v+' bpm'},
   arpOct:{l:'Octaves',min:1,max:4,step:1,f:v=>v+(v>1?' oct':' oct')},
   arpGate:{l:'Gate',min:.05,max:1,f:fPct},
@@ -1654,21 +2056,24 @@ const SEGS = {
   o1w:{l:'Wave',icons:1,o:[['sine','Sine'],['tri','Tri'],['saw','Saw'],['pulse','Pulse'],['wt','Wavetable'],['vox','Formant']]},
   o2w:{l:'Wave',o:[['sine','Sine'],['tri','Tri'],['saw','Saw'],['pulse','Pulse']]},
   ftype:{l:'Type',o:[[null,'LP24'],[null,'LP12'],[null,'HP'],[null,'BP'],[null,'LP+BP']]},
-  e1Type:{l:'Type',base:1,o:[[null,'Trem'],[null,'Pan'],[null,'Wah'],[null,'Ring'],[null,'Slicer']]},
-  modType:{l:'Type',o:[[null,'Chorus'],[null,'Flanger'],[null,'Phaser'],[null,'Vibe'],[null,'Ensemble'],[null,'Vibrato']]},
-  dType:{l:'Type',o:[[null,'Digital'],[null,'Tape']]},
-  rvType:{l:'Type',o:[[null,'Hall'],[null,'Room'],[null,'Plate'],[null,'Spring'],[null,'Shimmer']]},
-  dyType:{l:'Type',o:[[null,'Comp'],[null,'Limit'],[null,'Gate'],[null,'Shaper']]},
-  drvType:{l:'Type',o:[[null,'Drive'],[null,'Fuzz'],[null,'Dist'],[null,'Fold']]},
+  e1Type:{l:'Type',base:1,o:[[null,'Trem'],[null,'Pan'],[null,'Wah'],[null,'Ring'],[null,'Slicer'],[null,'H-Trem']]},
+  modType:{l:'Type',o:[[null,'Chorus'],[null,'Flanger'],[null,'Phaser'],[null,'Vibe'],[null,'Ensemble'],[null,'Vibrato'],[null,'Juno'],[null,'Dim'],[null,'Barber']]},
+  dType:{l:'Type',o:[[null,'Digital'],[null,'Tape'],[null,'Slap'],[null,'BBD'],[null,'Diffuse']]},
+  rvType:{l:'Type',o:[[null,'Hall'],[null,'Room'],[null,'Plate'],[null,'Spring'],[null,'Shimmer'],[null,'Reverse'],[null,'Gated']]},
+  dyType:{l:'Type',o:[[null,'Comp'],[null,'Limit'],[null,'Gate'],[null,'Shaper'],[null,'Expand'],[null,'Clip']]},
+  drvType:{l:'Type',o:[[null,'Drive'],[null,'Fuzz'],[null,'Dist'],[null,'Fold'],[null,'Rect'],[null,'Sat']]},
   afType:{l:'Mode',o:[[null,'LP'],[null,'BP'],[null,'HP']]},
-  psType:{l:'Type',o:[[null,'Octave'],[null,'Shift']]},
+  psType:{l:'Type',o:[[null,'Octave'],[null,'Shift'],[null,'Harmony']]},
+  cbType:{l:'Cab',o:[[null,'1×12'],[null,'2×12'],[null,'4×12'],[null,'Radio']]},
+  lfType:{l:'Type',o:[[null,'Cassette'],[null,'Vinyl'],[null,'Radio']]},
+  gbType:{l:'Type',o:[[null,'Stutter'],[null,'Scatter'],[null,'Half'],[null,'Stop'],[null,'Freeze'],[null,'Grain']]},
   rtSpd:{l:'Speed',o:[[null,'Slow'],[null,'Fast']]},
   ampType:{l:'Cab',base:1,o:[[null,'Small'],[null,'Combo'],[null,'Clean']]},
   lshape:{l:'Shape',o:[['tri','Tri'],['pulse','Sqr'],['sawdn','Dn'],['saw','Up'],['sh','S&H']]},
   arpMode:{l:'Mode',o:[[null,'Up'],[null,'Down'],[null,'Up/Dn'],[null,'Rnd']]},
 };
 const TOGS = { bl:{l:'Anti-alias',s:'PolyBLEP'}, sync:{l:'Hard Sync',s:'to OSC 1'}, ring:{l:'Ring Mod',s:'OSC 1 × 2'},
-  lsync:{l:'Sync',s:'to tempo'}, dSync:{l:'Sync',s:'to tempo'}, dPing:{l:'Ping-pong',s:'L ↔ R'}, arpOn:{l:'Arp',s:'on / off'}, poly:{l:'Poly',s:'8 voices'} };
+  lsync:{l:'Sync',s:'to tempo'}, dSync:{l:'Sync',s:'to tempo'}, dPing:{l:'Ping-pong',s:'L ↔ R'}, bpUp:{l:'Rising',s:'off = falling'}, fsSt:{l:'Stereo',s:'L up · R down'}, arpOn:{l:'Arp',s:'on / off'}, poly:{l:'Poly',s:'8 voices'} };
 const rowsOf = r => typeof r === 'function' ? r() : r;
 const TABS = [
   {id:'osc1',l:'Osc1',seg:'o1w',rows:() => [['o1oct', params.o1w === 4 ? 'o1pos' : params.o1w === 5 ? 'o1vow' : 'o1pw', 'glide'],['uniN','uniDet','bl']]},
@@ -1679,19 +2084,32 @@ const TABS = [
     {id:'shape',l:'Shapes',env:1},
     {id:'route',l:'Routing',rows:[['fenv','mePitch','meFm'],['meShape']]}]},
   {id:'fx',l:'FX',sub:[
-    {id:'fx1',l:'FX1',seg:'e1Type',rows:() => params.e1Type === 3 ? [['e1Sens','e1Depth','e1Q']] : params.e1Type === 4 ? [['e1Freq','e1Depth']] : params.e1Type === 5 ? [['e1Div','e1Depth','e1Duty']] : params.e1Type ? [['e1Rate','e1Depth']] : []},
+    {id:'fx1',l:'FX1',seg:'e1Type',rows:() => params.e1Type === 6 ? [['e1Rate','e1Depth','e1Freq']] : params.e1Type === 3 ? [['e1Sens','e1Depth','e1Q']] : params.e1Type === 4 ? [['e1Freq','e1Depth']] : params.e1Type === 5 ? [['e1Div','e1Depth','e1Duty']] : params.e1Type ? [['e1Rate','e1Depth']] : []},
     {id:'amp',l:'Amp',seg:'ampType',rows:[['ampDrive','ampTone','ampLvl']]},
     {id:'eq',l:'EQ',rows:[['eqLo','eqMid','eqHi'],['eqFreq']]},
-    {id:'mod',l:'Mod',seg:'modType',rows:() => params.modType === 1 || params.modType === 2 ? [['chRate','chDepth','chFb','chMix']] : [['chRate','chDepth','chMix']]},
-    {id:'delay',l:'Delay',seg:'dType',rows:() => [[params.dSync ? 'dDiv' : 'dTime','dFb','dTone'],['dMix','dSync',params.dType ? 'dWow' : 'dPing']]},
-    {id:'reverb',l:'Reverb',seg:'rvType',rows:[['rvSize','rvDamp','rvMix'],['rvPre']]},
-    {id:'dyn',l:'Dyn',seg:'dyType',rows:() => [[['dyThr','dyRatio','dyGain'],['dyAtk','dyRel']], [['dyThr','dyRel','dyGain']], [['dyThr','dyAtk','dyRel']], [['dyPunch','dySus','dyGain']]][params.dyType | 0] || []},
+    {id:'mod',l:'Mod',seg:'modType',rows:() => params.modType === 6 ? [['jnMode','chMix']] : params.modType === 7 ? [['dmMode','chMix']] : params.modType === 8 ? [['chRate','chFb','chMix'],['bpUp']]
+      : params.modType === 1 || params.modType === 2 ? [['chRate','chDepth','chFb','chMix']] : [['chRate','chDepth','chMix']]},
+    {id:'delay',l:'Delay',seg:'dType',rows:() => [[params.dSync ? 'dDiv' : 'dTime','dFb','dTone'],['dMix','dSync'].concat([['dPing'], ['dWow'], [], ['dWow'], ['dDiff']][params.dType | 0] || [])]},
+    {id:'reverb',l:'Reverb',seg:'rvType',rows:() => (params.rvType | 0) === 6 ? [['rvSize','rvDamp','rvMix'],['rvGate','rvPre']] : [['rvSize','rvDamp','rvMix'],['rvPre']]},
+    {id:'dyn',l:'Dyn',seg:'dyType',rows:() => [[['dyThr','dyRatio','dyGain'],['dyAtk','dyRel']], [['dyThr','dyRel','dyGain']], [['dyThr','dyAtk','dyRel']], [['dyPunch','dySus','dyGain']],
+      [['dyThr','dyRatio','dyRel'],['dyAtk']], [['dyGain','dyThr','dySoft']]][params.dyType | 0] || []},
     {id:'drv',l:'Drive',seg:'drvType',rows:[['drvAmt','drvTone','drvBias','drvLvl']]},
     {id:'crush',l:'Crush',rows:[['crBits','crRate','crMix']]},
-    {id:'filt',l:'Filter',seg:'afType',rows:[['afCut','afRes','afRate','afDepth']]},
-    {id:'pitch',l:'Pitch',seg:'psType',rows:() => params.psType ? [['psSemi','psMix']] : [['psSub','psUp','psDry']]},
+    {id:'filt',l:'Filter',seg:'afType',rows:() => params.afStep ? [['afCut','afRes','afDepth'],['afDiv','afGlide']] : [['afCut','afRes','afRate','afDepth']]},
+    {id:'pitch',l:'Pitch',seg:'psType',rows:() => params.psType === 2 ? [['hmDeg','hmKey','psMix'],['hmScale']] : params.psType ? [['psSemi','psMix']] : [['psSub','psUp','psDry']]},
     {id:'rot',l:'Rotary',seg:'rtSpd',rows:[['rtAccel','rtDrive','rtSpread']]},
-    {id:'wide',l:'Wide',rows:[['wdWidth','wdHaas','wdLow']]}]},
+    {id:'wide',l:'Wide',rows:[['wdWidth','wdHaas','wdLow']]},
+    {id:'geq',l:'Graphic',rows:[['gq1','gq2','gq3','gq4'],['gq5','gq6','gq7']]},
+    {id:'mb',l:'Multi',rows:[['mbAmt','mbUp','mbTime'],['mbLo','mbMid','mbHi']]},
+    {id:'pump',l:'Pump',rows:[['pmDepth','pmDiv','pmRel']]},
+    {id:'swell',l:'Swell',rows:[['swRise','swCurve','swDepth']]},
+    {id:'fshift',l:'Freq Shift',rows:[['fsHz','fsFb','fsMix'],['fsSt']]},
+    {id:'shep',l:'Shepard',rows:[['sgRate','sgMix']]},
+    {id:'reso',l:'Resonator',rows:[['rsKey','rsChord','rsMix'],['rsDecay','rsBright']]},
+    {id:'cab',l:'Cab',seg:'cbType',rows:[['cbMic','cbLvl']]},
+    {id:'lofi',l:'Lo-Fi',seg:'lfType',rows:[['lfWow','lfNoise','lfTone','lfMix']]},
+    {id:'glitch',l:'Glitch',seg:'gbType',rows:() => [[['gbDiv','gbAmt','gbMix']], [['gbDiv','gbAmt','gbRev','gbMix']], [['gbDiv','gbMix']], [['gbLen','gbEvery','gbMix']],
+      [['gbSize','gbFade','gbMix']], [['gbSize','gbDens','gbPitch','gbMix']]][params.gbType | 0] || []}]},
   {id:'lfo',l:'LFO',seg:'lshape',rows:() => [[params.lsync ? 'ldiv' : 'lrate','lpitch','lcut'],['lpw','lsync']]},
   {id:'arp',l:'Arp',seg:'arpMode',rows:[['arpDiv','arpOct','arpGate'],['tempo']]},
 ];
@@ -1719,14 +2137,15 @@ const secOf = k => PW_SEC[k] || KEY_SEC[k] || (TAB_OF[k] === 'fx' ? SUB_OF[k] : 
 const secOff = k => { const s = secOf(k); return !!s && !LIVE.has(k) && !params[PW[s]]; };
 
 const toN = (d, v) => {
-  const r = d.c === 'log' ? Math.log(Math.max(v, d.min) / d.min) / Math.log(d.max / d.min)
+  const r = d.c === 'bsq' ? 0.5 + 0.5 * Math.sign(v) * Math.sqrt(Math.min(1, Math.abs(v) / d.max))
+          : d.c === 'log' ? Math.log(Math.max(v, d.min) / d.min) / Math.log(d.max / d.min)
           : d.c === 'sq' ? Math.sqrt(Math.max(0, (v - d.min) / (d.max - d.min)))
           : (v - d.min) / (d.max - d.min);
   return Math.min(1, Math.max(0, r));
 };
 const fromN = (d, n) => {
   n = Math.min(1, Math.max(0, n));
-  let v = d.c === 'log' ? d.min * Math.pow(d.max / d.min, n) : d.c === 'sq' ? d.min + (d.max - d.min) * n * n : d.min + (d.max - d.min) * n;
+  let v = d.c === 'bsq' ? Math.sign(n - 0.5) * Math.pow(2 * n - 1, 2) * d.max : d.c === 'log' ? d.min * Math.pow(d.max / d.min, n) : d.c === 'sq' ? d.min + (d.max - d.min) * n * n : d.min + (d.max - d.min) * n;
   if (d.step) v = d.min + Math.round((v - d.min) / d.step) * d.step;
   return v;
 };
@@ -1829,7 +2248,7 @@ function autoEngage(k, old, v){
   setParam(PW[sec], 1);
 }
 function togglePower(sec){ const k = PW[sec]; setParam(k, params[k] ? 0 : 1); hudShow(k); hudHold(); }
-const LAYOUT_KEYS = new Set(['o1w', 'lsync', 'dSync', 'e1Type', 'modType', 'dType', 'dyType', 'psType']);
+const LAYOUT_KEYS = new Set(['o1w', 'lsync', 'dSync', 'e1Type', 'modType', 'dType', 'dyType', 'psType', 'rvType', 'afStep', 'gbType']);
 let layoutSig = '';
 function curLayout(){ const t = TABS.find(x => x.id === state.tab); if (!t) return ''; if (t.id === 'fx' && fxLibShown()) return '"lib"'; const sb = t.sub && t.sub.find(x => x.id === state.sub[t.id]); return JSON.stringify(sb ? (sb.env ? 'env' : rowsOf(sb.rows)) : t.rows ? rowsOf(t.rows) : ''); }
 function relayout(){ if (curLayout() !== layoutSig) showTab(state.tab); }
@@ -1985,7 +2404,8 @@ function segEl(k){
   row.innerHTML = `<span class="lab">${s.l}</span>`;
   const dense = s.o.length >= 5 && s.o.some(o => o[1].length > 5);
   if (dense) row.classList.add('dense');
-  const seg = document.createElement('div'); seg.className = 'seg' + (s.icons ? ' icons' : '') + (dense ? ' dense' : ''); seg.dataset.hint = k;
+  const seg = document.createElement('div'); seg.className = 'seg' + (s.icons ? ' icons' : '') + (dense ? ' dense' : '') + (s.o.length > 6 ? ' wrap' : ''); seg.dataset.hint = k;
+  if (s.o.length > 6) seg.style.gridTemplateColumns = `repeat(${Math.ceil(s.o.length / 2)},minmax(0,1fr))`;
   const base = s.base || 0;
   s.o.forEach(([ic, lab], i) => {
     const b = document.createElement('button'); b.setAttribute('aria-label', lab);
@@ -2102,7 +2522,7 @@ function pwStateText(sec){
 /* =====================================================================
    FX board: the end of the signal path, as a pedalboard you build yourself
    The line comes in from the Env (yellow), runs through every pedal on the board and out to the speaker. A pedal that is
-   switched on turns the line mint: the signal has been worked on. Below the board sits the library: 34 pedals in seven groups sorted by
+   switched on turns the line mint: the signal has been worked on. Below the board sits the library: 64 pedals in seven groups sorted by
    what they do, numbered in the order players usually chain them. Tap one to plug it in at its usual place, or drag it onto
    the line to put it exactly where you want. On the board: tap a pedal to open its knobs, stomp its footswitch (or hold the
    pedal) to bypass it, drag it along the line to reorder, drag it off the board to unplug it.
@@ -2334,15 +2754,15 @@ function fxDragEnd(e, cancel){
 }
 
 /* ---------- the library ---------- */
-// seven groups, numbered in the order players usually chain them; one group's pedals show at a time, so nothing scrolls
+// seven groups, numbered in the order players usually chain them; one group's pedals show at a time (up to 15, five by three), so nothing scrolls
 const LIB_GROUPS = [
-  ['filter', 'filter', 'Filters go first: they react best to the raw signal, with all its dynamics.'],
-  ['dynamics', 'dynamics', 'Dynamics: control how loud and how punchy, before anything colours the sound.'],
-  ['pitch', 'pitch', 'Pitch: octaves, harmonies and ring mod track best on a clean, simple signal.'],
-  ['tone', 'drive', 'Drive & tone: clipping, crushing, amps and EQ reshape the harmonics.'],
-  ['motion', 'motion', 'Motion: effects that move the sound in pitch, phase, level or space.'],
-  ['space', 'space', 'Space: echoes and rooms near the end, so they hold the whole finished sound.'],
-  ['master', 'master', 'Master: widen, then catch the peaks. The very end of the line.']];
+  ['filter', 'filter', 'Filters & EQ: filters go first, where they react to the raw signal; EQs shape the tone anywhere on the line.'],
+  ['dynamics', 'dynamics', 'Dynamics: level and punch. Gates and swells go early; pump, multiband, clipper and limiter close the line.'],
+  ['pitch', 'pitch', 'Pitch: octaves, harmonies, shifters and resonators track best on a clean, simple signal.'],
+  ['tone', 'drive', 'Drive & tone: clipping, crushing, worn media, amps and cabinets reshape the harmonics.'],
+  ['motion', 'mod', 'Mod: chorus, flanger, phaser and friends, short wobbling delays and sweeping filters.'],
+  ['rhythm', 'rhythm', 'Rhythm: effects locked to the tempo or the notes: tremolo, panning, slicing, stutters, freezes and grains.'],
+  ['space', 'space', 'Space: echoes, rooms and stereo width near the end, so they hold the whole finished sound.']];
 const libVars = g => Object.keys(VAR).filter(v => VAR[v].g === g).sort((a, b) => VAR[a].r - VAR[b].r);
 state.libG = store.get('libG', 'tone'); if (!LIB_GROUPS.some(x => x[0] === state.libG)) state.libG = 'tone';
 const LIB_HINT = 'Tap a pedal to add it where it usually goes (the group numbers), or drag it onto the line.';
@@ -2754,10 +3174,12 @@ const PD_ICON = {
   },
 };
 // the drive pedal's curves, for the pictures (the engine has its own copy)
-const shpUI = (x, ty) => ty === 0 ? Math.tanh(x) : ty === 1 ? (x > 0 ? 1 - Math.exp(-x) : -0.85 * (1 - Math.exp(1.4 * x))) : ty === 2 ? (x >= 1 ? 1 : x <= -1 ? -1 : 1.5 * (x - x * x * x / 3)) : Math.sin(x * 1.5707963267948966);
-const drvGain = P => [1 + P.drvAmt * 30, 2 + P.drvAmt * 120, 1 + P.drvAmt * 60, 1 + P.drvAmt * 7][P.drvType | 0];
+const shpUI = (x, ty) => ty === 0 ? Math.tanh(x) : ty === 1 ? (x > 0 ? 1 - Math.exp(-x) : -0.85 * (1 - Math.exp(1.4 * x))) : ty === 2 ? (x >= 1 ? 1 : x <= -1 ? -1 : 1.5 * (x - x * x * x / 3))
+  : ty === 4 ? Math.tanh(Math.abs(x)) * 1.2 : ty === 5 ? (x >= 0 ? Math.tanh(x) : Math.tanh(0.7 * x) / 0.85) : Math.sin(x * 1.5707963267948966);
+const drvGain = P => [1 + P.drvAmt * 30, 2 + P.drvAmt * 120, 1 + P.drvAmt * 60, 1 + P.drvAmt * 7, 1 + P.drvAmt * 24, 1 + P.drvAmt * 5][P.drvType | 0];
 // a pedal's live meter from the engine (gain reduction, gate opening, rotor speed), or null for library tiles and the drag ghost
 const fxMeter = c => c && c.id && tele.fxm && tele.fxm[c.id] != null ? tele.fxm[c.id] : null;
+const hash1 = i => { const v = Math.sin(i * 12.9898 + 4.1) * 43758.5453; return v - Math.floor(v); };
 const lineFn = (g, X0, X1, n, fy) => { g.beginPath(); for (let i = 0; i <= n; i++) { const u = i / n, x = X0 + u * (X1 - X0), y = fy(u); i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); };
 const PD_NEW = {
   ring(g, X0, Y0, X1, Y1, t, d, c, P){
@@ -2858,11 +3280,19 @@ Object.assign(PD_ICON, {
       g.globalAlpha = base; lineFn(g, X0, X1, 60, u => Y1 - Math.min(1, env(u, P.dyPunch * 0.8, P.dySus) * 0.55) * h);
       return;
     }
+    if (ty === 5) {
+      // the clipper: a sine pushed in by Gain, its peaks rounded off at the ceiling (dashed)
+      const h = Y1 - Y0, my = (Y0 + Y1) / 2, C = Math.pow(10, P.dyThr / 20), gi = Math.pow(10, P.dyGain / 20) * 0.75, kn = Math.max(0.02, P.dySoft), lo = C * (1 - kn);
+      const clip = x => { const a = Math.abs(x), y = a <= lo ? a : lo + C * kn * Math.tanh((a - lo) / (C * kn)); return x < 0 ? -y : y; };
+      g.globalAlpha = base * 0.3; g.setLineDash([1.5 * d, 2.5 * d]); g.beginPath(); g.moveTo(X0, my - C * h * 0.46); g.lineTo(X1, my - C * h * 0.46); g.moveTo(X0, my + C * h * 0.46); g.lineTo(X1, my + C * h * 0.46); g.stroke(); g.setLineDash([]); g.globalAlpha = base;
+      lineFn(g, X0, X1, 72, u => my - clip(gi * Math.sin(6.2832 * (u * 2 - t * 0.4))) * h * 0.46);
+      return;
+    }
     // the transfer curve: input level across, output level up; the bend sits at the threshold
     const thrU = (P.dyThr + 60) / 60, slope = ty === 1 ? 0 : 1 / Math.max(1, P.dyRatio);
     g.globalAlpha = base * 0.3; g.setLineDash([1.5 * d, 2.5 * d]); g.beginPath(); g.moveTo(X0, Y1); g.lineTo(XR, Y0); g.stroke(); g.setLineDash([]); g.globalAlpha = base;
     g.beginPath();
-    for (let i = 0; i <= 40; i++) { const u = i / 40; let v = ty === 2 ? (u < thrU ? Math.max(0, u - 0.35) * 0.25 : u) : u < thrU ? u : thrU + (u - thrU) * slope;
+    for (let i = 0; i <= 40; i++) { const u = i / 40; let v = ty === 2 ? (u < thrU ? Math.max(0, u - 0.35) * 0.25 : u) : ty === 4 ? (u >= thrU ? u : Math.max(0, thrU - (thrU - u) * Math.min(4, P.dyRatio))) : u < thrU ? u : thrU + (u - thrU) * slope;
       const x = X0 + u * w, y = Y1 - Math.min(1, v) * h; i ? g.lineTo(x, y) : g.moveTo(x, y); }
     g.stroke();
     g.beginPath(); g.arc(X0 + thrU * w, Y1 - thrU * h, 1.5 * d, 0, 6.2832); g.fill();
@@ -2932,12 +3362,230 @@ Object.assign(PD_ICON, {
     g.stroke();
   },
 });
+// the second wave of pedals: more types for the existing families, and ten new families
+Object.assign(PD_NEW, {
+  htrem(g, X0, Y0, X1, Y1, t, d, c, P){
+    // a low wave and a high wave, pulsing in turn
+    const h = Y1 - Y0, my = (Y0 + Y1) / 2, base = g.globalAlpha, ph = t * Math.min(P.e1Rate, 6) * 0.35;
+    lineFn(g, X0, X1, 64, u => { const e = 1 - P.e1Depth * (0.5 + 0.5 * Math.sin(6.2832 * (u * 1.2 - ph))); return my + h * 0.22 - Math.sin(6.2832 * u * 3) * e * h * 0.24; });
+    g.globalAlpha = base * 0.6;
+    lineFn(g, X0, X1, 90, u => { const e = 1 - P.e1Depth * (0.5 - 0.5 * Math.sin(6.2832 * (u * 1.2 - ph))); return my - h * 0.22 - Math.sin(6.2832 * u * 11) * e * h * 0.2; });
+    g.globalAlpha = base;
+  },
+  juno(g, X0, Y0, X1, Y1, t, d, c, P){
+    // the triangle LFO, and the two delay taps it swings in opposite directions
+    const h = Y1 - Y0, my = (Y0 + Y1) / 2, base = g.globalAlpha, r = [0.513, 0.863, 9.75][P.jnMode | 0], ph = (t * Math.min(r, 3) * 0.5) % 1, tri = ph < 0.5 ? 4 * ph - 1 : 3 - 4 * ph, a = (P.jnMode | 0) === 2 ? 0.35 : 1;
+    g.globalAlpha = base * 0.4; lineFn(g, X0, X1, 40, u => { const q = (u * 2 + ph) % 1; return my - (q < 0.5 ? 4 * q - 1 : 3 - 4 * q) * h * 0.18; }); g.globalAlpha = base;
+    [1, -1].forEach(s => { const x = (X0 + X1) / 2 + s * tri * a * (X1 - X0) * 0.3; g.beginPath(); g.moveTo(x, Y0 + 1 * d); g.lineTo(x, Y1 - 1 * d); g.stroke(); g.beginPath(); g.arc(x, s > 0 ? Y0 + 2 * d : Y1 - 2 * d, 1.5 * d, 0, 6.2832); g.fill(); });
+  },
+  dimension(g, X0, Y0, X1, Y1, t, d, c, P){
+    // two waves leaning gently apart and back, without the chorus wobble
+    const h = Y1 - Y0, my = (Y0 + Y1) / 2, base = g.globalAlpha, sp = (0.15 + 0.12 * (P.dmMode | 0)) * Math.sin(t * 0.8);
+    lineFn(g, X0, X1, 56, u => my - Math.sin(6.2832 * (u * 2.2 - t * 0.2) + sp) * h * 0.4);
+    g.globalAlpha = base * 0.5; lineFn(g, X0, X1, 56, u => my - Math.sin(6.2832 * (u * 2.2 - t * 0.2) - sp) * h * 0.4); g.globalAlpha = base;
+  },
+  barber(g, X0, Y0, X1, Y1, t, d, c, P){
+    // notches that glide one way and wrap round, endlessly
+    const h = Y1 - Y0, dir = P.bpUp ? 1 : -1, sh = (t * Math.min(P.chRate, 2) * 0.25 * dir) % 1, k = 3;
+    lineFn(g, X0, X1, 80, u => { let v = 1; for (let n = 0; n < k; n++) { const cn = ((n / k + sh) % 1 + 1) % 1; v -= 0.9 * Math.exp(-Math.pow((u - cn) / 0.05, 2)); } return Y1 - Math.max(0.05, v) * h * 0.92; });
+  },
+  slap(g, X0, Y0, X1, Y1, t, d, c, P){
+    // the note and one quick echo right behind it
+    const h = Y1 - Y0, w = X1 - X0, base = g.globalAlpha, gap = 0.08 + 0.45 * Math.min(1, P.dTime / 0.3), hd = (t % 1.6) / 1.6;
+    [[0.12, 1], [0.12 + gap, 0.3 + 0.7 * P.dMix]].forEach(([u, a], i) => { g.globalAlpha = base * (i ? 0.5 + 0.5 * Math.exp(-Math.pow((u - hd) * 8, 2)) : 0.9); g.beginPath(); g.moveTo(X0 + u * w, Y1); g.lineTo(X0 + u * w, Y1 - a * h * 0.95); g.stroke(); });
+    g.globalAlpha = base;
+  },
+  bbd(g, X0, Y0, X1, Y1, t, d, c, P){
+    // echoes that blur and darken as they go: each one wider and lower
+    const h = Y1 - Y0, w = X1 - X0, base = g.globalAlpha, s = 0.12 + 0.2 * Math.min(1, P.dTime / 0.6);
+    let lvl = 1; for (let k = 0, u = 0.05; u < 1 && lvl > 0.04; k++, u += s) {
+      const sp = k * 1.1 * d, x = X0 + u * w; g.globalAlpha = base * (0.35 + 0.65 * lvl);
+      g.beginPath(); for (let j = 0; j <= 12; j++) { const q = j / 12 - 0.5, y = Y1 - lvl * h * 0.95 * Math.exp(-q * q * 10); j ? g.lineTo(x + q * (2 + sp / d) * 2 * d, y) : g.moveTo(x + q * (2 + sp / d) * 2 * d, y); } g.stroke();
+      lvl *= Math.max(0.12, P.dFb) * (k ? 1 : 0.3 + 0.7 * P.dMix);
+    }
+    g.globalAlpha = base;
+  },
+  diffuse(g, X0, Y0, X1, Y1, t, d, c, P){
+    // each repeat spreads into more and more little reflections, melting into a wash
+    const h = Y1 - Y0, w = X1 - X0, base = g.globalAlpha, s = 0.2, fr = Math.floor(t * 8);
+    g.lineWidth = 0.9 * d; let lvl = 1;
+    for (let k = 0; k < 5 && lvl > 0.04; k++) { const n = 1 + Math.round(k * (1 + 4 * P.dDiff));
+      for (let j = 0; j < n; j++) { const u = 0.05 + k * s + (n > 1 ? (j / (n - 1) - 0.5) * s * 0.8 * P.dDiff : 0), a = lvl / Math.sqrt(n) * (0.6 + 0.4 * hash1(j + k * 9 + fr)); if (u > 1) break;
+        g.globalAlpha = base * (0.4 + 0.6 * lvl); g.beginPath(); g.moveTo(X0 + u * w, Y1); g.lineTo(X0 + u * w, Y1 - a * h * 0.95); g.stroke(); }
+      lvl *= Math.max(0.15, P.dFb); }
+    g.globalAlpha = base; g.lineWidth = 1.3 * d;
+  },
+  reverse(g, X0, Y0, X1, Y1, t, d, c, P){
+    // a tail that grows instead of dying, and stops dead at the note
+    const h = Y1 - Y0, w = X1 - X0, base = g.globalAlpha, N = 24, fr = Math.floor(t * 9), kd = 1.5 + 4 * (1 - P.rvSize);
+    g.lineWidth = 1 * d;
+    for (let i = 0; i < N; i++) { const u = (i + 0.5) / N, env = Math.exp(-kd * (1 - u) * 1.4), x = X0 + u * w * 0.85;
+      g.globalAlpha = base * (0.4 + 0.6 * env); g.beginPath(); g.moveTo(x, Y1); g.lineTo(x, Y1 - env * (0.4 + 0.6 * hash1(i + fr * 31)) * h * 0.9); g.stroke(); }
+    g.globalAlpha = base; g.lineWidth = 1.6 * d; g.beginPath(); g.moveTo(X0 + w * 0.92, Y1); g.lineTo(X0 + w * 0.92, Y0 + 1 * d); g.stroke(); g.lineWidth = 1.3 * d;
+  },
+  gated(g, X0, Y0, X1, Y1, t, d, c, P){
+    // a dense block of reflections, chopped off flat when the gate closes
+    const h = Y1 - Y0, w = X1 - X0, base = g.globalAlpha, N = 30, fr = Math.floor(t * 12), cut = 0.2 + 0.7 * Math.min(1, P.rvGate / 0.8);
+    g.lineWidth = 0.9 * d;
+    for (let i = 0; i < N; i++) { const u = (i + 0.5) / N; if (u > cut) break; const env = Math.exp(-0.6 * u), x = X0 + u * w;
+      g.globalAlpha = base * 0.85; g.beginPath(); g.moveTo(x, Y1); g.lineTo(x, Y1 - env * (0.7 + 0.3 * hash1(i + fr * 17)) * h * 0.92); g.stroke(); }
+    g.globalAlpha = base * 0.4; g.setLineDash([1.5 * d, 2 * d]); g.beginPath(); g.moveTo(X0 + cut * w + 2 * d, Y0); g.lineTo(X0 + cut * w + 2 * d, Y1); g.stroke(); g.setLineDash([]);
+    g.globalAlpha = base; g.lineWidth = 1.3 * d;
+  },
+  harmony(g, X0, Y0, X1, Y1, t, d, c, P){
+    // the dry wave (faint) and the in-key copy at the interval the note gets right now
+    const h = Y1 - Y0, my = (Y0 + Y1) / 2, base = g.globalAlpha, ph = t * 0.25, st = DSPV ? DSPV.hmSemi(tele.n || 57, P.hmKey | 0, P.hmScale ? 1 : 0, P.hmDeg) : 4, r = Math.pow(2, st / 12);
+    g.globalAlpha = base * 0.35; lineFn(g, X0, X1, 64, u => my - Math.sin(6.2832 * (u * 2 - ph)) * h * 0.42);
+    g.globalAlpha = base * (0.35 + 0.65 * P.psMix); lineFn(g, X0, X1, 64, u => my - Math.sin(6.2832 * (u * 2 * r - ph * r)) * h * 0.42);
+    g.globalAlpha = base;
+  },
+  step(g, X0, Y0, X1, Y1, t, d, c, P){
+    // the cutoff jumping between random levels, one per step, sliding across with the tempo
+    const h = Y1 - Y0, w = X1 - X0, N = 8, stp = 60 / (params.tempo || 120) * [1, .5, .25, 1 / 3, 1 / 6][P.afDiv | 0], k0 = Math.floor(t / stp), fr = t / stp - k0, gl = Math.min(0.9, P.afGlide);
+    g.beginPath();
+    for (let i = 0; i <= N; i++) { const lv = hash1(k0 + i), lp = hash1(k0 + i - 1), x0 = X0 + (i - fr) / N * w, x1 = x0 + w / N, y = Y1 - (0.12 + 0.8 * lv) * h, yp = Y1 - (0.12 + 0.8 * lp) * h;
+      if (i === 0) g.moveTo(Math.max(X0, x0), yp); g.lineTo(Math.max(X0, Math.min(X1, x0 + gl * w / N)), y); g.lineTo(Math.max(X0, Math.min(X1, x1)), y); }
+    g.stroke();
+  },
+  stutter(g, X0, Y0, X1, Y1, t, d, c, P){
+    // one slice copied over and over, with a playhead walking across the repeats
+    const h = Y1 - Y0, w = X1 - X0, my = (Y0 + Y1) / 2, base = g.globalAlpha, n = [2, 3, 4, 6, 3, 5][P.gbDiv | 0] + 1, sw = w / n, hd = (t * 0.7) % 1;
+    for (let i = 0; i < n; i++) { g.globalAlpha = base * (i === 0 ? 1 : 0.4 + 0.6 * (Math.floor(hd * n) === i ? 1 : 0));
+      lineFn(g, X0 + i * sw + 0.8 * d, X0 + (i + 1) * sw - 0.8 * d, 20, u => my - Math.sin(6.2832 * u * 2.3) * Math.exp(-u * 1.5) * h * 0.42); }
+    g.globalAlpha = base;
+  },
+  scatter(g, X0, Y0, X1, Y1, t, d, c, P){
+    // slices of different heights, shuffled; some drawn backwards
+    const h = Y1 - Y0, w = X1 - X0, n = 6, sw = w / n, fr = Math.floor(t * 1.4), base = g.globalAlpha;
+    for (let i = 0; i < n; i++) { const r = hash1(i + fr * 7), rev = hash1(i * 3 + fr) < P.gbRev, a = 0.3 + 0.65 * r, x0 = X0 + i * sw + 1 * d, x1 = X0 + (i + 1) * sw - 1 * d;
+      g.globalAlpha = base * (hash1(i + 50 + fr) < P.gbAmt ? 1 : 0.35); g.beginPath();
+      if (rev) { g.moveTo(x0, Y1); g.lineTo(x1, Y1 - a * h); g.lineTo(x1, Y1); } else { g.moveTo(x0, Y1); g.lineTo(x0, Y1 - a * h); g.lineTo(x1, Y1); }
+      g.stroke(); }
+    g.globalAlpha = base;
+  },
+  half(g, X0, Y0, X1, Y1, t, d, c, P){
+    // the original (faint) and the same wave stretched to twice the length: half the speed, an octave down
+    const h = Y1 - Y0, my = (Y0 + Y1) / 2, base = g.globalAlpha, ph = t * 0.3;
+    g.globalAlpha = base * 0.3; lineFn(g, X0, X1, 64, u => my - Math.sin(6.2832 * (u * 4 - ph)) * h * 0.4);
+    g.globalAlpha = base; lineFn(g, X0, X1, 64, u => my - Math.sin(6.2832 * (u * 2 - ph * 0.5)) * h * 0.4);
+  },
+  stop(g, X0, Y0, X1, Y1, t, d, c, P){
+    // a wave whose cycles stretch out and sink as the tape winds down, then starts again
+    const h = Y1 - Y0, my = (Y0 + Y1) / 2, cyc = 1.8, ph = (t % cyc) / cyc;
+    let acc = 0, last = 0; g.beginPath();
+    for (let i = 0; i <= 90; i++) { const u = i / 90, v = Math.max(0, 1 - Math.pow(u, 1.4)), x = X0 + u * (X1 - X0); acc += v * 0.11; const y = my - Math.sin(6.2832 * (acc - ph * 2)) * h * 0.42 * Math.sqrt(v); i ? g.lineTo(x, y) : g.moveTo(x, y); last = v; }
+    g.stroke();
+  },
+  freeze(g, X0, Y0, X1, Y1, t, d, c, P){
+    // a slice held between two brackets, looping as a steady drone
+    const h = Y1 - Y0, w = X1 - X0, my = (Y0 + Y1) / 2, base = g.globalAlpha;
+    g.beginPath(); [X0 + 1 * d, X1 - 1 * d].forEach((x, i) => { const s = i ? -1 : 1; g.moveTo(x + s * 3 * d, Y0 + 1 * d); g.lineTo(x, Y0 + 1 * d); g.lineTo(x, Y1 - 1 * d); g.lineTo(x + s * 3 * d, Y1 - 1 * d); }); g.stroke();
+    g.globalAlpha = base * (0.4 + 0.6 * P.gbMix);
+    lineFn(g, X0 + 4 * d, X1 - 4 * d, 60, u => my - (Math.sin(6.2832 * (u * 3 + t * 0.3)) * 0.6 + Math.sin(6.2832 * (u * 7 - t * 0.2)) * 0.3) * Math.sin(Math.PI * u) * h * 0.42);
+    g.globalAlpha = base;
+  },
+  grain(g, X0, Y0, X1, Y1, t, d, c, P){
+    // a drifting cloud of grains; bigger Size, bigger dots; more Density, more of them; Pitch scatters them up and down
+    const h = Y1 - Y0, w = X1 - X0, base = g.globalAlpha, n = Math.round(5 + Math.min(24, P.gbDens * 0.7)), r = (0.6 + 2.2 * Math.min(1, P.gbSize / 0.25)) * d;
+    for (let i = 0; i < n; i++) { const life = (t * 0.6 + hash1(i)) % 1, x = X0 + ((hash1(i * 7) + t * 0.05 * (1 + hash1(i + 3))) % 1) * w, y = (Y0 + Y1) / 2 + (hash1(i * 13) - 0.5) * h * (0.3 + 0.6 * Math.min(1, P.gbPitch / 12));
+      g.globalAlpha = base * Math.sin(Math.PI * life); g.beginPath(); g.arc(x, y, r, 0, 6.2832); g.fill(); }
+    g.globalAlpha = base;
+  },
+});
+Object.assign(PD_ICON, {
+  geq(g, X0, Y0, X1, Y1, t, d, c, P = params){
+    // seven sliders; the curve through their caps is the EQ
+    const h = Y1 - Y0, w = X1 - X0, my = (Y0 + Y1) / 2, base = g.globalAlpha, Y = v => my - Math.max(-12, Math.min(12, v)) / 12 * h * 0.44;
+    g.globalAlpha = base * 0.3; g.beginPath(); for (let i = 0; i < 7; i++) { const x = X0 + (i + 0.5) / 7 * w; g.moveTo(x, Y0 + 1 * d); g.lineTo(x, Y1 - 1 * d); } g.stroke(); g.globalAlpha = base;
+    g.beginPath(); for (let i = 0; i < 7; i++) { const x = X0 + (i + 0.5) / 7 * w, y = Y(P['gq' + (i + 1)]); i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke();
+    for (let i = 0; i < 7; i++) { g.beginPath(); g.arc(X0 + (i + 0.5) / 7 * w, Y(P['gq' + (i + 1)]), 1.5 * d, 0, 6.2832); g.fill(); }
+  },
+  mb(g, X0, Y0, X1, Y1, t, d, c, P = params){
+    // three bands side by side, each a bar that squeezes toward the middle as it's compressed
+    const h = Y1 - Y0, w = X1 - X0, my = (Y0 + Y1) / 2, base = g.globalAlpha, m = fxMeter(c), gb = [P.mbLo, P.mbMid, P.mbHi];
+    g.globalAlpha = base * 0.3; g.beginPath(); [1, 2].forEach(i => { const x = X0 + i / 3 * w; g.moveTo(x, Y0); g.lineTo(x, Y1); }); g.stroke(); g.globalAlpha = base;
+    for (let b = 0; b < 3; b++) { const sq = m != null ? Math.min(1, m / 12) : (0.3 + 0.25 * Math.sin(t * (2 + b) + b)) * P.mbAmt, a = Math.min(1, (0.85 - 0.45 * sq * P.mbAmt + 0.15 * P.mbUp) * Math.pow(10, gb[b] / 40)), x0 = X0 + b / 3 * w + 2.5 * d, x1 = X0 + (b + 1) / 3 * w - 2.5 * d;
+      g.beginPath(); g.moveTo(x0, my - a * h * 0.46); g.lineTo(x1, my - a * h * 0.46); g.moveTo(x0, my + a * h * 0.46); g.lineTo(x1, my + a * h * 0.46); g.stroke(); }
+  },
+  pump(g, X0, Y0, X1, Y1, t, d, c, P = params){
+    // the level dropping on every beat and swelling back, with the playhead on the beat
+    const h = Y1 - Y0, w = X1 - X0, n = 3, step = 60 / (params.tempo || 120) * [2, 1, .5, .25][P.pmDiv | 0], sh = (t / step) % 1, rel = Math.max(0.05, P.pmRel);
+    lineFn(g, X0, X1, 90, u => { const ph = ((u * n + sh) % 1), e = ph < 0.015 ? ph / 0.015 : Math.max(0, 1 - (ph - 0.015) / rel), s = e * e * (3 - 2 * e); return Y0 + 1 * d + P.pmDepth * s * (h - 2 * d); });
+  },
+  swell(g, X0, Y0, X1, Y1, t, d, c, P = params){
+    // notes that fade in from nothing, like a bow or a volume pedal
+    const h = Y1 - Y0, w = X1 - X0, base = g.globalAlpha, n = 2, cur = 1 + 3 * P.swCurve, rl = Math.min(0.95, 0.15 + 0.8 * Math.min(1, P.swRise / 2));
+    for (let k = 0; k < n; k++) { const x0 = X0 + k / n * w + 1.5 * d, x1 = X0 + (k + 1) / n * w - 1.5 * d;
+      lineFn(g, x0, x1, 40, u => { const r = Math.min(1, u / rl), e = 1 - P.swDepth * (1 - Math.pow(r, cur)); return Y1 - e * h * 0.95; }); }
+    g.globalAlpha = base;
+  },
+  fshift(g, X0, Y0, X1, Y1, t, d, c, P = params){
+    // the note's harmonics (faint, evenly spaced) and the shifted ones: all moved by the same Hz, so no longer evenly spaced on this log scale
+    const h = Y1 - Y0, w = X1 - X0, base = g.globalAlpha, f0 = 160, X = f => X0 + Math.log(f / 80) / Math.log(60) * w, wob = Math.sin(t * 2) * 0.03;
+    for (let n = 1; n <= 8; n++) { const f = f0 * n, a = 1 / Math.sqrt(n), fs = f + P.fsHz * (1 + wob);
+      g.globalAlpha = base * 0.3; if (f < 4800) { g.beginPath(); g.moveTo(X(f), Y1); g.lineTo(X(f), Y1 - a * h * 0.9); g.stroke(); }
+      if (fs > 80 && fs < 4800) { g.globalAlpha = base * (0.35 + 0.65 * P.fsMix); g.beginPath(); g.moveTo(X(fs), Y1); g.lineTo(X(fs), Y1 - a * h * 0.9); g.stroke(); } }
+    g.globalAlpha = base;
+  },
+  shep(g, X0, Y0, X1, Y1, t, d, c, P = params){
+    // three lines an octave apart, gliding together; each fades in at one edge and out at the other
+    const h = Y1 - Y0, w = X1 - X0, base = g.globalAlpha, sp = P.sgRate * 6, off = ((t * sp) % 1 + 1) % 1;
+    for (let v = 0; v < 3; v++) { const q0 = (v / 3 + off) % 1;
+      for (let i = 0; i < 24; i++) { const u0 = i / 24, u1 = (i + 1) / 24, qa = q0 + u0 * 0.33, qb = q0 + u1 * 0.33;
+        const ya = Y1 - (qa % 1) * h, yb = Y1 - (qb % 1) * h; if ((qb % 1) < (qa % 1)) continue;
+        const gq = Math.sin(Math.PI * (qa % 1)); g.globalAlpha = base * gq * gq; g.beginPath(); g.moveTo(X0 + u0 * w, ya); g.lineTo(X0 + u1 * w, yb); g.stroke(); } }
+    g.globalAlpha = base;
+  },
+  reso(g, X0, Y0, X1, Y1, t, d, c, P = params){
+    // four strings, each ringing at its own pitch, dying away over Decay and set ringing again
+    const h = Y1 - Y0, w = X1 - X0, base = g.globalAlpha, per = 1.2 + Math.min(3, P.rsDecay * 0.4), ph = (t % per), env = Math.exp(-ph / Math.max(0.1, P.rsDecay) * 2.5);
+    const CH = [[0, 4, 7, 12], [0, 3, 7, 12], [0, 5, 7, 12], [0, 7, 12, 19], [0, 4, 7, 11], [0, 3, 7, 10]][P.rsChord | 0];
+    for (let j = 0; j < 4; j++) { const y = Y0 + (j + 0.5) / 4 * h, k = 1.5 * Math.pow(2, CH[j] / 12);
+      g.globalAlpha = base * (0.5 + 0.5 * env); lineFn(g, X0, X1, 50, u => y + Math.sin(Math.PI * u * k * 2) * Math.sin(t * (14 + j * 3)) * env * h * 0.1); }
+    g.globalAlpha = base;
+  },
+  cab(g, X0, Y0, X1, Y1, t, d, c, P = params){
+    // the speaker seen from the front, and the mic: centred (bright) or out toward the edge (dark)
+    const h = Y1 - Y0, w = X1 - X0, R = Math.min(h * 0.48, w * 0.24), cx = X0 + w * 0.36, cy = (Y0 + Y1) / 2, ty = P.cbType | 0;
+    if (ty === 3) { g.strokeRect(cx - R, cy - R * 0.7, R * 2, R * 1.4); g.beginPath(); g.arc(cx, cy, R * 0.45, 0, 6.2832); g.stroke(); }
+    else { g.beginPath(); g.arc(cx, cy, R, 0, 6.2832); g.stroke(); g.beginPath(); g.arc(cx, cy, R * 0.6, 0, 6.2832); g.stroke(); g.beginPath(); g.arc(cx, cy, R * 0.18, 0, 6.2832); g.fill(); }
+    const mx = cx + P.cbMic * R * 0.9; g.beginPath(); g.moveTo(mx, cy); g.lineTo(X1 - 1 * d, cy); g.stroke(); g.beginPath(); g.arc(mx, cy, 1.8 * d, 0, 6.2832); g.fill();
+  },
+  lofi(g, X0, Y0, X1, Y1, t, d, c, P = params){
+    const h = Y1 - Y0, w = X1 - X0, my = (Y0 + Y1) / 2, ty = P.lfType | 0, base = g.globalAlpha;
+    if (ty === 1) {
+      // a record: grooves, a spinning label, crackle dots
+      const R = Math.min(h * 0.48, w * 0.3), cx = X0 + w / 2, a = t * 3.5;
+      [1, 0.75, 0.5].forEach(k => { g.beginPath(); g.arc(cx, my, R * k, 0, 6.2832); g.stroke(); });
+      g.beginPath(); g.moveTo(cx + Math.cos(a) * R * 0.2, my + Math.sin(a) * R * 0.2); g.lineTo(cx + Math.cos(a) * R * 0.45, my + Math.sin(a) * R * 0.45); g.stroke();
+      const fr = Math.floor(t * 6); for (let i = 0; i < 4; i++) if (hash1(i + fr * 5) < 0.3 + 0.6 * P.lfNoise) { const an = hash1(i * 3 + fr) * 6.28, rr = R * (0.55 + 0.4 * hash1(i * 7 + fr)); g.beginPath(); g.arc(cx + Math.cos(an) * rr, my + Math.sin(an) * rr, 0.9 * d, 0, 6.2832); g.fill(); }
+      return;
+    }
+    if (ty === 2) {
+      // radio: an antenna and a narrow band of sound, fading in and out
+      const fade = 1 - P.lfWow * 0.5 * (0.5 + 0.5 * Math.sin(t * 0.8));
+      g.beginPath(); g.moveTo(X0 + 2 * d, Y1); g.lineTo(X0 + 2 * d, Y0 + 1 * d); g.stroke();
+      g.globalAlpha = base * fade; lineFn(g, X0 + 6 * d, X1, 60, u => { const v = Math.exp(-Math.pow((u - 0.45) / (0.14 + 0.1 * P.lfTone), 2)); return Y1 - v * h * 0.85 - (hash1(Math.floor(u * 60) + Math.floor(t * 10)) - 0.5) * P.lfNoise * h * 0.2; });
+      g.globalAlpha = base; return;
+    }
+    // cassette: two reels and a wave wobbling on the tape between them
+    const r = Math.min(h * 0.3, w * 0.13), cy = Y0 + r + 0.5 * d;
+    [X0 + r + 1 * d, X1 - r - 1 * d].forEach((cx, k) => { g.beginPath(); g.arc(cx, cy, r, 0, 6.2832); g.stroke(); const a0 = t * 2.4 + k; g.beginPath(); g.arc(cx, cy, r * 0.35, a0, a0 + 4); g.stroke(); });
+    lineFn(g, X0, X1, 60, u => Y1 - h * 0.18 - Math.sin(6.2832 * (u * 3 + Math.sin(t * 2.8) * 0.06 * P.lfWow * 3) - t) * h * 0.14);
+  },
+  glitch(g, X0, Y0, X1, Y1, t, d, c, P = params){
+    const k = ['stutter', 'scatter', 'half', 'stop', 'freeze', 'grain'][P.gbType | 0] || 'stutter';
+    PD_NEW[k](g, X0, Y0, X1, Y1, t, d, c, P);
+  },
+});
 // the families that grew new types draw them here; their original types keep their old pictures
-{ const fx1 = PD_ICON.fx1, mod = PD_ICON.mod, dly = PD_ICON.delay, rv = PD_ICON.reverb;
-  PD_ICON.fx1 = (g, X0, Y0, X1, Y1, t, d, c, P = params) => { const ty = P.e1Type | 0; return ty === 4 ? PD_NEW.ring(g, X0, Y0, X1, Y1, t, d, c, P) : ty === 5 ? PD_NEW.slicer(g, X0, Y0, X1, Y1, t, d, c, P) : fx1(g, X0, Y0, X1, Y1, t, d, c, P); };
-  PD_ICON.mod = (g, X0, Y0, X1, Y1, t, d, c, P = params) => { const k = ['', '', '', 'vibe', 'ensemble', 'vibrato'][P.modType | 0]; return k ? PD_NEW[k](g, X0, Y0, X1, Y1, t, d, c, P) : mod(g, X0, Y0, X1, Y1, t, d, c, P); };
-  PD_ICON.delay = (g, X0, Y0, X1, Y1, t, d, c, P = params) => (P.dType | 0) === 1 ? PD_NEW.tape(g, X0, Y0, X1, Y1, t, d, c, P) : dly(g, X0, Y0, X1, Y1, t, d, c, P);
-  PD_ICON.reverb = (g, X0, Y0, X1, Y1, t, d, c, P = params) => { const k = ['', 'room', 'plate', 'spring', 'shimmer'][P.rvType | 0]; return k ? PD_NEW[k](g, X0, Y0, X1, Y1, t, d, c, P) : rv(g, X0, Y0, X1, Y1, t, d, c, P); };
+{ const fx1 = PD_ICON.fx1, mod = PD_ICON.mod, dly = PD_ICON.delay, rv = PD_ICON.reverb, pit = PD_ICON.pitch, flt = PD_ICON.filt;
+  PD_ICON.fx1 = (g, X0, Y0, X1, Y1, t, d, c, P = params) => { const ty = P.e1Type | 0; return ty === 4 ? PD_NEW.ring(g, X0, Y0, X1, Y1, t, d, c, P) : ty === 5 ? PD_NEW.slicer(g, X0, Y0, X1, Y1, t, d, c, P) : ty === 6 ? PD_NEW.htrem(g, X0, Y0, X1, Y1, t, d, c, P) : fx1(g, X0, Y0, X1, Y1, t, d, c, P); };
+  PD_ICON.mod = (g, X0, Y0, X1, Y1, t, d, c, P = params) => { const k = ['', '', '', 'vibe', 'ensemble', 'vibrato', 'juno', 'dimension', 'barber'][P.modType | 0]; return k ? PD_NEW[k](g, X0, Y0, X1, Y1, t, d, c, P) : mod(g, X0, Y0, X1, Y1, t, d, c, P); };
+  PD_ICON.delay = (g, X0, Y0, X1, Y1, t, d, c, P = params) => { const k = ['', 'tape', 'slap', 'bbd', 'diffuse'][P.dType | 0]; return k ? PD_NEW[k](g, X0, Y0, X1, Y1, t, d, c, P) : dly(g, X0, Y0, X1, Y1, t, d, c, P); };
+  PD_ICON.reverb = (g, X0, Y0, X1, Y1, t, d, c, P = params) => { const k = ['', 'room', 'plate', 'spring', 'shimmer', 'reverse', 'gated'][P.rvType | 0]; return k ? PD_NEW[k](g, X0, Y0, X1, Y1, t, d, c, P) : rv(g, X0, Y0, X1, Y1, t, d, c, P); };
+  PD_ICON.pitch = (g, X0, Y0, X1, Y1, t, d, c, P = params) => (P.psType | 0) === 2 ? PD_NEW.harmony(g, X0, Y0, X1, Y1, t, d, c, P) : pit(g, X0, Y0, X1, Y1, t, d, c, P);
+  PD_ICON.filt = (g, X0, Y0, X1, Y1, t, d, c, P = params) => P.afStep ? PD_NEW.step(g, X0, Y0, X1, Y1, t, d, c, P) : flt(g, X0, Y0, X1, Y1, t, d, c, P);
 }
 const rrect = (g, x, y, w, h, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); };
 const MINT = '#7dffd0', FLK_OFF = [1, .12, .85, .05, .5, 0], FLK_ON = [0, .85, .15, 1];
@@ -3231,6 +3879,11 @@ const HUD_G = {o1w:'o1',o1pw:'o1',o1pos:'o1',o1vow:'o1',o1oct:'o1',bl:'o1',mePit
   pwO1:'o1',pwO2:'o2',pwFlt:'flt',pwLfo:'lfo',pwFx1:'fx1',pwAmp:'amp',pwEq:'eq',pwMod:'ch',pwDly:'dly',pwRev:'rv',
   e1Freq:'fx1',e1Div:'fx1',e1Duty:'fx1',dType:'dly',dWow:'dly',rvType:'rv',rvPre:'rv',pwDyn:'dyn',pwDrv:'dist',pwCrs:'crs',pwAf:'af',pwPs:'ps',pwRot:'rot',pwWid:'wid'};
 ['dyn', 'drv', 'crush', 'filt', 'pitch', 'rot', 'wide'].forEach(f => FXF[f].keys.forEach(k => { HUD_G[k] = {drv:'dist', crush:'crs', filt:'af', pitch:'ps'}[f] || {wide:'wid'}[f] || f; }));
+Object.assign(HUD_G, {jnMode:'ch', dmMode:'ch', bpUp:'ch', dDiff:'dly', rvGate:'rv'});
+['geq', 'mb', 'pump', 'swell', 'fshift', 'shep', 'reso', 'cab', 'lofi', 'glitch'].forEach(f => FXF[f].keys.concat(FXF[f].pw).forEach(k => { HUD_G[k] = 'x-' + f; }));
+// the magnitude of a chain of biquads at f (48 kHz coefficients), for the EQ-like displays
+const bqMag = (bqs, f) => bqs.reduce((acc, q) => { const w = 2 * Math.PI * f / 48000, cr = Math.cos(w), ci = -Math.sin(w), c2r = Math.cos(2 * w), c2i = -Math.sin(2 * w);
+  const nr = q[0] + q[1] * cr + q[2] * c2r, ni = q[1] * ci + q[2] * c2i, dr = 1 + q[3] * cr + q[4] * c2r, di = q[3] * ci + q[4] * c2i; return acc * Math.hypot(nr, ni) / Math.hypot(dr, di); }, 1);
 let DSPV = null;
 const nw = (w, ph, pw) => {
   if (w === 0) return Math.sin(6.2832 * ph);
@@ -3358,6 +4011,13 @@ function drawHud(){
       const bar = (f, a, c, w) => { f = Math.abs(f); if (f < 20 || f > 20000 || a < 0.01) return; const x = X(f); glow(c, 6); g.strokeStyle = c; g.lineWidth = w * d; g.beginPath(); g.moveTo(x, y1); g.lineTo(x, y1 - Math.min(1, a) * (y1 - y0)); g.stroke(); };
       for (let n = 1; n <= 8; n++) { bar(f0 * n, (1 - P.e1Depth) / n, dim(COL.ink), 1.2); bar(f0 * n + fc, P.e1Depth * 0.5 / n * 1.6, col, 2); bar(f0 * n - fc, P.e1Depth * 0.5 / n * 1.6, col, 2); }
       g.shadowBlur = 0; txt('sidebands at f ± ' + fHz(fc), x0, y1 + 3 * d); txt('20 Hz – 20 kHz', x1, y1 + 3 * d, null, 'right');
+    } else if (t === 6) {
+      // harmonic tremolo: the level of the lows and of the highs, taking turns
+      const pl = [], ph = [];
+      for (let i = 0; i <= 200; i++) { const tt = i / 200 * 2, s1 = Math.sin(6.2832 * P.e1Rate * tt), x = x0 + i / 200 * (x1 - x0);
+        pl.push([x, y1 - (1 - P.e1Depth * (0.5 + 0.5 * s1)) * (y1 - y0)]); ph.push([x, y1 - (1 - P.e1Depth * (0.5 - 0.5 * s1)) * (y1 - y0)]); }
+      glow(COL.c6, 8); path(pl, COL.c6, 2); glow(COL.c1, 8); path(ph, COL.c1, 2);
+      txt('lows', x0, y0 - 2 * d, COL.c6); txt('highs', x0 + 34 * d, y0 - 2 * d, COL.c1); txt('split at ' + fHz(P.e1Freq), x0, y1 + 3 * d); txt('2 s', x1, y1 + 3 * d, null, 'right');
     } else if (t === 5) {
       // two beats of the gate at the current tempo
       const beat = 60 / P.tempo, win = 2 * beat, step = beat * [1, .5, .25, 1 / 3, 1 / 6][P.e1Div | 0], pts = [];
@@ -3401,6 +4061,23 @@ function drawHud(){
       g.shadowBlur = 0; g.fillStyle = col; g.beginPath(); g.arc(X(P.eqFreq), Yd(P.eqMid), 2.4 * d, 0, 6.2832); g.fill();
       txt('+12', x0, y0 - 2 * d); txt('−12 dB', x0, y1 - 9 * d); txt('20 Hz', x0, y1 + 3 * d); txt('20 kHz', x1, y1 + 3 * d, null, 'right');
     }
+  } else if (grp === 'ch' && (P.modType | 0) === 8) {
+    // barber-pole: the dry sound plus a copy shifted a few Hz; the notches march one way and wrap round
+    const X = f => x0 + Math.log(f / 20) / Math.log(1000) * (x1 - x0), Yd = v => y0 + (1 - v) * (y1 - y0), mD = 1 - 0.5 * P.chMix, mW = 0.75 * P.chMix;
+    const A = [0.6923878, 0.9360654322959, 0.9882295226860, 0.9987488452737].map(a => a * a), th = 6.2832 * (P.bpUp ? 1 : -1) * P.chRate * performance.now() / 1000, pts = [];
+    for (let i = 0; i <= 160; i++) { const f = 20 * Math.pow(1000, i / 160), w = 2 * Math.PI * f / 48000; let ph = -w;
+      A.forEach(a => { ph += Math.atan2(Math.sin(2 * w), a - Math.cos(2 * w)) - Math.atan2(a * Math.sin(2 * w), 1 - a * Math.cos(2 * w)); });
+      pts.push([X(f), Yd(Math.min(1, Math.hypot(mD + mW * Math.cos(ph + th), mW * Math.sin(ph + th)) / (mD + mW)))]); }
+    glow(col, 8); path(pts, P.chMix > 0.01 ? col : dim(col), 2);
+    txt(`notches glide ${P.bpUp ? 'up' : 'down'} · ${P.chRate.toFixed(2)} Hz`, x0, y1 + 3 * d);
+  } else if (grp === 'ch' && ((P.modType | 0) === 6 || (P.modType | 0) === 7)) {
+    // juno and dimension: each side's delay time over two seconds; a triangle LFO swings them in opposite directions
+    const ju = (P.modType | 0) === 6, m = ju ? P.jnMode | 0 : P.dmMode | 0, r = ju ? [0.513, 0.863, 9.75][m] : [0.25, 0.3, 0.38, 0.5][m], dep = ju ? [1.85, 1.85, 0.3][m] : [0.25, 0.4, 0.6, 0.8][m], bse = ju ? 3.5 : 4.5;
+    const Ym = ms => mid - (ms - bse) / 2.2 * (y1 - y0) * 0.5, pl = [], pr = [];
+    for (let i = 0; i <= 300; i++) { const tt = i / 300 * 2, ph = (r * tt) % 1, tri = ph < 0.5 ? 4 * ph - 1 : 3 - 4 * ph, x = x0 + i / 300 * (x1 - x0); pl.push([x, Ym(bse + dep * tri)]); pr.push([x, Ym(bse - dep * tri)]); }
+    glow(COL.c1, 6); path(pl, P.chMix > 0.01 ? COL.c1 : dim(COL.c1), 1.6); glow(COL.c2, 6); path(pr, P.chMix > 0.01 ? COL.c2 : dim(COL.c2), 1.6);
+    txt('L', x0, y0 - 2 * d, COL.c1); txt('R', x0 + 12 * d, y0 - 2 * d, COL.c2);
+    txt(`delay ${(bse - dep).toFixed(2)}–${(bse + dep).toFixed(2)} ms · ${r.toFixed(2)} Hz` + (ju ? '' : ' · cross-fed'), x0, y1 + 3 * d); txt('2 s', x1, y1 + 3 * d, null, 'right');
   } else if (grp === 'ch' && (P.modType | 0) === 3) {
     // vibe: four uneven all-pass stages mixed with the dry sound; dashed at rest, solid at the top of the sweep
     const X = f => x0 + Math.log(f / 20) / Math.log(1000) * (x1 - x0), Yd = v => y0 + (1 - v) * (y1 - y0), mD = 1 - 0.5 * P.chMix, mW = 0.75 * P.chMix;
@@ -3446,17 +4123,22 @@ function drawHud(){
       glow(col, 6); g.strokeStyle = col; g.globalAlpha = Math.max(0.25, a); g.beginPath(); g.moveTo(X(n * T), mid); g.lineTo(X(n * T), up ? mid - a * amp : mid + a * amp); g.stroke(); g.globalAlpha = 1;
       lvl *= P.dFb; n++;
     }
-    txt(P.dType ? `tape · repeats wobble ±${(1200 * Math.log2(1 + 6.2832 * 0.55 * 0.0016 * P.dWow)).toFixed(0)} ct and darken` : P.dPing ? 'dry · echoes L ↑ R ↓' : 'dry · echoes', x0, y1 + 3 * d); txt(fT(win) + ' shown', x1, y1 + 3 * d, null, 'right');
+    const dty = P.dType | 0;
+    txt(dty === 1 ? `tape · repeats wobble ±${(1200 * Math.log2(1 + 6.2832 * 0.55 * 0.0016 * P.dWow)).toFixed(0)} ct and darken` : dty === 2 ? `slapback · one echo ${fT(T)} behind`
+      : dty === 3 ? `bbd · repeats roll off above ${fHz(Math.min(P.dTone, 1843 / T))}` : dty === 4 ? `diffuse · each repeat smeared ${fPct(P.dDiff)}` : P.dPing ? 'dry · echoes L ↑ R ↓' : 'dry · echoes', x0, y1 + 3 * d); txt(fT(win) + ' shown', x1, y1 + 3 * d, null, 'right');
   } else if (grp === 'rv') {
-    const ty = P.rvType | 0, t60 = RV_T60(P.rvSize, ty), pre = P.rvPre, win = Math.min(15, t60 * 1.2 + pre), X = t => x0 + t / win * (x1 - x0);
-    let seed = 11; const env = t => t < pre ? 0 : Math.pow(10, -3 * (t - pre) / t60), hiEnv = t => Math.pow(10, -3 * Math.max(0, t - pre) / (t60 * (1 - P.rvDamp * 0.8)));
+    const ty = P.rvType | 0, t60 = RV_T60(P.rvSize, ty), pre = P.rvPre, rW = 0.3 + 1.2 * P.rvSize, hold = P.rvGate;
+    const win = ty === 5 ? pre + rW * 1.35 : ty === 6 ? Math.max(0.4, pre + hold * 1.8) : Math.min(15, t60 * 1.2 + pre), X = t => x0 + t / win * (x1 - x0);
+    let seed = 11;
+    const env = ty === 5 ? t => t < pre || t > pre + rW ? 0 : Math.pow(10, -3 * (pre + rW - t) / t60) : ty === 6 ? t => t < pre || t > pre + hold ? 0 : Math.pow(10, -3 * (t - pre) / t60)
+      : t => t < pre ? 0 : Math.pow(10, -3 * (t - pre) / t60), hiEnv = t => Math.pow(10, -3 * Math.max(0, t - pre) / (t60 * (1 - P.rvDamp * 0.8)));
     if (ty === 1) [4.3, 7.9, 11.6, 15.2, 19.8, 23.9].forEach((ms, i) => { const x = X(pre + ms / 1000); glow(col, 6); g.strokeStyle = col; g.lineWidth = 1.6 * d; g.beginPath(); g.moveTo(x, mid); g.lineTo(x, mid - (0.9 - i * 0.1) * (y1 - y0) * 0.5); g.stroke(); });
     g.shadowBlur = 0;
     for (let i = 0; i < 260; i++) { seed = (seed * 16807) % 2147483647; const t = (i / 260) * win, r = seed / 2147483647, a = env(t) * r * Math.max(0.15, P.rvMix);
       g.strokeStyle = col; g.globalAlpha = 0.25 + 0.6 * hiEnv(t); g.lineWidth = 1 * d; g.beginPath(); g.moveTo(X(t), mid); g.lineTo(X(t), mid - a * (y1 - y0) * 0.9); g.stroke(); }
     g.globalAlpha = 1; const pts = []; for (let i = 0; i <= 100; i++) { const t = i / 100 * win; pts.push([X(t), mid - env(t) * (y1 - y0) * 0.45]); }
     glow(col, 6); path(pts, col, 1.6);
-    txt(SEGS.rvType.o[ty][1].toLowerCase() + ' · decay ' + fT(t60) + (pre > .0005 ? ' · pre ' + fT(pre) : ''), x0, y1 + 3 * d); txt(fT(win) + ' shown', x1, y1 + 3 * d, null, 'right');
+    txt(SEGS.rvType.o[ty][1].toLowerCase() + (ty === 5 ? ' · swells over ' + fT(rW) : ty === 6 ? ' · cut after ' + fT(hold) : ' · decay ' + fT(t60)) + (pre > .0005 ? ' · pre ' + fT(pre) : ''), x0, y1 + 3 * d); txt(fT(win) + ' shown', x1, y1 + 3 * d, null, 'right');
   } else if (grp === 'dyn') {
     const ty = P.dyType | 0, fb = fxB('dyn'), m = fb && tele.fxm ? tele.fxm[fb.id] : null;
     if (ty === 3) {
@@ -3468,8 +4150,10 @@ function drawHud(){
     } else {
       // input level across, output level up, both in dB; the bend is the threshold
       const pw = (x1 - x0) * 0.62, X = db => x0 + (db + 60) / 60 * pw, Yo = db => y1 - (Math.max(-60, Math.min(6, db)) + 60) / 66 * (y1 - y0);
-      const slope = ty === 1 ? 0 : 1 / Math.max(1, P.dyRatio), gain = ty === 2 ? 0 : P.dyGain, kn = ty === 1 ? 1 : 6;
-      const out = i => { if (ty === 2) return i < P.dyThr ? -60 : i; const ov = i - P.dyThr; const gr = ov <= -kn / 2 ? 0 : ov >= kn / 2 ? ov * (1 - slope) : (1 - slope) * (ov + kn / 2) * (ov + kn / 2) / (2 * kn); return i - gr + gain; };
+      const slope = ty === 1 ? 0 : 1 / Math.max(1, P.dyRatio), gain = ty === 2 || ty === 4 ? 0 : P.dyGain, kn = ty === 1 ? 1 : 6;
+      const C = Math.pow(10, P.dyThr / 20), ck = Math.max(0.02, P.dySoft), clo = C * (1 - ck);
+      const out = i => { if (ty === 2) return i < P.dyThr ? -60 : i; if (ty === 4) return i >= P.dyThr ? i : Math.max(-60, P.dyThr - (P.dyThr - i) * P.dyRatio);
+        if (ty === 5) { const a = Math.pow(10, (i + P.dyGain) / 20), y = a <= clo ? a : clo + C * ck * Math.tanh((a - clo) / (C * ck)); return 20 * Math.log10(y); } const ov = i - P.dyThr; const gr = ov <= -kn / 2 ? 0 : ov >= kn / 2 ? ov * (1 - slope) : (1 - slope) * (ov + kn / 2) * (ov + kn / 2) / (2 * kn); return i - gr + gain; };
       path([[X(-60), Yo(-60)], [X(0), Yo(0)]], 'rgba(242,245,248,.18)', 1, [3 * d, 3 * d]);
       const pts = []; for (let i = 0; i <= 120; i++) { const db = -60 + i / 2; pts.push([X(db), Yo(out(db))]); }
       glow(col, 8); path(pts, col, 2);
@@ -3480,13 +4164,13 @@ function drawHud(){
       glow(col, 8); g.fillStyle = col;
       if (ty === 2) g.fillRect(mx + 1.5 * d, y1 - v * (y1 - y0), mw - 3 * d, v * (y1 - y0)); else g.fillRect(mx + 1.5 * d, y0, mw - 3 * d, v * (y1 - y0));
       g.shadowBlur = 0;
-      txt(ty === 2 ? 'open' : 'GR', mx + mw / 2, y0 - 2 * d, null, 'center');
+      txt(ty === 2 ? 'open' : ty === 5 ? 'clip' : 'GR', mx + mw / 2, y0 - 2 * d, null, 'center');
       txt(ty === 2 ? (m != null && m > 0.5 ? 'gate open' : 'gate closed') : '−' + (m || 0).toFixed(1) + ' dB', mx + mw / 2, y1 + 3 * d, col, 'center');
       txt('in →  ·  out ↑  (dB)', x0, y1 + 3 * d);
     }
   } else if (grp === 'dist') {
     // the clipping curve, and the harmonics it adds to a sine: odd ones from symmetric clipping, even ones once Bias tips it
-    const ty = P.drvType | 0, gn = [1 + P.drvAmt * 30, 2 + P.drvAmt * 120, 1 + P.drvAmt * 60, 1 + P.drvAmt * 7][ty], b = P.drvBias * (ty === 3 ? 0.9 : 0.45), o = shpUI(b, ty);
+    const ty = P.drvType | 0, gn = drvGain(P), b = P.drvBias * (ty === 3 ? 0.9 : 0.45), o = shpUI(b, ty);
     const cw = (x1 - x0) * 0.42, pts = [];
     let pk = 0; for (let i = 0; i <= 60; i++) pk = Math.max(pk, Math.abs(shpUI(gn * 0.5 * (i / 30 - 1) + b, ty) - o));
     for (let i = 0; i <= 80; i++) { const u = i / 80 * 2 - 1; pts.push([x0 + (u + 1) / 2 * cw, mid - (shpUI(gn * 0.5 * u + b, ty) - o) / Math.max(0.1, pk) * (y1 - y0) * 0.46]); }
@@ -3510,20 +4194,22 @@ function drawHud(){
     const ty = P.afType | 0, k = 2 - 1.9 * P.afRes, X = f => x0 + Math.log(f / 20) / Math.log(1000) * (x1 - x0), Yd = db => y0 + (18 - Math.max(-36, Math.min(18, db))) / 54 * (y1 - y0);
     const H_ = (f, fc) => { const b = f / fc, den = Math.hypot(1 - b * b, k * b); return ty === 0 ? 1 / den : ty === 1 ? b * Math.max(k, .35) * 1.4 / den : b * b / den; };
     const curve = fc => { const a = []; for (let i = 0; i <= 120; i++) { const f = 20 * Math.pow(1000, i / 120); a.push([X(f), Yd(20 * Math.log10(H_(f, fc) * (0.6 + 0.4 * k) + 1e-9))]); } return a; };
-    const lo = Math.max(20, P.afCut / Math.pow(2, P.afDepth)), hi = Math.min(20000, P.afCut * Math.pow(2, P.afDepth)), now = P.afCut * Math.pow(2, P.afDepth * Math.sin(6.2832 * performance.now() / 1000 * P.afRate));
+    const stp = 60 / P.tempo * [1, .5, .25, 1 / 3, 1 / 6][P.afDiv | 0], si = Math.floor(performance.now() / 1000 / stp);
+    const lo = Math.max(20, P.afCut / Math.pow(2, P.afDepth)), hi = Math.min(20000, P.afCut * Math.pow(2, P.afDepth)), now = P.afCut * Math.pow(2, P.afDepth * (P.afStep ? hash1(si) * 2 - 1 : Math.sin(6.2832 * performance.now() / 1000 * P.afRate)));
     if (P.afDepth > 0.05) { path(curve(lo), dim(col), 1.1, [3 * d, 3 * d]); path(curve(hi), dim(col), 1.1, [3 * d, 3 * d]); }
     glow(col, 8); path(curve(Math.max(20, Math.min(20000, now))), col, 2);
-    txt(`sweeps ${fHz(lo)} – ${fHz(hi)}`, x0, y1 + 3 * d); txt(P.afRate.toFixed(2) + ' Hz', x1, y1 + 3 * d, null, 'right');
+    txt(`${P.afStep ? 'jumps' : 'sweeps'} ${fHz(lo)} – ${fHz(hi)}`, x0, y1 + 3 * d); txt(P.afStep ? `${ADIV_L[P.afDiv | 0]} steps @ ${P.tempo} bpm` : P.afRate.toFixed(2) + ' Hz', x1, y1 + 3 * d, null, 'right');
   } else if (grp === 'ps') {
     // the note's harmonics (faint) and the new copies the pedal adds, on a log frequency axis
     const f0 = Math.max(40, tele.f0 || 220), X = f => x0 + Math.log(f / 40) / Math.log(200) * (x1 - x0), sh = P.psType | 0;
     const bar = (f, a, c, w) => { if (f < 40 || f > 8000 || a < 0.01) return; const x = X(f); glow(c, 6); g.strokeStyle = c; g.lineWidth = w * d; g.beginPath(); g.moveTo(x, y1); g.lineTo(x, y1 - a * (y1 - y0)); g.stroke(); };
-    const dry = sh ? 1 - P.psMix : P.psDry;
+    const dry = sh ? 1 - P.psMix : P.psDry, hst = sh === 2 && DSPV ? DSPV.hmSemi(tele.n || 57, P.hmKey | 0, P.hmScale ? 1 : 0, P.hmDeg) : 0;
     for (let n = 1; n <= 12; n++) bar(f0 * n, dry / n, dim(COL.ink), 1.2);
-    if (sh) { const r = Math.pow(2, Math.round(P.psSemi) / 12); for (let n = 1; n <= 12; n++) bar(f0 * n * r, P.psMix / n, col, 2); }
+    if (sh) { const r = Math.pow(2, (sh === 2 ? hst : Math.round(P.psSemi)) / 12); for (let n = 1; n <= 12; n++) bar(f0 * n * r, P.psMix / n, col, 2); }
     else { for (let n = 1; n <= 12; n++) { bar(f0 * n * 0.5, P.psSub / n, col, 2); bar(f0 * n * 2, P.psUp / n, COL.c1, 2); } }
     g.shadowBlur = 0;
-    txt(sh ? `× ${Math.pow(2, Math.round(P.psSemi) / 12).toFixed(3)} · ${DEFS.psSemi.f(Math.round(P.psSemi))}` : 'octave down · up', x0, y0 - 2 * d, col);
+    txt(sh === 2 ? `${NOTE_NM[((tele.n || 57) % 12 + 12) % 12]} → ${NOTE_NM[(((tele.n || 57) + hst) % 12 + 12) % 12]} · ${sgn(hst)}${Math.abs(hst)} st in ${NOTE_NM[P.hmKey | 0]} ${P.hmScale ? 'minor' : 'major'}`
+      : sh ? `× ${Math.pow(2, Math.round(P.psSemi) / 12).toFixed(3)} · ${DEFS.psSemi.f(Math.round(P.psSemi))}` : 'octave down · up', x0, y0 - 2 * d, col);
     txt('40 Hz', x0, y1 + 3 * d); txt('8 kHz', x1, y1 + 3 * d, null, 'right');
   } else if (grp === 'rot') {
     // left: the horn and drum from above, spinning at the engine's speed; right: how each one ramps to the new speed
@@ -3551,6 +4237,112 @@ function drawHud(){
     txt(P.wdHaas < .0002 ? 'a vertical line' : 'width ' + DEFS.wdWidth.f(P.wdWidth), tx, y0 + 15 * d);
     txt('mono < ' + fHz(P.wdLow), tx, y0 + 28 * d);
     txt('mid ↑ · side ↔', x0, y1 + 3 * d);
+  } else if (grp === 'x-geq' || grp === 'x-cab' || grp === 'x-lofi') {
+    // filter-shaped pedals: their frequency response, 20 Hz to 20 kHz
+    if (DSPV) {
+      const c = DSPV, X = f => x0 + Math.log(f / 20) / Math.log(1000) * (x1 - x0), pts = [];
+      let bqs, rng = 14, lab;
+      if (grp === 'x-geq') { bqs = [63, 160, 400, 1000, 2500, 6300, 16000].map((f, i) => c.bq('pk', f, 1.1, P['gq' + (i + 1)])); lab = '7 bands · 63 Hz to 16 kHz'; }
+      else if (grp === 'x-cab') { const cb = [[90, 130, 3, 2500, 4, 5200], [75, 110, 4, 2000, 3, 5600], [60, 95, 5, 1600, 4.5, 4600], [380, 900, 5, 3000, 2, 3800]][P.cbType | 0];
+        bqs = [c.bq('hp', cb[0], .7, 0), c.bq('pk', cb[1], 1.2, cb[2]), c.bq('pk', cb[3], 1, cb[4] - 4 * P.cbMic), c.bq('lp', cb[5] * Math.pow(2, -1.3 * P.cbMic), .8, 0)]; rng = 30;
+        lab = SEGS.cbType.o[P.cbType | 0][1] + ' · mic ' + DEFS.cbMic.f(P.cbMic); }
+      else { const ty = P.lfType | 0, top = (ty === 2 ? 1800 : 3000) * Math.pow(2, P.lfTone * (ty === 2 ? 1.4 : 2.3));
+        bqs = [c.bq('hp', ty === 2 ? 420 : ty === 1 ? 35 : 45, .7, 0), c.bq('lp', top, .7, 0), c.bq('pk', ty === 2 ? 1500 : 220, .8, ty === 2 ? 4 : 1.5)]; rng = 30;
+        lab = SEGS.lfType.o[ty][1].toLowerCase() + ' band · wobble ±' + Math.round(1200 * Math.log2(1 + 6.2832 * (ty === 1 ? 0.555 : 0.45) * (ty === 0 ? 0.0011 : ty === 1 ? 0.0009 : 0.0001) * P.lfWow)) + ' ct'; }
+      const Yd = db => grp === 'x-geq' ? mid - Math.max(-rng, Math.min(rng, db)) / rng * (y1 - y0) / 2 : y0 + (6 - Math.max(-rng + 6, Math.min(6, db))) / rng * (y1 - y0);
+      for (let i = 0; i <= 140; i++) { const f = 20 * Math.pow(1000, i / 140); pts.push([X(f), Yd(20 * Math.log10(bqMag(bqs, f) + 1e-9))]); }
+      if (grp === 'x-geq') { path([[x0, mid], [x1, mid]], 'rgba(242,245,248,.12)');
+        [63, 160, 400, 1000, 2500, 6300, 16000].forEach((f, i) => { g.shadowBlur = 0; g.fillStyle = col; g.beginPath(); g.arc(X(f), Yd(P['gq' + (i + 1)]), 2 * d, 0, 6.2832); g.fill(); }); }
+      g.beginPath(); pts.forEach(([a, b], i) => i ? g.lineTo(a, b) : g.moveTo(a, b)); g.lineTo(x1, y1); g.lineTo(x0, y1); g.closePath(); g.fillStyle = col + '14'; g.fill();
+      glow(col, 8); path(pts, col, 2);
+      txt(lab, x0, y1 + 3 * d); txt('20 Hz – 20 kHz', x1, y1 + 3 * d, null, 'right');
+    }
+  } else if (grp === 'x-mb') {
+    // the multiband's curve: input level across, output up; above −26 dB pushed down (Depth), below −44 dB lifted up (Upward)
+    const pw = (x1 - x0) * 0.58, X = db => x0 + (db + 70) / 70 * pw, Yo = db => y1 - (Math.max(-70, Math.min(6, db)) + 70) / 76 * (y1 - y0);
+    const sD = 1 - 1 / (1 + 7 * P.mbAmt), sU = 0.65 * P.mbUp, mU = 18 * P.mbUp;
+    const out = i => i > -26 ? i - (i + 26) * sD : i < -44 && i > -80 ? i + Math.min(mU, (-44 - i) * sU) * Math.min(1, (i + 80) / 12) : i;
+    path([[X(-70), Yo(-70)], [X(0), Yo(0)]], 'rgba(242,245,248,.18)', 1, [3 * d, 3 * d]);
+    const pts = []; for (let i = 0; i <= 140; i++) { const db = -70 + i / 2; pts.push([X(db), Yo(out(db))]); }
+    glow(col, 8); path(pts, col, 2);
+    const fb = fxB('mb'), m = fb && tele.fxm ? tele.fxm[fb.id] || 0 : 0, bx = x0 + pw + 14 * d, bw = (x1 - bx) / 3;
+    [['low', P.mbLo], ['mid', P.mbMid], ['high', P.mbHi]].forEach(([l, db], i) => { const cx = bx + (i + 0.5) * bw, h = (y1 - y0) * 0.5;
+      g.shadowBlur = 0; g.strokeStyle = 'rgba(242,245,248,.25)'; g.lineWidth = 1 * d; g.beginPath(); g.moveTo(cx, y0); g.lineTo(cx, y1); g.stroke();
+      glow(col, 6); g.fillStyle = col; const yy = mid - db / 12 * h; g.fillRect(cx - 4 * d, Math.min(mid, yy), 8 * d, Math.max(1.5 * d, Math.abs(yy - mid)));
+      txt(l, cx, y1 + 3 * d, null, 'center'); });
+    txt('in → out (dB)', x0, y1 + 3 * d); txt(`gain moving ${m.toFixed(1)} dB`, x0, y0 - 2 * d, m > 0.5 ? col : null);
+  } else if (grp === 'x-pump') {
+    // the level over two beats: down hard on each step, back up over Release
+    const beat = 60 / P.tempo, win = 2 * beat * Math.max(1, [2, 1, .5, .25][P.pmDiv | 0]), st = beat * [2, 1, .5, .25][P.pmDiv | 0], rel = Math.max(0.05, P.pmRel), pts = [];
+    for (let i = 0; i <= 400; i++) { const tt = i / 400 * win, ph = (tt / st) % 1, e = ph < 0.015 ? ph / 0.015 : Math.max(0, 1 - (ph - 0.015) / rel), sm = e * e * (3 - 2 * e); pts.push([x0 + i / 400 * (x1 - x0), y0 + (y1 - y0) * 0.04 + P.pmDepth * sm * (y1 - y0) * 0.92]); }
+    for (let b = 0; b * st <= win + 1e-6; b++) path([[x0 + b * st / win * (x1 - x0), y0], [x0 + b * st / win * (x1 - x0), y1]], 'rgba(242,245,248,.12)', 1, [2 * d, 3 * d]);
+    glow(col, 8); path(pts, col, 2);
+    txt(`ducks ${Math.round(P.pmDepth * 100)}% every ${PDIV_L[P.pmDiv | 0]} @ ${P.tempo} bpm`, x0, y1 + 3 * d); txt('level ↑', x1, y0 - 2 * d, null, 'right');
+  } else if (grp === 'x-swell') {
+    // one note's level: silent at the start, rising over Rise along the Curve
+    const T = Math.max(0.3, P.swRise * 1.4), cur = 1 + 3 * P.swCurve, pts = [], ref = [];
+    for (let i = 0; i <= 160; i++) { const tt = i / 160 * T, r = Math.min(1, tt / Math.max(0.01, P.swRise)), x = x0 + i / 160 * (x1 - x0); pts.push([x, y1 - (1 - P.swDepth * (1 - Math.pow(r, cur))) * (y1 - y0)]); ref.push([x, y0]); }
+    path(ref, 'rgba(242,245,248,.15)', 1, [3 * d, 3 * d]); glow(col, 8); path(pts, col, 2);
+    txt('each new note · rise ' + fT(P.swRise), x0, y1 + 3 * d); txt(fT(T) + ' shown', x1, y1 + 3 * d, null, 'right');
+  } else if (grp === 'x-fshift') {
+    // the note's harmonics (faint) and where the shifter moves them: same number of Hz each, so the even spacing is gone
+    const f0 = Math.max(40, tele.f0 || 220), X = f => x0 + Math.log(f / 20) / Math.log(1000) * (x1 - x0);
+    const bar = (f, a, c, w) => { if (f < 20 || f > 20000 || a < 0.01) return; const x = X(f); glow(c, 6); g.strokeStyle = c; g.lineWidth = w * d; g.beginPath(); g.moveTo(x, y1); g.lineTo(x, y1 - Math.min(1, a) * (y1 - y0)); g.stroke(); };
+    for (let n = 1; n <= 10; n++) { bar(f0 * n, (1 - P.fsMix * 0.7) / n, dim(COL.ink), 1.2); bar(f0 * n + P.fsHz, P.fsMix / n, col, 2); if (P.fsSt) bar(f0 * n - P.fsHz, P.fsMix / n * 0.8, COL.c1, 1.6); }
+    g.shadowBlur = 0; txt(`every harmonic ${sgn(P.fsHz)}${DEFS.fsHz.f(Math.abs(P.fsHz))}` + (P.fsSt ? ' · R the other way' : ''), x0, y1 + 3 * d); txt('20 Hz – 20 kHz', x1, y1 + 3 * d, null, 'right');
+  } else if (grp === 'x-shep') {
+    // the three voices' pitch over time: each climbs three octaves, fading in at the bottom and out at the top
+    const T = 8, Ys = st => mid - st / 18 * (y1 - y0) * 0.48;
+    for (let v = 0; v < 3; v++) { let prev = null;
+      for (let i = 0; i <= 240; i++) { const tt = i / 240 * T, q = (((tt * P.sgRate + v / 3) % 1) + 1) % 1, x = x0 + i / 240 * (x1 - x0), y = Ys(q * 36 - 18), gq = Math.sin(Math.PI * q);
+        if (prev && Math.abs(prev[1] - y) < (y1 - y0) * 0.5) { g.globalAlpha = 0.15 + 0.85 * gq * gq; glow(col, 5 * gq); g.strokeStyle = col; g.lineWidth = 1.8 * d; g.beginPath(); g.moveTo(prev[0], prev[1]); g.lineTo(x, y); g.stroke(); }
+        prev = [x, y]; } }
+    g.globalAlpha = 1; g.shadowBlur = 0;
+    txt('+18 st', x0, y0 - 2 * d); txt(DEFS.sgRate.f(P.sgRate) + ' · 3 voices an octave apart', x0, y1 + 3 * d); txt('8 s', x1, y1 + 3 * d, null, 'right');
+  } else if (grp === 'x-reso') {
+    // the four strings' pitches and their overtones, on a log frequency axis; Decay sets how long each rings
+    const CH = [[0, 4, 7, 12], [0, 3, 7, 12], [0, 5, 7, 12], [0, 7, 12, 19], [0, 4, 7, 11], [0, 3, 7, 10]][P.rsChord | 0], X = f => x0 + Math.log(f / 60) / Math.log(100) * (x1 - x0);
+    const cs = [col, COL.c1, COL.c2, COL.c3];
+    CH.forEach((st, j) => { const f = 130.8128 * Math.pow(2, ((P.rsKey | 0) + st) / 12);
+      for (let n = 1; n <= 12; n++) { const fn = f * n; if (fn > 6000) break; const a = Math.pow(0.5 + 0.45 * P.rsBright, n - 1) * Math.min(1, 0.4 + P.rsDecay / 4); glow(cs[j], 5); g.strokeStyle = cs[j]; g.lineWidth = (n === 1 ? 2 : 1.2) * d; g.beginPath(); g.moveTo(X(fn), y1); g.lineTo(X(fn), y1 - a * (y1 - y0)); g.stroke(); } });
+    g.shadowBlur = 0;
+    txt(CH.map(st => NOTE_NM[((P.rsKey | 0) + st) % 12]).join(' · ') + ' · ' + DEFS.rsChord.f(P.rsChord | 0) + ' · rings ' + fT(P.rsDecay), x0, y1 + 3 * d); txt('60 Hz – 6 kHz', x1, y0 - 2 * d, null, 'right');
+  } else if (grp === 'x-glitch') {
+    const ty = P.gbType | 0, beat = 60 / P.tempo, fb = fxB('glitch'), live = fb && tele.fxm ? tele.fxm[fb.id] : 0;
+    if (ty <= 2) {
+      // stutter, scatter, halftime: one bar cut into grid cells; lit cells are the ones being replaced
+      const G = beat * [1, .5, .25, .125, 1 / 3, 1 / 6][P.gbDiv | 0], bar = beat * 4, n = Math.max(1, Math.round(bar / G)), cw = (x1 - x0) / n, now = (performance.now() / 1000 % bar) / bar;
+      for (let i = 0; i < n; i++) { const r = hash1(i + 3 * Math.floor(performance.now() / 1000 / bar)), on = ty === 2 ? 1 : r < P.gbAmt, cx = x0 + i * cw;
+        g.shadowBlur = 0; g.strokeStyle = 'rgba(242,245,248,.2)'; g.lineWidth = 1 * d; g.strokeRect(cx + 1 * d, y0 + 4 * d, cw - 2 * d, y1 - y0 - 8 * d);
+        if (on) { glow(col, 6); g.strokeStyle = col; g.lineWidth = 1.6 * d; g.beginPath();
+          if (ty === 2) { g.moveTo(cx + 2 * d, mid); for (let k = 0; k <= 16; k++) g.lineTo(cx + 2 * d + k / 16 * (cw - 4 * d), mid - Math.sin(6.2832 * k / 16 * (i % 2 ? 0 : 1)) * (y1 - y0) * 0.25); }
+          else if (ty === 1 && hash1(i * 5) < P.gbRev) { g.moveTo(cx + 2 * d, y1 - 6 * d); g.lineTo(cx + cw - 2 * d, y0 + 6 * d); g.lineTo(cx + cw - 2 * d, y1 - 6 * d); }
+          else { g.moveTo(cx + 2 * d, y1 - 6 * d); g.lineTo(cx + 2 * d, y0 + 6 * d); g.lineTo(cx + cw - 2 * d, y1 - 6 * d); }
+          g.stroke(); } }
+      path([[x0 + now * (x1 - x0), y0], [x0 + now * (x1 - x0), y1]], COL.ink + '88', 1);
+      txt(ty === 2 ? `${GDIV_L[P.gbDiv | 0]} chunks at half speed · 1 bar` : `${GDIV_L[P.gbDiv | 0]} · ${Math.round(P.gbAmt * 100)}% chance` + (ty === 1 ? ` · ${Math.round(P.gbRev * 100)}% rev` : '') + ' · 1 bar', x0, y1 + 3 * d);
+    } else if (ty === 3) {
+      // tape stop: playback speed over one cycle; full speed, then winding down to nothing
+      const P2 = beat * 4 * [1, 2, 4][P.gbEvery | 0], S = Math.min(P2, beat * [0.25, 0.5, 1, 2, 4][P.gbLen | 0]), pts = [];
+      for (let i = 0; i <= 300; i++) { const tt = i / 300 * P2, v = tt < P2 - S ? 1 : Math.pow(1 - (tt - (P2 - S)) / S, 1.6); pts.push([x0 + i / 300 * (x1 - x0), y1 - v * (y1 - y0)]); }
+      glow(col, 8); path(pts, col, 2); txt('speed ↑', x0, y0 - 2 * d);
+      txt(`stops over ${DEFS.gbLen.f(P.gbLen | 0)} · every ${DEFS.gbEvery.f(P.gbEvery | 0)}`, x0, y1 + 3 * d);
+    } else if (ty === 4) {
+      // freeze: the captured loop (two overlapping fades), and the morph from the old freeze to the new one
+      const Z = P.gbSize, pa = [], pb = [], pm = [];
+      for (let i = 0; i <= 200; i++) { const u = i / 200, x = x0 + u * (x1 - x0) * 0.55, q = (u * 2) % 1, q2 = (q + 0.5) % 1; pa.push([x, y1 - Math.pow(Math.sin(Math.PI * q), 2) * (y1 - y0) * 0.8]); pb.push([x, y1 - Math.pow(Math.sin(Math.PI * q2), 2) * (y1 - y0) * 0.8]); }
+      glow(col, 6); path(pa, col, 1.6); glow(COL.c1, 6); path(pb, COL.c1, 1.6);
+      const mx0 = x0 + (x1 - x0) * 0.62; for (let i = 0; i <= 60; i++) { const u = i / 60; pm.push([mx0 + u * (x1 - mx0), y1 - u * (y1 - y0) * 0.8]); }
+      glow(col, 6); path(pm, col, 1.8); path(pm.map(([a, b]) => [a, y1 - (y1 - b)]).map(([a, b], i) => [a, y0 + (y1 - y0) * 0.2 + i / 60 * (y1 - y0) * 0.8]), dim(col), 1.2, [3 * d, 3 * d]);
+      txt(`loop ${fT(Z)}`, x0, y1 + 3 * d); txt('morph ' + fT(P.gbFade), x1, y1 + 3 * d, null, 'right'); txt(live ? 'holding' : 'play a note', x0, y0 - 2 * d, live ? col : null);
+    } else {
+      // grain: a second of recent sound across, pitch up; each dot a grain, its size the grain length
+      const n = Math.min(60, Math.round(P.gbDens * 1.5)), now = performance.now() / 1000;
+      for (let i = 0; i < n; i++) { const life = (now * 0.8 + hash1(i)) % 1, x = x0 + hash1(i * 7 + Math.floor(now * 0.8 + hash1(i))) * (x1 - x0), st = P.gbPitch ? Math.round((hash1(i * 13) * 2 - 1) * P.gbPitch) : 0, y = mid - st / 12 * (y1 - y0) * 0.45;
+        g.globalAlpha = Math.sin(Math.PI * life); glow(col, 5); g.strokeStyle = col; g.lineWidth = 2 * d; const wl = Math.max(2 * d, P.gbSize / 0.6 * (x1 - x0)); g.beginPath(); g.moveTo(x - wl / 2, y); g.lineTo(x + wl / 2, y); g.stroke(); }
+      g.globalAlpha = 1; g.shadowBlur = 0;
+      txt(`${P.gbDens.toFixed(P.gbDens < 10 ? 1 : 0)}/s · ${fT(P.gbSize)} each` + (P.gbPitch ? ` · ±${P.gbPitch} st` : ''), x0, y1 + 3 * d); txt('pitch ↑', x1, y0 - 2 * d, null, 'right');
+    }
   } else if (grp === 'poly') {
     const poly = P.poly && !P.arpOn, nv = poly ? tele.nv : (tele.g ? 1 : 0), bw = (x1 - x0) / 8;
     for (let j = 0; j < 8; j++) {
