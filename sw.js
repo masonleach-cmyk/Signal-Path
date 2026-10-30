@@ -1,6 +1,6 @@
 // Signal Path service worker: works offline after the first visit.
 // Bump VERSION whenever you change index.html so phones pick up the update.
-const VERSION = 'sp-v28';
+const VERSION = 'sp-v33';
 const CORE = ['./', 'index.html', 'manifest.webmanifest', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'favicon-32.png'];
 
 self.addEventListener('install', e => {

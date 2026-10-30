@@ -168,17 +168,23 @@ button:focus-visible,.knob:focus-visible{outline:1px solid var(--c1);outline-off
 /* main tabs: a row of pedals, each in its section's colour. Tap a pedal to open it, stomp its footswitch (or hold the pedal) to switch it. */
 /* The row doubles as the signal path: a line runs Osc → Mix → Filter → Env → FX → speaker (drawn on the canvas), with a gap
    for the speaker before LFO and Arp, which steer the sound but aren't in its path. */
-.tabs{position:relative;flex:0 0 auto;height:58px;display:grid;grid-template-columns:repeat(6,minmax(0,1fr)) 18px repeat(2,minmax(0,1fr))}
-.tsep{pointer-events:none}
+.tabs{position:relative;flex:0 0 auto;height:64px;padding:1px 0;display:grid;grid-template-columns:minmax(0,1.38fr) 11px 24px 15px minmax(0,1fr) 12px minmax(0,1fr) 16px minmax(0,1fr) 11px 24px 14px minmax(0,.72fr) 7px minmax(0,.72fr);grid-template-rows:1fr 1fr;column-gap:0;row-gap:4px}
+.tsep{pointer-events:none;grid-row:1/3;grid-column:11}
 .tabs canvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
-.tp{--tc:var(--c1);position:relative;margin:5px 2px 1px;border-radius:8px}
+.tp{--tc:var(--c1);position:relative;margin:0;border-radius:8px;grid-row:1/3}
+/* Osc 1 and Osc 2 are half-height modules stacked in one column; Mix is a slim channel strip */
+.tp.mini{grid-row:auto;border-radius:7px}
+.tp.mini .psel{border-radius:7px}
 .tp .psel{position:absolute;inset:0;width:100%;border-radius:8px;transition:box-shadow .43s}
 .tp .psel.lpress{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--tc) 60%,transparent),0 0 12px color-mix(in srgb,var(--tc) 25%,transparent)}
-.tp .pl{position:absolute;left:-2px;right:-2px;top:16px;text-align:center;font-weight:700;font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);white-space:nowrap;pointer-events:none;transition:color .2s,text-shadow .2s}
+.tp .pl{position:absolute;left:-2px;right:-2px;top:19px;text-align:center;font-weight:700;font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);white-space:nowrap;pointer-events:none;transition:color .2s,text-shadow .2s}
 .tp.on .pl{color:var(--ink);text-shadow:0 0 6px var(--tc)}
 .tp.off .pl{color:#3b434d;text-shadow:none}
 .tp.on.off .pl{color:var(--dim)}
 .tp .psw{position:absolute;left:0;right:0;bottom:0;height:24px;border-radius:0 0 8px 8px;z-index:1}
+.tp.mini .pl{left:6px;right:auto;top:4px;font-size:7px;letter-spacing:.05em;text-align:left}
+.tp.mini .psw{left:auto;top:0;bottom:0;width:20px;height:auto;border-radius:0 7px 7px 0}
+.tp.slim .pl{left:-3px;right:-3px;top:5px;font-size:7.5px;letter-spacing:.04em}
 .tp.dot::after{content:"";position:absolute;top:3px;right:3px;width:5px;height:5px;border-radius:50%;background:var(--c3);box-shadow:0 0 6px var(--c3);z-index:2}
 /* a switched-off section: its lit parts go dark but stay readable, and you can still set them up */
 .pwr-off .knob:not(.live) .k-arc,.knob.dead .k-arc{stroke:var(--faint);filter:none;opacity:.6}
@@ -201,7 +207,7 @@ button:focus-visible,.knob:focus-visible{outline:1px solid var(--c1);outline-off
 .fxb canvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
 .fxb .ov{position:absolute;inset:0;pointer-events:none}
 .fxb .pd{position:absolute;top:0;bottom:0}
-.fxb .pd button{position:absolute;left:3px;right:3px;pointer-events:none;border-radius:9px;transition:box-shadow .43s}
+.fxb .pd button{position:absolute;left:4.5px;right:4.5px;pointer-events:none;border-radius:9px;transition:box-shadow .43s}
 .fxb .pd .psel{top:1.5px;bottom:1.5px}
 .fxb .pd .psw{bottom:1.5px;height:28px;border-radius:0 0 9px 9px}
 .fxb .pd .psel.lpress{box-shadow:inset 0 0 0 1px rgba(125,255,208,.55),0 0 12px rgba(125,255,208,.25)}
@@ -1671,12 +1677,22 @@ function longPress(el, fn, ms = 430){
 }
 const TAB_SHORT = {osc1:'Osc 1', osc2:'Osc 2', mix:'Mix', filter:'Filter', env:'Env', lfo:'LFO', fx:'FX', arp:'Arp'};
 let tabsUI = null;
-const tabsRO = new ResizeObserver(() => { if (!tabsUI) return; const r = tabsUI.cv.getBoundingClientRect(), d = DPR(); tabsUI.w = tabsUI.cv.width = Math.max(1, Math.round(r.width * d)); tabsUI.h = tabsUI.cv.height = Math.max(1, Math.round(r.height * d)); });
+const tabsRO = new ResizeObserver(() => { if (!tabsUI) return; const r = tabsUI.cv.getBoundingClientRect(), d = DPR(); tabsUI.w = tabsUI.cv.width = Math.max(1, Math.round(r.width * d)); tabsUI.h = tabsUI.cv.height = Math.max(1, Math.round(r.height * d)); tabsGeo(); });
+// where each box sits in the row (canvas px), read from the grid so the drawing and the buttons always line up
+const TAB_GRID = {osc1:[1, 1], osc2:[1, 2], mix:[3], filter:[5], env:[7], fx:[9], lfo:[13], arp:[15]};
+function tabsGeo(){
+  const c = tabsUI; if (!c) return; const d = DPR(), geo = {};
+  const at = el => ({x:el.offsetLeft * d, y:el.offsetTop * d, w:el.offsetWidth * d, h:el.offsetHeight * d});
+  $('tabs').querySelectorAll('.tp').forEach(el => { geo[el.dataset.tab] = at(el); });
+  const sp = $('tabs').querySelector('.tsep'); if (sp) geo.spk = at(sp);
+  c.geo = geo;
+}
 function buildTabs(){
   const nav = $('tabs');
   const cv = document.createElement('canvas'); cv.setAttribute('aria-hidden', 'true'); nav.appendChild(cv);
   TABS.forEach(t => {
-    const c = document.createElement('div'); c.className = 'tp'; c.dataset.tab = t.id; c.dataset.hint = 'tab-' + t.id; c.style.setProperty('--tc', `var(--${TAB_C[t.id]})`);
+    const c = document.createElement('div'); c.className = 'tp' + (TAB_GRID[t.id][1] ? ' mini' : t.id === 'mix' ? ' slim' : ''); c.dataset.tab = t.id;
+    c.style.gridColumn = TAB_GRID[t.id][0]; if (TAB_GRID[t.id][1]) c.style.gridRow = TAB_GRID[t.id][1]; c.dataset.hint = 'tab-' + t.id; c.style.setProperty('--tc', `var(--${TAB_C[t.id]})`);
     c.innerHTML = `<button class="psel"><span class="pl">${TAB_SHORT[t.id]}</span></button>` + (PW[t.id] ? `<button class="psw" data-hint="${PW[t.id]}" aria-label="${TAB_SHORT[t.id]} on or off"></button>` : '');
     const sel = c.querySelector('.psel');
     const wasLong = PW[t.id] ? longPress(sel, () => togglePower(t.id)) : () => false;
@@ -1685,7 +1701,7 @@ function buildTabs(){
     nav.appendChild(c);
     if (t.id === 'fx') { const sp = document.createElement('div'); sp.className = 'tsep'; sp.setAttribute('aria-hidden', 'true'); nav.appendChild(sp); }
   });
-  tabsUI = {cv, w:0, h:0, gl:0, wl:0, flow:0};
+  tabsUI = {cv, w:0, h:0, ge:0, sp:0};
   tabsRO.observe(cv);
   refreshTabs();
 }
@@ -2058,6 +2074,43 @@ function capText(g, s, cx, y, px, col, maxW, glow){
   g.shadowBlur = 0;
 }
 function monoText(g, s, x, y, px, col, align){ g.font = `400 ${px}px "IBM Plex Mono", ui-monospace, Menlo, monospace`; g.fillStyle = col; g.textAlign = align || 'center'; g.textBaseline = 'alphabetic'; g.fillText(s, x, y); g.textAlign = 'left'; }
+/* the end of the line: a slim speaker cabinet, full pedal height. The signal arrives at the tweeter; the woofer sits where the
+   footswitches do and pumps with the output, sending out faint ripples while the note sounds. Display only, nothing to press. */
+function speakerCab(g, bx, by, bw, bh, yc, col, lvl, d, t, H){
+  // k is how warm it glows: eased in, and never more than a soft 40% of full colour
+  const cx = bx + bw / 2, wy = by + bh - 12 * d, R = Math.min(bw / 2 - 3.5 * d, 9.5 * d), e = Math.max(0, Math.min(1, lvl)), k = 0.4 * e * e * (3 - 2 * e);
+  const glow = blur => { if (k > 0.002) { g.shadowColor = hexA(col, 0.6); g.shadowBlur = blur * d * k; } else g.shadowBlur = 0; };
+  const circ = (x, y, r) => { g.beginPath(); g.arc(x, y, r, 0, 6.2832); };
+  g.save();
+  // cabinet: a dark box with a faint dotted grille; the colour is laid over the resting grey, so it fades without a step
+  rrect(g, bx + 0.5, by + 0.5, bw - 1, bh - 1, 5 * d); g.fillStyle = '#030405'; g.fill();
+  g.lineWidth = 1 * d; g.strokeStyle = '#2b333c'; g.stroke();
+  if (k > 0.002) { glow(4); g.strokeStyle = hexA(col, 0.55 * k); g.stroke(); g.shadowBlur = 0; }
+  g.save(); rrect(g, bx + 1, by + 1, bw - 2, bh - 2, 5 * d); g.clip();
+  const dots = fill => { g.fillStyle = fill; for (let y = by + 5 * d; y < by + bh - 3 * d; y += 3.4 * d) for (let x = bx + 3.5 * d + ((Math.round((y - by) / (3.4 * d)) % 2) ? 1.7 * d : 0); x < bx + bw - 3 * d; x += 3.4 * d) { circ(x, y, 0.55 * d); g.fill(); } };
+  dots('#15191e'); if (k > 0.01) dots(hexA(col, 0.12 * k));
+  // ripples drifting out from the woofer, barely there
+  if (k > 0.01) for (let j = 0; j < 3; j++) {
+    const u = (t * 0.5 + j / 3) % 1; g.strokeStyle = hexA(col, (1 - u) * (1 - u) * 0.35 * k); g.lineWidth = 1 * d;
+    circ(cx, wy, R + u * 14 * d); g.stroke();
+  }
+  g.restore();
+  // drivers: resting grey first, warm colour over the top
+  const ring = (x, y, r, base, a, w) => { g.lineWidth = w * d; g.strokeStyle = base; circ(x, y, r); g.stroke(); if (k > 0.002) { g.strokeStyle = hexA(col, a * k); g.stroke(); } };
+  g.fillStyle = '#05070a'; circ(cx, yc, 3.6 * d); g.fill(); circ(cx, wy, R); g.fill();
+  ring(cx, yc, 3.6 * d, '#3b434d', 1.2, 1.1);
+  g.fillStyle = '#2b333c'; circ(cx, yc, 1.2 * d); g.fill();
+  if (k > 0.002) { glow(5); g.fillStyle = hexA(col, 1.4 * k); g.fill(); g.shadowBlur = 0; }
+  capText(g, 'out', cx, by + 26.5 * d, 7.5 * d, '#7c8794', bw - 3 * d, null);
+  if (k > 0.01) capText(g, 'out', cx, by + 26.5 * d, 7.5 * d, hexA(COL.ink, 0.6 * k), bw - 3 * d, null);
+  // woofer: surround, cone and dust cap; the cone breathes gently with the output
+  const pump = 1 + k * (0.06 * Math.sin(t * 38) + 0.035 * Math.sin(t * 11.3));
+  ring(cx, wy, R, '#353d46', 1.1, 1.1);
+  ring(cx, wy, R * 0.68 * pump, '#2b333c', 1.1, 1);
+  g.fillStyle = '#0b0e11'; circ(cx, wy, R * 0.3 * pump); g.fill(); g.lineWidth = 1 * d; g.strokeStyle = '#3b434d'; g.stroke();
+  if (k > 0.002) { glow(7); g.fillStyle = hexA(col, 0.9 * k); g.fill(); g.shadowBlur = 0; }
+  g.restore();
+}
 function speakerGlyph(g, x, y, col, lvl, d, a){
   g.save(); g.globalAlpha = a; g.strokeStyle = col; g.lineWidth = 1.1 * d; g.lineJoin = 'round'; g.lineCap = 'round';
   g.beginPath(); g.moveTo(x - 6 * d, y - 2 * d); g.lineTo(x - 3.6 * d, y - 2 * d); g.lineTo(x - 0.3 * d, y - 5 * d); g.lineTo(x - 0.3 * d, y + 5 * d); g.lineTo(x - 3.6 * d, y + 2 * d); g.lineTo(x - 6 * d, y + 2 * d); g.closePath(); g.stroke();
@@ -2068,14 +2121,49 @@ function speakerGlyph(g, x, y, col, lvl, d, a){
   }
   g.restore();
 }
+/* Hardware shared by the tab row and the FX board. Every box is solid; sound only travels on patch cables between jacks on
+   the boxes' sides. A cable is drawn in the colour of the section it leaves and warms slightly while sound runs through it. */
+// the jack: a small socket nut on the box edge (side -1 = left edge, +1 = right edge)
+function jackNub(g, x, y, side, col, k, d){
+  const w = 2.4 * d, h = 6.4 * d, x0 = side < 0 ? x - w : x;
+  g.save();
+  g.fillStyle = '#0a0d10'; g.fillRect(x0, y - h / 2, w, h);
+  g.lineWidth = 0.9 * d; g.strokeStyle = col ? hexA(col, 0.5 + 0.35 * k) : '#3b434d'; g.strokeRect(x0 + 0.45 * d, y - h / 2 + 0.45 * d, w - 0.9 * d, h - 0.9 * d);
+  g.restore();
+  return side < 0 ? x0 : x0 + w;
+}
+// a patch cable from one jack to the next, with a plug barrel at each end
+function patchCable(g, x1, x2, y, col, k, d, dead, y2 = y){
+  if (x2 - x1 < 1) return;
+  const c = dead ? '#3b434d' : col, pl = Math.min(2.6 * d, (x2 - x1) / 4), a = x1 + pl, b = x2 - pl, dx = b - a;
+  // the cord leaves each plug level, then hangs a little under its own weight
+  const sag = (y2 === y && dx < 10 * d) ? 0 : 1.5 * d + Math.abs(y2 - y) * 0.22 + dx * 0.14;
+  g.save(); g.lineCap = 'round';
+  if (!dead && k > 0.01) { g.shadowColor = hexA(col, 0.7); g.shadowBlur = 4 * d * k; }
+  g.strokeStyle = hexA(c, dead ? 0.8 : 0.55 + 0.35 * k);
+  g.lineWidth = 1.5 * d; g.beginPath(); g.moveTo(a, y);
+  g.bezierCurveTo(a + dx * 0.45, y + sag, b - dx * 0.45, y2 + sag, b, y2); g.stroke();
+  g.shadowBlur = 0; g.lineCap = 'butt'; g.lineWidth = 3.6 * d; g.strokeStyle = hexA(c, dead ? 0.6 : 0.4 + 0.3 * k);
+  g.beginPath(); g.moveTo(x1, y); g.lineTo(a, y); g.moveTo(b, y2); g.lineTo(x2, y2); g.stroke();
+  g.restore();
+}
+// a solid box: dark body, a faint wash of the section colour when it's on, and two screws at the foot
+function solidBox(g, bx, by, bw, bh, col, L, rr, d, screws){
+  g.save(); rrect(g, bx + 0.5, by + 0.5, bw - 1, bh - 1, rr); g.fillStyle = '#040506'; g.fill();
+  if (L > 0) { g.fillStyle = hexA(col, 0.045 * L); g.fill(); }
+  if (screws) { g.fillStyle = '#1d232a'; [bx + 4 * d, bx + bw - 4 * d].forEach(x => { g.beginPath(); g.arc(x, by + bh - 4 * d, 1 * d, 0, 6.2832); g.fill(); }); }
+  g.restore();
+}
 // one pedal: body, live picture, name and footswitch. Also draws the ghost under your finger.
 function drawPedal(g, bx, by, bw, bh, o){
   const d = o.d, L = o.L, col = o.rm ? REC : MINT, F = VAR[o.v].f;
   g.save(); g.globalAlpha = o.a == null ? 1 : o.a;
   if (o.ghost) {
     g.save(); rrect(g, bx + 0.5, by + 0.5, bw - 1, bh - 1, 7 * d); g.fillStyle = '#030605'; g.shadowColor = col; g.shadowBlur = 16 * d; g.fill(); g.restore();
-  }
+  } else solidBox(g, bx, by, bw, bh, col, L, 7 * d, d, false);
   pedalBody(g, bx, by, bw, bh, col, L, o.on, o.sel || o.ghost, d, 7 * d);
+  const jy = by + bh / 2, jc = o.rm ? REC : L > 0.5 ? MINT : null;
+  jackNub(g, bx, jy, -1, jc, 0, d); jackNub(g, bx + bw, jy, 1, jc, 0, d);
   const ix0 = bx + 6 * d, ix1 = bx + bw - 6 * d, iy0 = by + 4.5 * d, iy1 = by + 22.5 * d;
   if (L < 1) { g.save(); g.strokeStyle = g.fillStyle = '#3b434d'; g.lineWidth = 1.2 * d; g.globalAlpha *= 0.9 * (1 - L); PD_ICON[F](g, ix0, iy0, ix1, iy1, o.t0 || 0, d, o.ic, o.P); g.restore(); }
   if (L > 0) { g.save(); g.strokeStyle = g.fillStyle = col; g.lineWidth = 1.3 * d; g.globalAlpha *= L; g.shadowColor = col; g.shadowBlur = 5 * d; PD_ICON[F](g, ix0, iy0, ix1, iy1, o.t, d, o.ic, o.P); g.restore(); }
@@ -2084,14 +2172,16 @@ function drawPedal(g, bx, by, bw, bh, o){
   footswitch(g, bx + bw / 2, by + bh - 12.5 * d, col, L, d);
   g.restore();
 }
+const FX_INS = 4.5;   // CSS px between a slot's edge and its pedal, so cables show between pedals
 function drawFxBoard(){
   const c = FXB; if (!c.cv || !c.w || !c.cw || !c.cv.isConnected) return;
   const g = c.cv.getContext('2d'), d = DPR(), W = c.w, H = c.h, now = performance.now(), t = now / 1000, G = FXG();
   const dt = Math.min(0.1, (now - c.last) / 1000); c.last = now;
   c.wl += (Math.min(1, (tele.a || 0) * 1.1) - c.wl) * 0.15;
-  c.flow = (c.flow + dt * (5 + 34 * c.wl) * d) % (9 * d);
+  const kT = Math.min(1, (tele.a || 0) * 1.1); c.k = (c.k || 0) + (kT - (c.k || 0)) * (1 - Math.exp(-dt / (kT > (c.k || 0) ? 0.55 : 1.8)));
+  const k = 0.4 * c.k;
   g.clearRect(0, 0, W, H); g.lineCap = 'round'; g.lineJoin = 'round';
-  const Lay = fxLayout(), sw = G.sw * d, yc = Math.round(15 * d) + 0.5, sigA = 0.22 + 0.6 * c.wl, ez = 1 - Math.exp(-dt * 16), lib = fxLibShown();
+  const Lay = fxLayout(), sw = G.sw * d, ins = FX_INS * d, by = 1.5 * d, bh = H - 3 * d, ym = Math.round(by + bh / 2) + 0.5, ez = 1 - Math.exp(-dt * 16), lib = fxLibShown();
   const nodes = Lay.items.map(({u, slot}) => {
     const tx = G.inW + slot * G.sw; let p = c.pos[u.id];
     if (!p) p = c.pos[u.id] = {x:tx, a:0};
@@ -2100,29 +2190,45 @@ function drawFxBoard(){
   });
   if (Lay.gap >= 0) nodes.push({gap:true, x:G.inW + Lay.gap * G.sw, a:1});
   nodes.sort((a, b) => a.x - b.x);
-  const line = (xa, xb, col, fine, a) => { if (xb <= xa) return; g.save(); g.globalAlpha = a; g.strokeStyle = col; g.lineWidth = 1 * d; g.setLineDash(fine ? [2 * d, 2.5 * d] : [5 * d, 4 * d]); g.lineDashOffset = -c.flow; g.beginPath(); g.moveTo(xa, yc); g.lineTo(xb, yc); g.stroke(); g.restore(); };
-  // the signal: in from the Env in its yellow, mint once any pedal has worked on it, then out to the speaker
-  const jx = 6.5 * d, spx = W - 11 * d;
-  let x = jx + 3 * d, col = COL.c3;
+  // input from the Env (a jack on a little panel edge), output to the speaker
+  const inX = 7 * d, spx = W - 11 * d;
+  g.save(); g.strokeStyle = '#2b333c'; g.lineWidth = 1 * d; g.beginPath(); g.moveTo(inX, ym - 8 * d); g.lineTo(inX, ym + 8 * d); g.stroke(); g.restore();
+  let x = jackNub(g, inX, ym, 1, COL.c3, k, d), col = COL.c3;
+  monoText(g, 'env', inX, ym + 18 * d, 6.5 * d, 'rgba(255,212,71,.55)');
   nodes.forEach(nd => {
-    const bx = nd.x * d + 3 * d, bw = sw - 6 * d, ix0 = bx + 6 * d, ix1 = bx + bw - 6 * d;
-    line(x, ix0 - 1.5 * d, col, false, sigA);
-    const on = nd.gap ? true : uOn(nd.u), L = nd.gap ? 1 : unitLit(nd.u, now);
-    if (!nd.gap && L < 1) line(ix0 - 1.5 * d, ix1 + 1.5 * d, col, true, Math.max(sigA, 0.5) * (1 - L));
-    if (on) col = MINT;
-    x = ix1 + 1.5 * d;
-  });
-  line(x, spx - 7.5 * d, col, false, sigA);
-  // the jacks: in from the Env, out to the speaker
-  g.save(); g.strokeStyle = COL.c3; g.globalAlpha = 0.85; g.lineWidth = 1.1 * d; g.beginPath(); g.arc(jx, yc, 2.6 * d, 0, 6.2832); g.stroke(); g.restore();
-  monoText(g, 'env', jx + 1 * d, yc + 14 * d, 6.5 * d, 'rgba(255,212,71,.55)');
-  speakerGlyph(g, spx, yc, col, c.wl, d, 0.95);
-  monoText(g, 'out', spx, yc + 14 * d, 6.5 * d, col === MINT ? 'rgba(125,255,208,.6)' : 'rgba(255,212,71,.55)');
-  // the pedals
-  nodes.forEach(nd => {
-    const bx = nd.x * d + 3 * d, bw = sw - 6 * d, by = 1.5 * d, bh = H - 3 * d;
+    const bx = nd.x * d + ins, bw = sw - 2 * ins;
     if (nd.gap) {
-      // where the dragged pedal will land
+      // the landing spot: the cable stops with an open plug either side, waiting for the pedal
+      patchCable(g, x, bx - 1 * d, ym, col, k, d, false);
+      x = bx + bw + 1 * d; col = MINT; return;
+    }
+    patchCable(g, x, bx - 2.4 * d, ym, col, k, d, false);
+    if (uOn(nd.u)) col = MINT;
+    x = bx + bw + 2.4 * d;
+  });
+  const outX = spx - 9 * d;
+  patchCable(g, x, outX - 2.4 * d, ym, col, k, d, false);
+  jackNub(g, outX, ym, -1, col, k, d);
+  g.save(); g.strokeStyle = '#2b333c'; g.lineWidth = 1 * d; g.beginPath(); g.moveTo(outX, ym - 8 * d); g.lineTo(outX, ym + 8 * d); g.stroke(); g.restore();
+  speakerGlyph(g, spx + 1.5 * d, ym, col, c.k, d, 0.5 + 0.4 * c.k);
+  monoText(g, 'out', spx, ym + 18 * d, 6.5 * d, col === MINT ? 'rgba(125,255,208,.6)' : 'rgba(255,212,71,.55)');
+  // the empty socket: tap for the library. Just corner marks, so the cable runs on through the empty space
+  if (Lay.add >= 0) {
+    const bx = (G.inW + Lay.add * G.sw) * d + ins, bw = sw - 2 * ins, cx = bx + bw / 2;
+    c.addR += ((lib && params.fxc.length ? 1 : 0) - c.addR) * ez;
+    const hot = lib, bc = hot ? hexA(MINT, 0.6) : '#3b434d', m = 7 * d;
+    g.save(); g.strokeStyle = bc; g.lineWidth = 1.1 * d; g.lineCap = 'round'; g.beginPath();
+    [[bx, by, 1, 1], [bx + bw, by, -1, 1], [bx, by + bh, 1, -1], [bx + bw, by + bh, -1, -1]].forEach(([px, py, sx, sy]) => { g.moveTo(px + sx * m, py); g.lineTo(px, py); g.lineTo(px, py + sy * m); });
+    g.stroke(); g.restore();
+    g.save(); g.translate(cx, by + 12 * d); g.rotate(c.addR * Math.PI / 4); g.strokeStyle = hot ? MINT : '#7c8794'; g.lineWidth = 1.4 * d; g.lineCap = 'round';
+    if (hot) { g.shadowColor = MINT; g.shadowBlur = 6 * d; }
+    g.beginPath(); g.moveTo(-5 * d, 0); g.lineTo(5 * d, 0); g.moveTo(0, -5 * d); g.lineTo(0, 5 * d); g.stroke(); g.restore();
+    capText(g, hot && params.fxc.length ? 'close' : 'add', cx, by + bh - 9 * d, 8 * d, hot ? COL.ink : '#7c8794', bw - 7 * d, hot ? 'rgba(125,255,208,.7)' : null);
+  }
+  // the pedals, on top of everything
+  nodes.forEach(nd => {
+    const bx = nd.x * d + ins, bw = sw - 2 * ins;
+    if (nd.gap) {
       const dr = c.drag, pulse = 0.55 + 0.45 * Math.sin(t * 7);
       g.save(); rrect(g, bx + 0.5, by + 0.5, bw - 1, bh - 1, 7 * d); g.setLineDash([3 * d, 3 * d]); g.lineWidth = 1.2 * d; g.strokeStyle = hexA(MINT, 0.45 + 0.4 * pulse); g.shadowColor = MINT; g.shadowBlur = 8 * d * pulse; g.stroke(); g.restore();
       if (dr) { g.save(); g.globalAlpha = 0.28; g.strokeStyle = g.fillStyle = MINT; g.lineWidth = 1.2 * d; PD_ICON[VAR[dr.v].f](g, bx + 6 * d, by + 4.5 * d, bx + bw - 6 * d, by + 22.5 * d, t, d, dr.ic, dr.P); g.restore(); }
@@ -2136,30 +2242,16 @@ function drawFxBoard(){
     drawPedal(g, bx, by, bw, bh, {v:uVar(u), P:uP(u), L:unitLit(u, now), on:uOn(u), sel:state.fxSel === u.id && !lib, t, t0:tr && !uOn(u) ? tr.t0 / 1000 : 0, ic, d, a:Math.min(1, ap * 1.6)});
     g.restore();
   });
-  // the empty socket: tap for the library
-  if (Lay.add >= 0) {
-    const bx = (G.inW + Lay.add * G.sw) * d + 3 * d, bw = sw - 6 * d, by = 1.5 * d, bh = H - 3 * d, cx = bx + bw / 2, cy = yc;
-    c.addR += ((lib && params.fxc.length ? 1 : 0) - c.addR) * ez;
-    const hot = lib, col2 = hot ? MINT : '#3b434d';
-    g.save(); rrect(g, bx + 0.5, by + 0.5, bw - 1, bh - 1, 7 * d); g.setLineDash([2.5 * d, 3 * d]); g.lineWidth = 1 * d; g.strokeStyle = hot ? hexA(MINT, 0.55) : '#2b333c'; g.stroke(); g.restore();
-    g.save(); g.translate(cx, cy); g.rotate(c.addR * Math.PI / 4); g.strokeStyle = col2; g.lineWidth = 1.4 * d; g.lineCap = 'round';
-    if (hot) { g.shadowColor = MINT; g.shadowBlur = 6 * d; }
-    g.beginPath(); g.moveTo(-5 * d, 0); g.lineTo(5 * d, 0); g.moveTo(0, -5 * d); g.lineTo(0, 5 * d); g.stroke(); g.restore();
-    capText(g, hot && params.fxc.length ? 'close' : 'add', cx, by + 33 * d, 8 * d, hot ? COL.ink : '#7c8794', bw - 7 * d, hot ? 'rgba(125,255,208,.7)' : null);
-    // an empty footswitch socket
-    g.save(); g.strokeStyle = '#2b333c'; g.lineWidth = 1 * d; g.setLineDash([2 * d, 2.5 * d]); g.beginPath(); g.arc(cx, by + bh - 12.5 * d, 9.5 * d, 0, 6.2832); g.stroke(); g.restore();
-  }
   // unplugged pedals flicker out where they stood
   c.leaving = c.leaving.filter(lv => {
     const age = now - lv.t0; if (age > 420) return false;
-    const k = FLK_OFF[Math.min(FLK_OFF.length - 1, Math.floor(age / 420 * FLK_OFF.length))];
-    const bx = lv.x * d + 3 * d, bw = sw - 6 * d;
-    drawPedal(g, bx, 1.5 * d + age / 420 * 10 * d, bw, H - 3 * d, {v:lv.v, P:lv.P, L:lv.on ? k : 0, on:lv.on, sel:false, t, ic:{wah:.2, wl:0}, d, a:k});
+    const kk = FLK_OFF[Math.min(FLK_OFF.length - 1, Math.floor(age / 420 * FLK_OFF.length))];
+    drawPedal(g, lv.x * d + ins, by + age / 420 * 10 * d, sw - 2 * ins, bh, {v:lv.v, P:lv.P, L:lv.on ? kk : 0, on:lv.on, sel:false, t, ic:{wah:.2, wl:0}, d, a:kk});
     return true;
   });
   if (!nodes.length && !c.leaving.length) {
     const x0 = (G.inW + (Lay.add >= 0 ? G.sw : 0)) * d, x1 = (G.W - G.outW) * d;
-    monoText(g, 'empty: the signal passes straight through', (x0 + x1) / 2, 34 * d, 8.5 * d, '#5d6773');
+    monoText(g, 'empty: the signal passes straight through', (x0 + x1) / 2, by + bh - 9 * d, 8.5 * d, '#5d6773');
   }
 }
 function drawGhost(){
@@ -2169,7 +2261,7 @@ function drawGhost(){
   const g = cv.getContext('2d'), t = performance.now() / 1000;
   g.clearRect(0, 0, W, H); g.lineCap = 'round'; g.lineJoin = 'round';
   dr.ic.wl = 0.5 + 0.5 * Math.sin(t * 3);
-  drawPedal(g, pad * d + 3 * d, pad * d + 1.5 * d, G.sw * d - 6 * d, G.H * d - 3 * d, {v:dr.v, P:dr.P, L:1, on:true, sel:true, ghost:true, rm:dr.rm, t, ic:dr.ic, d});
+  drawPedal(g, pad * d + FX_INS * d, pad * d + 1.5 * d, (G.sw - 2 * FX_INS) * d, G.H * d - 3 * d, {v:dr.v, P:dr.P, L:1, on:true, sel:true, ghost:true, rm:dr.rm, t, ic:dr.ic, d});
   dr.rot += (Math.max(-9, Math.min(9, dr.vx * 0.9)) - dr.rot) * 0.25; dr.vx *= 0.8;
   const lift = Math.min(1, (performance.now() - dr.t0) / 120);
   cv.style.transform = `translate(${(dr.x - wC / 2).toFixed(1)}px, ${(dr.y - hC * 0.42).toFixed(1)}px) rotate(${dr.rot.toFixed(2)}deg) scale(${(1 + 0.07 * lift).toFixed(3)})`;
@@ -2308,8 +2400,8 @@ function pedalBody(g, bx, by, bw, bh, col, L, on, sel, d, rr){
   g.stroke(); g.restore();
 }
 // a metal stomp switch: knurled outer nut, a dark cap, and the LED glowing through the cap
-function footswitch(g, x, y, col, L, d){
-  const R = 9.5 * d, rc = 6 * d;
+function footswitch(g, x, y, col, L, d, s = 1){
+  d *= s; const R = 9.5 * d, rc = 6 * d;
   g.save(); g.lineCap = 'round';
   g.lineWidth = 1 * d; g.strokeStyle = L > 0.5 ? hexA(col, 0.55) : '#353d46';
   g.beginPath(); g.arc(x, y, R, 0, 6.2832); g.stroke();
@@ -2402,60 +2494,76 @@ const TAB_ICON = {
     g.globalAlpha = base; g.lineWidth = 1.3 * d;
   },
 };
-/* The tab row is the synth's signal path. Osc 1 hops over Osc 2 and both meet at the Mix, then the signal runs through the
-   Filter, the Env (the amp) and the FX board, out to the speaker. Each stretch of line takes the colour of the section it
-   just left, so you can see where the sound has been. A bypassed section lets the line straight through as fine dashes.
-   LFO and Arp sit past the speaker: they steer the sound but are not in its path. */
-const TSEP = 18;
+/* The tab row is the synth's signal path, built like a small rig. Osc 1 and Osc 2 are two stacked modules, each patched into
+   its own input on the Mix strip. The Mix feeds the Filter, the Filter the Env (the amp), the Env the FX, and the FX the
+   speaker. Every box is solid; sound only travels on the cables between jacks. A cable takes the colour of the section it
+   leaves, so a bypassed Filter sends out white instead of magenta. LFO and Arp sit past the speaker: they steer the sound
+   but have no audio jacks, because no sound goes through them. */
 function drawTabs(){
-  const c = tabsUI; if (!c || !c.w) return;
+  const c = tabsUI; if (!c || !c.w) return; if (!c.geo || !c.geo.osc1 || !c.geo.osc1.w) tabsGeo();
+  const G = c.geo; if (!G || !G.osc1) return;
   const g = c.cv.getContext('2d'), W = c.w, H = c.h, d = DPR(), now = performance.now(), t = now / 1000, P = params;
   const dt = Math.min(0.1, (now - (c.last || now)) / 1000); c.last = now;
-  c.gl += (((tele.nv > 0 || tele.g) ? 1 : 0) - c.gl) * 0.2;
-  c.wl += (Math.min(1, (tele.a || 0) * 1.1) - c.wl) * 0.15;
-  c.flow = (c.flow + dt * (5 + 34 * Math.max(c.wl, c.gl * 0.5)) * d) % (9 * d);
-  g.clearRect(0, 0, W, H); g.lineCap = 'round'; g.lineJoin = 'round';
-  const SEP = TSEP * d, cw = (W - SEP) / 8, X = i => i < 6 ? i * cw : 6 * cw + SEP + (i - 6) * cw;
-  const by = 5.5 * d, bh = H - 7 * d, yc = Math.round(13.5 * d) + 0.5, lane = Math.round(2 * d) + 0.5;
-  const gm = {}; TABS.forEach((tb, i) => { const x0 = X(i), bx = x0 + 2 * d, bw = cw - 4 * d; gm[tb.id] = {x0, bx, bw, ix0:bx + 5 * d, ix1:bx + bw - 5 * d}; });
   const src = (!!P.pwO1 && P.mix1 > .005) || (!!P.pwO2 && P.mix2 > .005) || P.noise > .005;
-  const preA = 0.34 + 0.5 * c.gl, postA = 0.34 + 0.55 * c.wl;
-  const seg = (pts, col, a, fine, dead) => {
-    g.save(); g.globalAlpha = dead ? 0.6 : a; g.strokeStyle = dead ? '#3b434d' : col; g.lineWidth = 1 * d;
-    g.setLineDash(dead ? [1.2 * d, 3 * d] : fine ? [2 * d, 2.5 * d] : [5 * d, 4 * d]); g.lineDashOffset = dead ? 0 : -c.flow;
-    g.beginPath(); g.moveTo(pts[0][0], pts[0][1]);
-    for (let i = 1; i < pts.length - 1; i++) g.arcTo(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], 3 * d);
-    g.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1]); g.stroke(); g.restore();
-  };
-  const o1 = !!P.pwO1, o2 = !!P.pwO2, jx = X(2), e = 1.5 * d;
-  seg([[gm.osc1.ix1 + e, yc], [X(1), yc], [X(1), lane], [jx, lane], [jx, yc]], COL.c1, preA, false, !o1);
-  seg([[gm.osc2.ix1 + e, yc], [jx, yc]], COL.c1, preA, false, !o2);
-  g.save(); g.fillStyle = src ? COL.c1 : '#3b434d'; g.globalAlpha = src ? 0.5 + 0.5 * c.gl : 0.8; if (src) { g.shadowColor = COL.c1; g.shadowBlur = 5 * d * c.gl; }
-  g.beginPath(); g.arc(jx, yc, 1.9 * d, 0, 6.2832); g.fill(); g.restore();
-  seg([[jx, yc], [gm.mix.ix0 - e, yc]], COL.c1, preA, false, !src);
-  seg([[gm.mix.ix1 + e, yc], [gm.filter.ix0 - e, yc]], COL.ink, preA, false, !src);
-  const fl = pdLit('filter', now);
-  if (fl < 1) seg([[gm.filter.ix0 - e, yc], [gm.filter.ix1 + e, yc]], COL.ink, Math.max(preA, 0.5) * (1 - fl), true, !src);
-  seg([[gm.filter.ix1 + e, yc], [gm.env.ix0 - e, yc]], P.pwFlt ? COL.c2 : COL.ink, preA, false, !src);
-  seg([[gm.env.ix1 + e, yc], [gm.fx.ix0 - e, yc]], COL.c3, postA, false, !src);
+  // slow, gentle warmth: up over about half a second, down over a couple of seconds
+  const slow = (v, tgt) => v + (tgt - v) * (1 - Math.exp(-dt / (tgt > v ? 0.55 : 1.8)));
+  c.ge = slow(c.ge, src && (tele.nv > 0 || tele.g) ? 1 : 0);
+  c.sp = slow(c.sp, src ? Math.min(1, (tele.a || 0) * 1.1) : 0);
+  const ease = v => { const e = Math.max(0, Math.min(1, v)); return 0.4 * e * e * (3 - 2 * e); }, kPre = ease(c.ge), kPost = ease(c.sp);
+  g.clearRect(0, 0, W, H); g.lineCap = 'round'; g.lineJoin = 'round';
+  const mid = b => Math.round(b.y + b.h / 2) + 0.5;
   const fxOn = P.fxc.some(u => uOn(u)), ocol = fxOn ? MINT : COL.c3;
-  if (!fxOn) seg([[gm.fx.ix0 - e, yc], [gm.fx.ix1 + e, yc]], COL.c3, Math.max(postA, 0.45), true, !src);
-  const spx = 6 * cw + SEP / 2 + 1 * d;
-  seg([[gm.fx.ix1 + e, yc], [spx - 7 * d, yc]], ocol, postA, false, !src);
-  speakerGlyph(g, spx, yc, src ? ocol : '#3b434d', src ? c.wl : 0, d, 0.95);
-  monoText(g, 'out', spx - 1 * d, yc + 13.5 * d, 6.5 * d, src ? hexA(ocol, 0.55) : '#3b434d');
+  // ---- boxes
   TABS.forEach(tb => {
-    const id = tb.id, col = COL[TAB_C[id]], pk = PW[id], on = pk ? !!params[pk] : true, sel = state.tab === id, G = gm[id];
-    const L = pk ? pdLit(id, now) : id === 'fx' ? (fxOn ? 1 : 0.35) : 1;
-    pedalBody(g, G.bx, by, G.bw, bh, col, pk ? L : 1, on, sel, d, 6 * d);
-    const iy0 = by + 3.5 * d, iy1 = by + 12.5 * d;
-    if (L < 1) { g.save(); g.strokeStyle = g.fillStyle = '#3b434d'; g.lineWidth = 1.2 * d; g.globalAlpha = 0.9 * (1 - L); TAB_ICON[id](g, G.ix0, iy0, G.ix1, iy1, 0, d); g.restore(); }
-    if (L > 0) { g.save(); g.strokeStyle = g.fillStyle = col; g.lineWidth = 1.3 * d; g.globalAlpha = L * (sel ? 1 : 0.75); g.shadowColor = col; g.shadowBlur = (sel ? 5 : 3) * d; TAB_ICON[id](g, G.ix0, iy0, G.ix1, iy1, t, d); g.restore(); }
-    const fx = G.x0 + cw / 2, fy = H - 13 * d;
-    if (pk) footswitch(g, fx, fy, col, L, d);
-    else if (id === 'fx') ledBank(g, fx, fy, d, now);
-    else potGlyph(g, fx, fy, col, id === 'mix' ? params.vol : params.aS, d);
+    const id = tb.id, B = G[id]; if (!B) return;
+    const col = COL[TAB_C[id]], pk = PW[id], on = pk ? !!params[pk] : true, sel = state.tab === id, mini = id === 'osc1' || id === 'osc2';
+    const L = pk ? pdLit(id, now) : id === 'fx' ? (fxOn ? 1 : 0.35) : 1, rr = (mini ? 6 : 7) * d;
+    solidBox(g, B.x, B.y, B.w, B.h, col, pk ? L : 1, rr, d, !mini && id !== 'mix');
+    pedalBody(g, B.x, B.y, B.w, B.h, col, pk ? L : 1, on, sel, d, rr);
+    const icon = (x0, y0, x1, y1) => {
+      if (L < 1) { g.save(); g.strokeStyle = g.fillStyle = '#3b434d'; g.lineWidth = 1.2 * d; g.globalAlpha = 0.9 * (1 - L); TAB_ICON[id](g, x0, y0, x1, y1, 0, d); g.restore(); }
+      if (L > 0) { g.save(); g.strokeStyle = g.fillStyle = col; g.lineWidth = 1.3 * d; g.globalAlpha = L * (sel ? 1 : 0.75); g.shadowColor = col; g.shadowBlur = (sel ? 5 : 3) * d; TAB_ICON[id](g, x0, y0, x1, y1, t, d); g.restore(); }
+    };
+    if (mini) {
+      // a compact oscillator module: name and wave on the left, its footswitch on the right
+      icon(B.x + 6 * d, B.y + 14 * d, B.x + B.w - 19 * d, B.y + B.h - 5 * d);
+      footswitch(g, B.x + B.w - 9.5 * d, B.y + B.h / 2, col, L, d, 0.62);
+    } else if (id === 'mix') {
+      // a channel strip: a fader each for Osc 1, Osc 2, Noise and Volume
+      const lv = [[P.mix1, P.pwO1, COL.c1], [P.mix2, P.pwO2, COL.c1], [P.noise, 1, COL.ink], [P.vol, 1, COL.ink]];
+      const y0 = B.y + 18 * d, y1 = B.y + B.h - 7 * d, x0 = B.x + 4 * d, fw = (B.w - 8 * d) / 4;
+      lv.forEach(([v, live, fc], i) => {
+        const x = Math.round(x0 + fw * (i + 0.5)) + 0.5, y = y1 - Math.max(0, Math.min(1, v)) * (y1 - y0);
+        g.save(); g.lineCap = 'round'; g.lineWidth = 1 * d; g.strokeStyle = '#1d232a'; g.beginPath(); g.moveTo(x, y0); g.lineTo(x, y1); g.stroke();
+        if (live && v > 0.005) { g.strokeStyle = hexA(fc, sel ? 0.45 : 0.3); g.beginPath(); g.moveTo(x, y); g.lineTo(x, y1); g.stroke(); }
+        g.fillStyle = live ? fc : '#3b434d'; if (live) { g.shadowColor = fc; g.shadowBlur = (sel ? 5 : 3) * d; }
+        g.globalAlpha = live ? (sel ? 1 : 0.8) : 0.9; g.fillRect(x - 2.1 * d, y - 1 * d, 4.2 * d, 2 * d); g.restore();
+      });
+    } else {
+      icon(B.x + 6 * d, B.y + 4.5 * d, B.x + B.w - 6 * d, B.y + 14.5 * d);
+      const fx = B.x + B.w / 2, fy = B.y + B.h - 13 * d;
+      if (pk) footswitch(g, fx, fy, col, L, d);
+      else if (id === 'fx') ledBank(g, fx, fy, d, now);
+      else potGlyph(g, fx, fy, col, params.aS, d);
+    }
   });
+  if (G.spk) speakerCab(g, G.spk.x, G.spk.y, G.spk.w, G.spk.h, G.spk.y + 9.5 * d, src ? (c.spCol = ocol) : (c.spCol || ocol), c.sp, d, t, H);
+  // ---- cables and jacks, between the boxes only
+  // fa and fb: how far down each box its jack sits (outputs on the right of A, inputs on the left of B); staggered like real gear
+  const at = (B, f) => Math.round(B.y + B.h * f) + 0.5;
+  const link = (A, fa, B, fb, col, k, dead) => {
+    const yA = at(A, fa), yB = at(B, fb);
+    const x1 = jackNub(g, A.x + A.w, yA, 1, dead ? null : col, k, d), x2 = jackNub(g, B.x, yB, -1, dead ? null : col, k, d);
+    patchCable(g, x1, x2, yA, col, k, d, dead, yB);
+  };
+  // each box keeps its in and out at one height (Mix's output lines up with its lower input); the heights differ box to box
+  const J = {osc1:0.6, osc2:0.42, mix:0.62, mixIn1:0.24, filter:0.42, env:0.63, fx:0.4, spk:0.56};
+  link(G.osc1, J.osc1, G.mix, J.mixIn1, COL.c1, kPre, !P.pwO1);
+  link(G.osc2, J.osc2, G.mix, J.mix, COL.c1, kPre, !P.pwO2);
+  link(G.mix, J.mix, G.filter, J.filter, COL.ink, kPre, !src);
+  link(G.filter, J.filter, G.env, J.env, P.pwFlt ? COL.c2 : COL.ink, kPre, !src);
+  link(G.env, J.env, G.fx, J.fx, COL.c3, kPost, !src);
+  if (G.spk) link(G.fx, J.fx, G.spk, J.spk, ocol, kPost, !src);
 }
 state.sub = {fx:'fx1', env:'shape'};
 function showTab(id){
@@ -3947,13 +4055,13 @@ const LESSONS = [
   setup:{...BASE, cut:2000, res:.2, aD:.4, aS:.5}, hold:57, go:{page:0, tab:'fx'},
   steps:[
   {fig:'fxchain', x:"Follow the line along the tabs: Osc 1 and Osc 2 meet at the Mix, run through the Filter and the Env, then the FX pedal, and out to the speaker. The FX board below starts empty, so the signal passes straight through.",
-   more:{h:'Reading the line', b:['Each stretch of line takes the colour of the section it just left: cyan from the oscillators, white from the Mix, magenta from the Filter, yellow from the Env. Once a pedal on the FX board works on the sound it turns mint.', 'A section that is switched off lets the signal straight through, drawn as fine dashes. LFO and Arp sit past the speaker because they steer the sound without being in its path.'], fig:'fxchain'}},
-  {x:"Tap Delay in the library. It plugs into the line, the line turns mint after it, and echoes follow each note.", focus:['lib-delay'], goal:S=>S.fx.includes('delay')},
+   more:{h:'Reading the line', b:['Each stretch of line takes the colour of the section it just left: cyan from the oscillators, white from the Mix, magenta from the Filter, yellow from the Env. Once a pedal on the FX board works on the sound it turns mint.', 'A section that is switched off passes the sound through untouched, so the cable leaving it keeps the colour it came in with. LFO and Arp sit past the speaker with no jacks, because they steer the sound without any sound going through them.'], fig:'fxchain'}},
+  {x:"Tap Delay in the library. It's patched into the line, the cable after it turns mint, and echoes follow each note.", focus:['lib-delay'], goal:S=>S.fx.includes('delay')},
   {x:"Now drag Amp from the library onto the line, in front of the Delay. Drive first, then echoes: clean repeats of a dirty sound.", need:['delay'], focus:['lib-amp'], goal:S=>{const a=S.fx.indexOf('amp'), d=S.fx.indexOf('delay'); return a>=0&&d>a;},
    more:{h:'Order matters', b:['Each pedal processes the output of the one before it. Distortion before a delay gives clean repeats of a dirty sound; delay before distortion runs every echo through the drive, so the repeats smear into the grit.', 'Most players chain filters such as wah first, then drive and tone, then modulation, then time-based effects such as delay and reverb. The numbers in the library follow that order, and tapping a pedal puts it there for you.']}},
   {x:"Drag the Delay pedal along the line to sit in front of the Amp. Now the echoes go through the amp too. Same pedals, different sound.", need:['amp', 'delay'], goal:S=>{const a=S.fx.indexOf('amp'), d=S.fx.indexOf('delay'); return a>=0&&d>=0&&d<a;}},
   {x:"A pedal can appear more than once. Add a second Amp anywhere on the line: two drive stages in a row, like a boost pedal into a cranked amp.", need:['amp'], focus:['lib-amp'], goal:S=>S.fx.filter(v=>v==='amp').length>=2},
-  {x:"Stomp a pedal's footswitch to bypass it: the line runs straight through it in fine dashes. To take a pedal off the board, drag it off the line and let go.", need:['delay'], goal:(S,E)=>S.fx.length<E.fx.length},
+  {x:"Stomp a pedal's footswitch to bypass it: it goes dark and passes the sound on untouched. To take a pedal off the board, drag it off the line and let go.", need:['delay'], goal:(S,E)=>S.fx.length<E.fx.length},
   {x:"Effects come after the amp envelope, so they process the finished note. On the Scope, the Out test point includes every pedal on the board.", focus:['pageScope'], goal:S=>S.page===1},
   ]},
 { id:'power', g:5, t:'Switching sections on and off', s:'Power buttons, bypass, and why a muted oscillator still matters.',
@@ -5033,7 +5141,7 @@ function memChip(){
    and filter envelopes, pitch sweeps, FM, a second oscillator's beating, noise, tremolo, the arpeggiator and delay echoes
    all show up, so a pluck, a pad, a bass, a bell and a kick look nothing alike. */
 const MX = {open:false, sel:0, cache:{}, ver:0, rec:{}, pulse:{}, raf:0, t0:performance.now()};
-const BANK_C = {A:COL.c1, B:COL.c2, C:COL.c3, D:COL.c5, E:COL.c4, F:COL.c6, G:COL.c1, H:COL.c2};
+const BANK_C = {A:COL.c1, B:COL.c2, C:COL.c3, D:COL.c5, E:COL.c4, F:COL.c6, G:'#b6f25a', H:'#4d78ff'};
 const mxId = i => MEM.bank + (i + 1);
 function fpWave(w, P, ph){
   if (w === 4) return Math.sin(6.2832 * ph) * 0.7 + 0.35 * Math.sin(6.2832 * ph * (2 + Math.round(P.o1pos * 5)));
