@@ -89,20 +89,12 @@ button:focus-visible,.knob:focus-visible{outline:1px solid var(--c1);outline-off
 .screen .tag{position:absolute;left:12px;top:8px;font-family:var(--f-mono);font-weight:300;font-size:10px;color:var(--dim);pointer-events:none;letter-spacing:.06em;text-transform:lowercase}
 .screen .tag.r{left:auto;right:12px}
 #bigTagR{color:var(--c2);text-shadow:0 0 6px var(--c2)}
-.mini{flex:0 0 116px;cursor:pointer}
+.mini{flex:0 0 112px;cursor:pointer}
 
 /* patch tabs + module */
-.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;flex:0 0 auto;border-bottom:1px solid var(--line)}
-.tabs::-webkit-scrollbar{display:none}
-.tabs button{--tc:var(--c1);flex:1 0 auto;padding:0 5px;height:32px;position:relative;font-weight:600;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);transition:color .15s}
-.tabs button::before{content:"";display:inline-block;width:4px;height:4px;border-radius:50%;border:1px solid var(--tc);margin-right:4px;vertical-align:1px;opacity:.7}
-.tabs button.on{color:var(--tc);text-shadow:var(--glowT)}
-.tabs button.on::before{background:var(--tc);box-shadow:0 0 6px var(--tc);opacity:1}
-.tabs button::after{content:"";position:absolute;left:10%;right:10%;bottom:-1px;height:1.5px;background:var(--tc);box-shadow:0 0 6px var(--tc);opacity:0;transition:opacity .2s}
-.tabs button.on::after{opacity:1}
-.tabs button.dot::after,.pages>button.dot::after{content:"";position:absolute;top:4px;right:0;left:auto;bottom:auto;width:5px;height:5px;border-radius:50%;background:var(--c3);box-shadow:0 0 6px var(--c3);opacity:1;transform:none}
+.pages>button.dot::after{content:"";position:absolute;top:4px;right:0;left:auto;bottom:auto;width:5px;height:5px;border-radius:50%;background:var(--c3);box-shadow:0 0 6px var(--c3);opacity:1;transform:none}
 .pages>button.dot::after{right:-9px}
-.module{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;padding:10px 6px 6px;display:flex;flex-direction:column;gap:6px}
+.module{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;padding:7px 6px 6px;display:flex;flex-direction:column;gap:6px}
 @keyframes fadeIn{from{opacity:.25}to{opacity:1}}
 .mod-row{display:flex;align-items:center;gap:8px}
 .mod-row .lab{color:var(--mc);min-width:62px;opacity:.75}
@@ -168,6 +160,52 @@ button:focus-visible,.knob:focus-visible{outline:1px solid var(--c1);outline-off
 .hint{animation:pulse 1.5s ease-in-out infinite}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 1px rgba(255,212,71,.75)}50%{box-shadow:0 0 0 1px rgba(255,212,71,.9),0 0 16px 1px rgba(255,212,71,.35)}}
 
+/* power switches. Switching off makes the
+   section's lights flicker out, like a panel losing power; switching on makes them stutter back. */
+@keyframes flkOff{0%{opacity:1}14%{opacity:.12}26%{opacity:.85}40%{opacity:.05}56%{opacity:.5}72%,100%{opacity:0}}
+@keyframes flkOn{0%{opacity:0}25%{opacity:.85}50%{opacity:.15}75%,100%{opacity:1}}
+/* main tabs: a row of pedals, each in its section's colour. Tap a pedal to open it, stomp its footswitch (or hold the pedal) to switch it. */
+.tabs{position:relative;flex:0 0 auto;height:54px;display:grid;grid-template-columns:repeat(8,minmax(0,1fr))}
+.tabs canvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
+.tp{--tc:var(--c1);position:relative;margin:1px 2px;border-radius:8px}
+.tp .psel{position:absolute;inset:0;width:100%;border-radius:8px;transition:box-shadow .43s}
+.tp .psel.lpress{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--tc) 60%,transparent),0 0 12px color-mix(in srgb,var(--tc) 25%,transparent)}
+.tp .pl{position:absolute;left:-2px;right:-2px;top:16px;text-align:center;font-weight:700;font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);white-space:nowrap;pointer-events:none;transition:color .2s,text-shadow .2s}
+.tp.on .pl{color:var(--ink);text-shadow:0 0 6px var(--tc)}
+.tp.off .pl{color:#3b434d;text-shadow:none}
+.tp.on.off .pl{color:var(--dim)}
+.tp .psw{position:absolute;left:0;right:0;bottom:0;height:25px;border-radius:0 0 8px 8px;z-index:1}
+.tp.dot::after{content:"";position:absolute;top:3px;right:3px;width:5px;height:5px;border-radius:50%;background:var(--c3);box-shadow:0 0 6px var(--c3);z-index:2}
+/* a switched-off section: its lit parts go dark but stay readable, and you can still set them up */
+.pwr-off .knob:not(.live) .k-arc,.knob.dead .k-arc{stroke:var(--faint);filter:none;opacity:.6}
+.pwr-off .knob:not(.live) .k-t.on,.knob.dead .k-t.on{stroke:#323a43}
+.pwr-off .knob:not(.live) .k-dot,.knob.dead .k-dot{fill:var(--faint);filter:none}
+.pwr-off .knob:not(.live) .k-ptr,.knob.dead .k-ptr{stroke:var(--dim)}
+.pwr-off .knob:not(.live) .k-v,.knob.dead .k-v{color:var(--dim);text-shadow:none}
+.pwr-off .knob:not(.live) .k-lab,.knob.dead .k-lab{color:var(--faint)}
+.pwr-off .seg>button.on{color:var(--dim);text-shadow:none}
+.pwr-off .seg>button.on svg{filter:none}
+.pwr-off .seg>button.on::after{background:var(--faint);box-shadow:none}
+.pwr-off .tog.on .led{border-color:var(--faint)}
+.pwr-off .tog.on .led::after{background:var(--faint);border-color:var(--faint);box-shadow:none}
+.pwr-off .mod-row .lab,.pwr-off .vlab{opacity:.35}
+.flk-off .knob:not(.live) :is(.k-arc,.k-t.on,.k-dot,.k-v),.flk-off .seg>button.on,.flk-off .tog.on .led{animation:flkOff .4s step-end both}
+.flk-on .knob:not(.live) :is(.k-arc,.k-t.on,.k-dot,.k-v),.flk-on .seg>button.on,.flk-on .tog.on .led{animation:flkOn .23s step-end both}
+/* FX pedalboard: six pedals in signal order. Tap a pedal to open it; tap its footswitch (or hold the pedal) to switch it. */
+.chain{position:relative;flex:0 0 auto;height:60px;margin:-2px -2px 0}
+.chain canvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
+.chain .cells{position:absolute;inset:0;display:grid;grid-template-columns:repeat(6,minmax(0,1fr))}
+.pd{position:relative;margin:1px 3px;border-radius:9px}
+.pd .psel{position:absolute;inset:0;width:100%;border-radius:9px;transition:box-shadow .43s}
+.pd .psel.lpress{box-shadow:inset 0 0 0 1px rgba(125,255,208,.55),0 0 12px rgba(125,255,208,.25)}
+.pd .pl{position:absolute;left:0;right:0;top:24px;text-align:center;font-weight:700;font-size:9px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim);white-space:nowrap;transition:color .2s,text-shadow .2s;pointer-events:none}
+.pd.sel .pl{color:var(--ink);text-shadow:0 0 6px rgba(125,255,208,.75)}
+.pd.byp .pl{color:#3b434d;text-shadow:none}
+.pd.sel.byp .pl{color:var(--dim)}
+.pd .psw{position:absolute;left:0;right:0;bottom:0;height:28px;border-radius:0 0 9px 9px;z-index:1}
+.fxbody{display:flex;flex-direction:column;gap:3px}
+@media (max-height:640px){.chain{height:56px}.pd .pl{top:22px}}
+
 /* scope page */
 .sbar{display:flex;gap:8px;align-items:center;flex:0 0 auto}
 .sbar .seg{flex:1}
@@ -200,6 +238,14 @@ button:focus-visible,.knob:focus-visible{outline:1px solid var(--c1);outline-off
 .xbtn:hover,.xbtn:active{color:var(--c2);border-color:var(--c2);box-shadow:0 0 8px var(--c2s)}
 .minbtn svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.4;transition:transform .2s}
 .coach.min .minbtn svg{transform:rotate(180deg)}
+/* minimizing: the chevron folds the coach down to its title bar; minimized, it becomes a lit up-caret to pull it back.
+   Swiping down on the title bar folds it too, and swiping up (or tapping the title) brings it back. */
+.minbtn{border-radius:12px;transition:color .2s,border-color .2s,box-shadow .2s}
+.coach.min .minbtn{width:34px;height:26px;color:var(--c3);border:1px solid color-mix(in srgb,var(--c3) 60%,transparent);box-shadow:0 0 8px var(--c3s)}
+.coach.min .minbtn svg{filter:drop-shadow(0 0 3px var(--c3))}
+.coach-top{touch-action:pan-x}
+.minnext{height:24px;padding:0 11px;font-size:10px;flex:0 0 auto}
+.coach.min.met .crumb .n{color:var(--ok);text-shadow:0 0 6px var(--ok)}
 .prog{display:flex;gap:4px;height:2px}
 .prog:empty{display:none}
 .prog i{flex:1;background:var(--line2);border-radius:1px;transition:background .3s,box-shadow .3s}
@@ -218,7 +264,24 @@ button:focus-visible,.knob:focus-visible{outline:1px solid var(--c1);outline-off
 .cbtn{height:30px;padding:0 14px;border-radius:15px;border:1px solid var(--line2);font-weight:700;letter-spacing:.16em;text-transform:uppercase;font-size:11px;color:var(--ink)}
 .cbtn.pri{border-color:var(--c3);color:var(--c3);text-shadow:0 0 6px rgba(255,212,71,.6);box-shadow:0 0 10px var(--c3s),inset 0 0 10px var(--c3s)}
 .cbtn.ghost{border-color:transparent;color:var(--dim)}
-.coach.min .ctext,.coach.min .cact,.coach.min .prog,.coach.min .cfig{display:none}
+.coach.min .ctext,.coach.min .cslot,.coach.min .prog,.coach.min .cfig{display:none}
+/* In a lesson the step text never leaves the screen. While you turn a control, the action row (Back · status · Next)
+   cross-fades into a slim live readout in the same slot, so nothing above it moves; it fades back a moment after you let go. */
+.cslot{position:relative;height:30px;flex:0 0 auto}
+.cslot>.cact,.lread{position:absolute;inset:0;transition:opacity .18s ease,transform .22s cubic-bezier(.2,.8,.2,1)}
+.lread{--hc:var(--c1);display:flex;align-items:center;gap:10px;opacity:0;transform:translateY(5px);pointer-events:none;border-top:1px solid color-mix(in srgb,var(--hc) 35%,transparent);padding-top:2px}
+.coach.reading .lread{opacity:1;transform:none;pointer-events:auto}
+.coach.reading .cslot>.cact{opacity:0;transform:translateY(-5px);pointer-events:none}
+.lr-l{display:flex;flex-direction:column;justify-content:center;min-width:0;flex:0 1 auto;max-width:42%}
+.lr-k{font-weight:700;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--hc);text-shadow:0 0 6px var(--hc);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lr-v{font-family:var(--f-disp);font-size:16px;line-height:1.05;color:var(--ink);text-shadow:0 0 8px var(--hc);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-transform:lowercase}
+#lrC{flex:1 1 auto;min-width:40px;height:25px;display:block}
+.lr-t{flex:0 0 auto;font-family:var(--f-mono);font-size:10px;letter-spacing:.04em;color:var(--c3);text-shadow:0 0 6px var(--c3);white-space:nowrap;padding:3px 8px;border:1px solid color-mix(in srgb,var(--c3) 55%,transparent);border-radius:10px}
+.lr-t:empty{display:none}
+.lr-t.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 60%,transparent);text-shadow:0 0 6px var(--ok)}
+/* lesson target on a knob: a yellow band outside the tick ring marks the values that complete the step; it turns green when you're there */
+.k-tgt{fill:none;stroke:var(--c3);stroke-width:2.4;stroke-linecap:round;opacity:.9;filter:drop-shadow(0 0 2px var(--c3));transition:stroke .2s}
+.knob.tgt-in .k-tgt{stroke:var(--ok);filter:drop-shadow(0 0 3px var(--ok))}
 
 /* keyboard: outline keys */
 .kbwrap{flex:0 0 auto;display:flex;gap:6px;height:92px}
@@ -313,6 +376,107 @@ button:focus-visible,.knob:focus-visible{outline:1px solid var(--c1);outline-off
 .start p{margin:0;color:var(--dim);line-height:1.5;font-size:15px;font-weight:500;text-wrap:balance}
 .start .go{height:46px;padding:0 30px;border-radius:23px;border:1px solid var(--c1);color:var(--c1);font-weight:700;letter-spacing:.2em;text-transform:uppercase;font-size:13px;text-shadow:0 0 8px var(--c1);box-shadow:0 0 18px rgba(63,228,255,.3),inset 0 0 14px rgba(63,228,255,.15)}
 .start small{color:var(--faint);font-size:12px;font-weight:500}
+/* ---------- patch memory ---------- */
+:root{--rec:#ff5a4f;--recs:rgba(255,90,79,.16)}
+/* header program display: slot and name, like a synth's program LED readout; a yellow dot means edited since stored */
+.memchip{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;line-height:1.05;min-width:0;max-width:92px;margin-left:auto;padding:2px 8px 2px 9px;border-left:1px solid var(--line2);height:30px}
+.memchip b{font-family:var(--f-disp);font-weight:400;font-size:17px;color:var(--ink);text-shadow:0 0 8px rgba(242,245,248,.45);display:flex;align-items:center;gap:6px}
+.memchip b i{width:5px;height:5px;border-radius:50%;background:transparent;transition:background .2s}
+.memchip.ed b i{background:var(--c3);box-shadow:0 0 6px var(--c3);animation:blink 1.2s ease-in-out infinite}
+.memchip.cmp b i{background:var(--c6);box-shadow:0 0 6px var(--c6);animation:blink .5s steps(2) infinite}
+.memchip span{font-family:var(--f-mono);font-weight:300;font-size:9.5px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;letter-spacing:.03em}
+.top .readout{margin-left:6px}
+/* the memory sheet */
+/* the memory: a stage above the keyboard (so you can play while you browse), opening like a CRT warming up.
+   Top: the selected sound, big, with its fingerprint playing. Then the 8 bank keys, the 8 named tracks, and write/compare. */
+.memx{--bcol:var(--c1);position:fixed;left:0;right:0;top:0;bottom:var(--mxb,0px);z-index:25;background:radial-gradient(120% 60% at 50% 18%,#061014 0%,#000 60%);display:flex;flex-direction:column;gap:8px;padding:max(8px,var(--sat,0px)) max(14px,env(safe-area-inset-right,0px)) 8px max(14px,env(safe-area-inset-left,0px));border-bottom:1px solid var(--line2);overflow:hidden}
+.memx:not([hidden]){animation:crtOn .42s cubic-bezier(.2,.8,.2,1) both}
+.memx.closing{animation:crtOff .22s ease-in both}
+@keyframes crtOn{0%{clip-path:inset(49.6% 0 49.6% 0);filter:brightness(3)}35%{clip-path:inset(49.2% 0 49.2% 0);filter:brightness(2)}100%{clip-path:inset(0 0 0 0);filter:none}}
+@keyframes crtOff{0%{clip-path:inset(0 0 0 0)}70%{clip-path:inset(49.4% 0 49.4% 0);filter:brightness(2.5)}100%{clip-path:inset(50% 50% 50% 50%);filter:brightness(3)}}
+.mx-top{display:flex;align-items:center;gap:12px;height:36px;flex:0 0 auto}
+.mx-t{font-family:var(--f-disp);font-size:20px;color:var(--ink);text-shadow:0 0 10px rgba(242,245,248,.5)}
+.mx-sub{flex:1;font-family:var(--f-mono);font-weight:300;font-size:10.5px;letter-spacing:.06em;color:var(--dim)}
+.mx-x{width:38px;height:38px;border-radius:19px;border:1px solid var(--line2);display:grid;place-items:center;color:var(--dim);flex:0 0 auto}
+.mx-x svg{width:11px;height:11px;stroke:currentColor;stroke-width:1.4;stroke-linecap:round;fill:none}
+/* hero: the selected track */
+.mx-hero{position:relative;flex:1 1 auto;min-height:118px;max-height:170px;display:flex;flex-direction:column;border-radius:14px;border:1px solid color-mix(in srgb,var(--bcol) 40%,var(--line2));background:linear-gradient(180deg,color-mix(in srgb,var(--bcol) 7%,#000),#000 70%);padding:9px 12px 6px;overflow:hidden;box-shadow:0 0 24px color-mix(in srgb,var(--bcol) 10%,transparent),inset 0 0 22px color-mix(in srgb,var(--bcol) 6%,transparent);transition:border-color .3s,box-shadow .3s}
+.mh-row{display:flex;align-items:baseline;gap:9px;min-height:20px}
+#mxId{font-family:var(--f-disp);font-weight:400;font-size:17px;color:var(--bcol);text-shadow:0 0 8px var(--bcol)}
+#mxState{font-family:var(--f-mono);font-weight:300;font-size:10.5px;color:var(--dim);letter-spacing:.04em}
+#mxState.ed{color:var(--c3);text-shadow:0 0 6px var(--c3)}
+#mxState.ld{color:var(--ok);text-shadow:0 0 6px var(--ok)}
+#mxState.cmp{color:var(--c6);text-shadow:0 0 6px var(--c6)}
+.mh-sp{flex:1}
+.mx-acts{display:flex;gap:12px}
+.mx-acts button{font-family:var(--f-mono);font-size:10.5px;color:var(--dim);padding:2px 0;border-bottom:1px dotted var(--faint)}
+.mx-name{align-self:flex-start;font-family:var(--f-disp);font-size:27px;line-height:1.15;color:var(--ink);text-shadow:0 0 12px rgba(242,245,248,.45);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-transform:lowercase;text-align:left}
+.mx-name.blank{color:var(--faint);text-shadow:none}
+.mx-name.in{animation:nameIn .3s steps(1,end) both}
+@keyframes nameIn{0%{opacity:0}20%{opacity:.8}35%{opacity:.15}55%{opacity:1}70%{opacity:.5}85%,100%{opacity:1}}
+.mx-name input{width:min(280px,80vw);background:transparent;border:0;border-bottom:1px solid var(--c3);outline:0;font:inherit;color:var(--ink);caret-color:var(--c3);text-transform:lowercase;padding:0}
+.mx-hero canvas{flex:1 1 auto;min-height:40px;width:100%;display:block}
+.mx-hint{position:absolute;right:12px;bottom:6px;font-family:var(--f-mono);font-weight:300;font-size:9.5px;color:var(--dim);letter-spacing:.04em;pointer-events:none}
+.mx-hint b{font-weight:400;color:var(--rec);text-shadow:0 0 6px var(--rec)}
+/* the 8 banks: each key carries a column of 8 lamps, one per track, so the whole 8 x 8 memory is visible at a glance */
+.mx-banks{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:5px;flex:0 0 auto}
+.mx-banks button{--bc:var(--c1);height:50px;border-radius:9px;border:1px solid var(--line2);background:linear-gradient(180deg,#0c1013,#040506);display:flex;align-items:center;justify-content:center;gap:5px;color:var(--dim);transition:border-color .2s,color .2s,box-shadow .2s,transform .12s}
+.mx-banks button:active{transform:translateY(1px)}
+.mx-banks button b{font-family:var(--f-disp);font-weight:400;font-size:17px}
+.mx-banks button span{display:grid;grid-template-rows:repeat(8,3px);gap:1.5px}
+.mx-banks button span i{display:block;width:4px;height:3px;border-radius:1px;background:#1a2026}
+.mx-banks button span i.f{background:color-mix(in srgb,var(--bc) 55%,#000)}
+.mx-banks button span i.c{background:var(--c3);box-shadow:0 0 4px var(--c3)}
+.mx-banks button.on{border-color:var(--bc);color:var(--ink);box-shadow:0 0 12px color-mix(in srgb,var(--bc) 30%,transparent),inset 0 0 10px color-mix(in srgb,var(--bc) 12%,transparent)}
+.mx-banks button.on b{text-shadow:0 0 10px var(--bc)}
+.mx-banks button.on span i.f{background:var(--bc);box-shadow:0 0 3px var(--bc)}
+/* the 8 tracks: number, name, and the sound's fingerprint */
+.mx-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(4,minmax(0,1fr));gap:6px;flex:0 1 auto;min-height:0}
+.mt{position:relative;display:flex;flex-direction:column;gap:3px;padding:7px 9px 5px;border-radius:10px;border:1px solid var(--line2);background:#030405;text-align:left;overflow:hidden;min-height:58px;-webkit-touch-callout:none;transition:border-color .2s,background .2s}
+.mt-r{display:flex;align-items:baseline;gap:7px;min-width:0}
+.mt-r b{font-family:var(--f-disp);font-weight:400;font-size:14px;color:var(--dim);flex:0 0 auto}
+.mt-r span{font-family:var(--f-mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:#d5dbe1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+.mt-r i{width:5px;height:5px;border-radius:50%;background:#14191e;box-shadow:inset 0 0 0 1px var(--faint);flex:0 0 auto;align-self:center}
+.mt canvas{display:block;width:100%;height:24px;flex:0 0 auto}
+.mt.blank{border-style:dashed}
+.mt.blank .mt-r span{color:#3b434d;text-transform:lowercase;letter-spacing:.04em}
+.mt.sel{border-color:var(--bcol);background:color-mix(in srgb,var(--bcol) 7%,#000);box-shadow:0 0 12px color-mix(in srgb,var(--bcol) 20%,transparent)}
+.mt.sel .mt-r b{color:var(--bcol);text-shadow:0 0 6px var(--bcol)}
+.mt.sel .mt-r span{color:var(--ink)}
+.mt.cur .mt-r i{background:var(--c3);box-shadow:0 0 6px var(--c3)}
+.mt.cur.ed .mt-r i{animation:blink 1.2s ease-in-out infinite}
+.mt.flk{animation:flkOn .3s steps(1,end) both}
+/* write armed: tracks wait in red; holding one runs a red record line across it */
+.memx.armed .mt{border-color:color-mix(in srgb,var(--rec) 45%,transparent);border-style:dashed}
+.mt::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--rec);box-shadow:0 0 8px var(--rec);transform:scaleX(0);transform-origin:left;transition:transform .12s}
+.mt.writing{border-color:var(--rec);border-style:solid;background:var(--recs)}
+.mt.writing::after{transform:scaleX(1);transition:transform .7s linear}
+.mx-keys{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;flex:0 0 auto}
+.mxk{height:44px;border-radius:22px;border:1px solid var(--line2);background:linear-gradient(180deg,#0c1013,#040506);display:flex;align-items:center;justify-content:center;gap:9px;color:var(--dim);font-weight:700;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;transition:color .2s,border-color .2s}
+.mxk i{width:6px;height:6px;border-radius:50%;background:#14191e;box-shadow:inset 0 0 0 1px var(--faint)}
+.mxk:disabled{opacity:.35}
+.mxk.on{color:var(--ink);border-color:color-mix(in srgb,var(--c6) 70%,transparent)}
+.mxk.on i{background:var(--c6);box-shadow:0 0 8px var(--c6)}
+.mxk.rec{color:var(--ink)}
+.mxk.rec i{box-shadow:inset 0 0 0 1px var(--rec)}
+.mxk.rec.on{border-color:var(--rec)}
+.mxk.rec.on i{background:var(--rec);box-shadow:0 0 8px var(--rec);animation:blink .7s steps(2) infinite}
+.memx .mem-tape{flex:0 0 auto;padding-top:6px}
+.mact{min-height:34px;padding:0 13px;border-radius:17px;border:1px solid var(--line2);font-family:var(--f-mono);font-size:10.5px;color:var(--dim);letter-spacing:.04em}
+.mact:active{color:var(--ink);border-color:var(--ink)}
+@media (max-height:700px){.mx-name{font-size:22px}.mt{min-height:50px}.mt canvas{height:18px}.mx-banks button{height:44px}.memx .mem-tape .tl span:last-child{display:none}}
+/* tape: backup to a file and back */
+.mem-tape{display:flex;align-items:center;gap:10px;padding-top:10px;border-top:1px solid var(--line)}
+.cass{width:46px;height:29px;flex:0 0 auto;fill:none;stroke:var(--dim);stroke-width:1.2}
+.cass .win{stroke:var(--faint)}
+.cass .reel{transform-box:fill-box;transform-origin:center}
+.mem-tape.run .reel{animation:reel .7s linear infinite}
+.mem-tape.run .cass{stroke:var(--c6)}
+@keyframes reel{to{transform:rotate(360deg)}}
+.mem-tape .tl{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+.mem-tape .tl b{font-weight:700;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
+.mem-tape .tl span{font-family:var(--f-mono);font-weight:300;font-size:10px;color:var(--faint)}
+#tapeMsg{color:var(--c6)}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.hint{box-shadow:0 0 0 1px rgba(255,212,71,.85)}.logo .tt,.logo .sw{stroke-dashoffset:0}}
 @media (max-height:640px){.kbwrap{height:78px}.mini{flex-basis:96px}.knob svg{width:48px;height:48px}.ctext{font-size:14px}}
 </style>
@@ -326,6 +490,7 @@ button:focus-visible,.knob:focus-visible{outline:1px solid var(--c1);outline-off
       <button data-p="0" class="on" data-hint="pagePatch">Patch</button>
       <button data-p="1" data-hint="pageScope">Scope</button>
     </div>
+    <button class="memchip" id="memBtn" aria-label="Patch memory"><b><span id="memId" style="font:inherit;color:inherit">a1</span><i></i></b><span id="memName">init saw</span></button>
     <div class="readout"><b><i id="gateLed"></i><span id="rdNote" style="font:inherit;color:inherit">A3</span></b><span id="rdHz">220.0 Hz</span></div>
   </header>
 
@@ -366,15 +531,19 @@ button:focus-visible,.knob:focus-visible{outline:1px solid var(--c1);outline-off
       <span class="nordtag" id="nordTag" hidden>On your Nord</span>
       <button class="learnbtn" id="learnBtn" hidden>Learn more</button>
       <button class="xbtn" id="coachExit" aria-label="Exit lesson" hidden><svg viewBox="0 0 10 10"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7"/></svg></button>
-      <button class="minbtn" id="coachMin" aria-label="Collapse coach"><svg viewBox="0 0 14 14"><path d="M3 5l4 4 4-4"/></svg></button>
+      <button class="cbtn pri minnext" id="minNext" hidden>Next</button>
+      <button class="minbtn" id="coachMin" aria-label="Minimize"><svg viewBox="0 0 14 14"><path d="M3 5l4 4 4-4"/></svg></button>
     </div>
     <div class="prog" id="prog"></div>
     <p class="ctext" id="ctext"></p>
     <div class="cfig" id="cfig" hidden></div>
-    <div class="cact">
-      <button class="cbtn ghost" id="cBack">Back</button>
-      <div class="st" id="cStatus"></div>
-      <button class="cbtn pri" id="cNext">Next</button>
+    <div class="cslot">
+      <div class="cact">
+        <button class="cbtn ghost" id="cBack">Back</button>
+        <div class="st" id="cStatus"></div>
+        <button class="cbtn pri" id="cNext">Next</button>
+      </div>
+      <div class="lread" id="lread" aria-live="off"><div class="lr-l"><span class="lr-k" id="lrK"></span><span class="lr-v" id="lrV"></span></div><canvas id="lrC" aria-hidden="true"></canvas><span class="lr-t" id="lrT"></span></div>
     </div>
   </section>
 
@@ -404,6 +573,32 @@ button:focus-visible,.knob:focus-visible{outline:1px solid var(--c1);outline-off
     <div class="lm-body" id="lmBody"></div>
     <div class="math" id="lmMath" hidden></div>
     <div class="sheet-foot"><button class="cbtn pri" id="lmClose">Got it</button></div>
+  </div>
+</div>
+
+<div class="memx" id="mem" hidden role="dialog" aria-label="Patch memory">
+  <div class="mx-top">
+    <span class="mx-t">memory</span>
+    <span class="mx-sub">8 banks · 8 tracks</span>
+    <button class="mx-x" id="memClose" aria-label="Close memory"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8"/></svg></button>
+  </div>
+  <div class="mx-hero" id="mxHero">
+    <div class="mh-row"><b id="mxId">b4</b><span id="mxState">loaded</span><span class="mh-sp"></span><span class="mx-acts" id="memActs"></span></div>
+    <button class="mx-name" id="mxName" aria-label="Rename this sound">sync lead</button>
+    <canvas id="mxC" aria-hidden="true"></canvas>
+    <span class="mx-hint" id="memHint"></span>
+  </div>
+  <div class="mx-banks" id="memBanks" role="tablist" aria-label="Banks"></div>
+  <div class="mx-grid" id="memGrid"></div>
+  <div class="mx-keys">
+    <button class="mxk" id="mCmp"><i></i>Compare</button>
+    <button class="mxk rec" id="mWrite"><i></i>Write</button>
+  </div>
+  <div class="mem-tape" id="memTape">
+    <svg class="cass" viewBox="0 0 64 40" aria-hidden="true"><rect x="1.5" y="1.5" width="61" height="37" rx="4"/><rect class="win" x="11" y="8" width="42" height="17" rx="8.5"/><g class="reel"><circle cx="20" cy="16.5" r="5"/><path d="M20 12.5v8M16 16.5h8"/></g><g class="reel"><circle cx="44" cy="16.5" r="5"/><path d="M44 12.5v8M40 16.5h8"/></g><path d="M14 38.5l4-8h28l4 8"/></svg>
+    <div class="tl"><b>Tape</b><span id="tapeMsg"></span><span>back up every bank to a file</span></div>
+    <button class="mact" id="tDump">dump</button><button class="mact" id="tLoad">load</button>
+    <input type="file" id="tFile" accept="application/json,.json" hidden>
   </div>
 </div>
 
@@ -438,7 +633,7 @@ class SynthDSP {
       ampType:0,ampDrive:.3,ampTone:.5,ampLvl:.7,
       eqLo:0,eqMid:0,eqFreq:1000,eqHi:0,
       dTime:.35,dSync:0,dDiv:2,dFb:.4,dTone:4000,dMix:0,dPing:0,rvSize:.6,rvDamp:.5,rvMix:0,
-      arpOn:0,arpMode:0,arpOct:1,arpGate:.5,arpDiv:1,tempo:120};
+      arpOn:0,arpMode:0,arpOct:1,arpGate:.5,arpDiv:1,tempo:120,pwFlt:1};
     this.ADIV = [1, .5, .25, 1 / 3, 1 / 6];
     this.LDIV = [4, 2, 1, .5, .25, .125, 2 / 3, 1 / 3];
     this.DDIV = [1, .75, .5, 1 / 3, .25];
@@ -560,6 +755,8 @@ class SynthDSP {
   rel(v){ v.gate = 0; if (v.aSt) v.aSt = 3; if (v.fSt) v.fSt = 3; }
   release(){ this.rel(this.V[0]); }
   allOff(){ for (const v of this.V) this.rel(v); }
+  // hard silence: no release tails, no arp, no echoes left in the FX buffers
+  kill(){ for (const v of this.V) { v.gate = 0; v.ae = 0; v.aSt = 0; v.fSt = 0; } this.arpN = []; this.arpSeq = []; this.arpI = 0; this.arpCnt = 0; this.wake(0, 0, 0); }
   noteOn(n){
     const V = this.V; let pick = -1;
     for (let j = 0; j < this.NV; j++) if (V[j].gate && V[j].note === n) { pick = j; break; }
@@ -571,16 +768,24 @@ class SynthDSP {
     this.trig(v, n); this.lastV = pick; this.lastNote = n;
   }
   noteOff(n){ for (const v of this.V) if (v.gate && v.note === n) this.rel(v); }
+  // an effect coming back from silence starts with empty buffers, so no stale echoes replay
+  wake(dm, rm, cm){
+    const p = this.p;
+    if (dm <= 0.001 && p.dMix > 0.001) { this.dBL.fill(0); this.dBR.fill(0); this.dLpL = this.dLpR = 0; }
+    if (rm <= 0.001 && p.rvMix > 0.001) { this.rvB.forEach(b => b.fill(0)); this.rvLp.fill(0); this.rvY.fill(0); this.ap.forEach(a => a.b.fill(0)); }
+    if (cm <= 0.001 && p.chMix > 0.001) { this.chB.fill(0); this.flL.fill(0); this.flR.fill(0); this.phX.forEach(a => a.fill(0)); this.phY.forEach(a => a.fill(0)); this.phO[0] = this.phO[1] = 0; }
+  }
   msg(d){
+    const dm = this.p.dMix, rm = this.p.rvMix, cm = this.p.chMix;
     if (d.t === 'p') {
       const wasPoly = this.polyOn;
-      this.p[d.k] = d.v; this.calc();
+      this.p[d.k] = d.v; this.calc(); this.wake(dm, rm, cm);
       if (d.k === 'arpOn' && !d.v) { this.arpN = []; this.arpSeq = []; this.allOff(); }
       if (wasPoly !== this.polyOn) this.allOff();
     }
     else if (d.t === 'all') {
       const wasPoly = this.polyOn;
-      Object.assign(this.p, d.v); this.calc();
+      Object.assign(this.p, d.v); this.calc(); this.wake(dm, rm, cm);
       if (!this.p.arpOn) { this.arpN = []; this.arpSeq = []; }
       if (wasPoly !== this.polyOn) this.allOff();
     }
@@ -589,6 +794,7 @@ class SynthDSP {
     else if (d.t === 'non') this.noteOn(d.n);
     else if (d.t === 'noff') this.noteOff(d.n);
     else if (d.t === 'alloff') this.allOff();
+    else if (d.t === 'kill') this.kill();
     else if (d.t === 'arp') {
       const was = this.arpN.length;
       this.arpN = d.notes.slice().sort((a, b) => a - b); this.arpBuild();
@@ -637,7 +843,7 @@ class SynthDSP {
     const dTgt = Math.min(this.dLen - 4, Math.max(16, (p.dSync ? 60 / p.tempo * this.DDIV[p.dDiv | 0] : p.dTime) * sr));
     const dDry = 1 - 0.3 * p.dMix, rvDry = 1 - 0.4 * p.rvMix;
     const arpOn = p.arpOn && this.arpSeq.length > 0, stepS = Math.max(64, 60 / p.tempo * this.ADIV[p.arpDiv | 0] * sr);
-    const poly = this.polyOn, pg = poly ? 0.6 : 1, mix1 = p.mix1, mix2 = p.mix2, noise = p.noise, aS = p.aS, fS = p.fS, o1pw = p.o1pw, lpw = p.lpw, lpwN = lpw / 0.45, res = p.res;
+    const fOn = p.pwFlt !== 0, poly = this.polyOn, pg = poly ? 0.6 : 1, mix1 = p.mix1, mix2 = p.mix2, noise = p.noise, aS = p.aS, fS = p.fS, o1pw = p.o1pw, lpw = p.lpw, lpwN = lpw / 0.45, res = p.res;
     const isWT = o1w === 4, isFm = o1w === 5, shBase = isWT ? p.o1pos : p.o1vow, VOW = this.VOW;
     const aG = 1 + p.ampDrive * 20, aNorm = 1 / Math.tanh(0.35 * aG + 0.25), aLvl = p.ampLvl * 1.3, ampC = this.ampC, eqC = this.eqC, eqOn = this.eqOn;
     const wQk = 2 - 1.85 * p.e1Q, wSens = p.e1Sens * 14, wRange = p.e1Depth * 4.5;
@@ -721,7 +927,8 @@ class SynthDSP {
         const mix = (v1 * mix1 + v2 * mix2 + (noise > 0 ? this.rnd() * noise : 0)) * 0.6;
         const g = v.g;
         const x = mix * drv + this.rnd() * 1e-4; let y;
-        if (ftype === 0) {
+        if (!fOn) { y = mix; v.s0 = v.s1 = v.s2 = v.s3 = v.ic1 = v.ic2 = 0; }
+        else if (ftype === 0) {
           const G = g / (1 + g), b = 1 - G, G4 = G * G * G * G;
           const S = G * G * G * b * v.s0 + G * G * b * v.s1 + G * b * v.s2 + b * v.s3;
           let y4 = (G4 * x + S) / (1 + kk * G4);
@@ -739,7 +946,7 @@ class SynthDSP {
           y = ftype === 1 ? vv2 : ftype === 2 ? v0 - kq * vv1 - vv2 : ftype === 3 ? vv1 * Math.max(kq, 0.6) : vv2 + 0.8 * vv1 * Math.max(kq, 0.6);
           y = Math.tanh(y * 0.7 / (1 + res)) / 0.7;
         }
-        y *= dcomp;
+        if (fOn) y *= dcomp;
         sum += y * v.ae;
         if (v.aSt || v === V[this.lastV]) { tapM += mix; tapY += y; nt++; }
         if (v.aSt) nv++;
@@ -847,9 +1054,43 @@ registerProcessor('sp-synth', SPProc);`;
    ===================================================================== */
 const INIT = {o1w:2,o1oct:0,o1pw:.5,o1pos:0,o1vow:0,glide:0,bl:1,uniN:1,uniDet:20,poly:0,o2w:2,o2oct:0,o2semi:0,o2fine:7,sync:0,fm:0,ring:0,mix1:.8,mix2:.6,noise:0,vol:.7,
   ftype:0,cut:2400,res:.25,fenv:1.5,kt:.5,drive:.1,fA:.005,fD:.35,fS:.3,fR:.3,aA:.005,aD:.3,aS:.8,aR:.35,mePitch:0,meFm:0,meShape:0,lshape:0,lrate:5,lsync:0,ldiv:3,lpitch:0,lcut:0,lpw:0,
-  e1Type:0,e1Rate:4,e1Depth:.5,e1Sens:.5,e1Q:.5,modType:0,chRate:.6,chDepth:.5,chFb:.3,chMix:0,ampType:0,ampDrive:.3,ampTone:.5,ampLvl:.7,eqLo:0,eqMid:0,eqFreq:1000,eqHi:0,dTime:.35,dSync:0,dDiv:2,dFb:.4,dTone:4000,dMix:0,dPing:0,rvSize:.6,rvDamp:.5,rvMix:0,
-  arpOn:0,arpMode:0,arpOct:1,arpGate:.5,arpDiv:1,tempo:120};
+  e1Type:1,e1Rate:4,e1Depth:.5,e1Sens:.5,e1Q:.5,modType:0,chRate:.6,chDepth:.5,chFb:.3,chMix:.5,ampType:2,ampDrive:.3,ampTone:.5,ampLvl:.7,eqLo:0,eqMid:0,eqFreq:1000,eqHi:0,dTime:.35,dSync:0,dDiv:2,dFb:.4,dTone:4000,dMix:.3,dPing:0,rvSize:.6,rvDamp:.5,rvMix:.25,
+  arpOn:0,arpMode:0,arpOct:1,arpGate:.5,arpDiv:1,tempo:120,
+  // power switches: oscillators, filter and LFO start on; every effect starts bypassed with its settings ready, as on a Nord
+  pwO1:1,pwO2:1,pwFlt:1,pwLfo:1,pwFx1:0,pwAmp:0,pwEq:0,pwMod:0,pwDly:0,pwRev:0};
 const params = {...INIT};
+
+/* ---------- power switches ----------
+   Each section's switch is one param. Turning a section off never changes its other settings: the UI just sends the engine an
+   "effective" value (an off oscillator's mix level becomes 0, a bypassed delay's Mix becomes 0, and so on). The filter is the
+   one section the engine bypasses itself (pwFlt). The Arp's power switch is its existing arpOn param. */
+const PW = {osc1:'pwO1', osc2:'pwO2', filter:'pwFlt', lfo:'pwLfo', arp:'arpOn', fx1:'pwFx1', amp:'pwAmp', eq:'pwEq', mod:'pwMod', delay:'pwDly', reverb:'pwRev'};
+const PW_SEC = Object.fromEntries(Object.entries(PW).map(([s, k]) => [k, s]));
+const PW_NAME = {osc1:'osc 1', osc2:'osc 2', filter:'filter', lfo:'lfo', arp:'arp', fx1:'fx1', amp:'amp', eq:'eq', mod:'mod', delay:'delay', reverb:'reverb'};
+const FX_IDS = ['fx1', 'amp', 'eq', 'mod', 'delay', 'reverb'], FX_SET = new Set(FX_IDS);
+const FX_L = {fx1:'FX1', amp:'Amp', eq:'EQ', mod:'Mod', delay:'Delay', reverb:'Reverb'};
+const EFFK = {mix1:'pwO1', mix2:'pwO2', lpitch:'pwLfo', lcut:'pwLfo', lpw:'pwLfo', e1Type:'pwFx1', ampType:'pwAmp', eqLo:'pwEq', eqMid:'pwEq', eqHi:'pwEq', chMix:'pwMod', dMix:'pwDly', rvMix:'pwRev'};
+const PW_DEPS = {}; for (const k in EFFK) (PW_DEPS[EFFK[k]] = PW_DEPS[EFFK[k]] || []).push(k);
+const effV = k => EFFK[k] && !params[EFFK[k]] ? 0 : params[k];
+function effP(){ const o = {...params}; for (const k in EFFK) if (!params[EFFK[k]]) o[k] = 0; return o; }
+// keys that live on one section's page but belong to another section, and keys that stay live whatever the page's switch says
+const KEY_SEC = {mix1:'osc1', mix2:'osc2', fenv:'filter'};
+const LIVE = new Set(['glide', 'tempo']);
+// choosing a type switches an effect on; so does raising its amount from zero
+const SEG_ENGAGE = {e1Type:'fx1', ampType:'amp', modType:'mod'};
+const AUTO_ENGAGE = {chMix:'mod', dMix:'delay', rvMix:'reverb', eqLo:'eq', eqMid:'eq', eqHi:'eq'};
+// turn an older-style patch (e1Type 0 = FX1 off, Mix 0 = effect off) into switch settings
+function normPatch(obj){
+  const o = {...obj};
+  [['e1Type', 'pwFx1'], ['ampType', 'pwAmp']].forEach(([k, pk]) => {
+    if (!(k in o)) return;
+    if (!o[k]) { delete o[k]; if (!(pk in o)) o[pk] = 0; } else if (!(pk in o)) o[pk] = 1;
+  });
+  [['chMix', 'pwMod'], ['dMix', 'pwDly'], ['rvMix', 'pwRev']].forEach(([k, pk]) => { if (k in o && !(pk in o)) o[pk] = o[k] > 0.001 ? 1 : 0; });
+  const EQ = ['eqLo', 'eqMid', 'eqHi'];
+  if (EQ.some(k => k in o) && !('pwEq' in o)) { const m = {...params, ...o}; o.pwEq = EQ.some(k => Math.abs(m[k]) > 0.05) ? 1 : 0; }
+  return o;
+}
 
 const sgn = v => (v > 0 ? '+' : v < 0 ? '−' : '');
 const fHz = v => v >= 1000 ? (v / 1000).toFixed(v >= 10000 ? 1 : 2) + ' kHz' : (v < 100 ? v.toFixed(1) : Math.round(v)) + ' Hz';
@@ -933,9 +1174,9 @@ const SEGS = {
   o1w:{l:'Wave',icons:1,o:[['sine','Sine'],['tri','Tri'],['saw','Saw'],['pulse','Pulse'],['wt','Wavetable'],['vox','Formant']]},
   o2w:{l:'Wave',o:[['sine','Sine'],['tri','Tri'],['saw','Saw'],['pulse','Pulse']]},
   ftype:{l:'Type',o:[[null,'LP24'],[null,'LP12'],[null,'HP'],[null,'BP'],[null,'LP+BP']]},
-  e1Type:{l:'Type',o:[[null,'Off'],[null,'Trem'],[null,'Pan'],[null,'Wah']]},
+  e1Type:{l:'Type',base:1,o:[[null,'Trem'],[null,'Pan'],[null,'Wah']]},
   modType:{l:'Type',o:[[null,'Chorus'],[null,'Flanger'],[null,'Phaser']]},
-  ampType:{l:'Cab',o:[[null,'Off'],[null,'Small'],[null,'Combo'],[null,'Clean']]},
+  ampType:{l:'Cab',base:1,o:[[null,'Small'],[null,'Combo'],[null,'Clean']]},
   lshape:{l:'Shape',o:[['tri','Tri'],['pulse','Sqr'],['sawdn','Dn'],['saw','Up'],['sh','S&H']]},
   arpMode:{l:'Mode',o:[[null,'Up'],[null,'Down'],[null,'Up/Dn'],[null,'Rnd']]},
 };
@@ -953,12 +1194,12 @@ const TABS = [
   {id:'lfo',l:'LFO',seg:'lshape',rows:() => [[params.lsync ? 'ldiv' : 'lrate','lpitch','lcut'],['lpw','lsync']]},
   {id:'fx',l:'FX',sub:[
     {id:'fx1',l:'FX1',seg:'e1Type',rows:() => params.e1Type === 3 ? [['e1Sens','e1Depth','e1Q']] : params.e1Type ? [['e1Rate','e1Depth']] : []},
-    {id:'mod',l:'Mod',seg:'modType',rows:() => params.modType ? [['chRate','chDepth','chFb','chMix']] : [['chRate','chDepth','chMix']]},
     {id:'amp',l:'Amp',seg:'ampType',rows:[['ampDrive','ampTone','ampLvl']]},
     {id:'eq',l:'EQ',rows:[['eqLo','eqMid','eqHi'],['eqFreq']]},
+    {id:'mod',l:'Mod',seg:'modType',rows:() => params.modType ? [['chRate','chDepth','chFb','chMix']] : [['chRate','chDepth','chMix']]},
     {id:'delay',l:'Delay',rows:() => [[params.dSync ? 'dDiv' : 'dTime','dFb','dTone'],['dMix','dSync','dPing']]},
     {id:'reverb',l:'Reverb',rows:[['rvSize','rvDamp','rvMix']]}]},
-  {id:'arp',l:'Arp',seg:'arpMode',rows:[['arpOn','arpOct','arpGate'],['tempo','arpDiv']]},
+  {id:'arp',l:'Arp',seg:'arpMode',rows:[['arpDiv','arpOct','arpGate'],['tempo']]},
 ];
 const TAB_OF = {}, SUB_OF = {}, SUB_TAB = {};
 const ENV_KEYS = ['fA','fD','fS','fR','aA','aD','aS','aR'];
@@ -975,6 +1216,10 @@ TABS.forEach(t => {
 Object.assign(TAB_OF, {o1pw:'osc1', o1pos:'osc1', o1vow:'osc1', lrate:'lfo', ldiv:'lfo', fenv:'filter', dTime:'fx', dDiv:'fx', e1Rate:'fx', e1Depth:'fx', e1Sens:'fx', e1Q:'fx', chFb:'fx'});
 Object.assign(SUB_OF, {dTime:'delay', dDiv:'delay', e1Rate:'fx1', e1Depth:'fx1', e1Sens:'fx1', e1Q:'fx1', chFb:'mod'});
 delete SUB_OF.fenv;
+for (const s in PW) { const k = PW[s]; if (FX_SET.has(s)) { TAB_OF[k] = 'fx'; SUB_OF[k] = s; } else TAB_OF[k] = s; }
+// which section's switch governs a control (null if none)
+const secOf = k => PW_SEC[k] || KEY_SEC[k] || (TAB_OF[k] === 'fx' ? SUB_OF[k] : PW[TAB_OF[k]] ? TAB_OF[k] : null);
+const secOff = k => { const s = secOf(k); return !!s && !LIVE.has(k) && !params[PW[s]]; };
 
 const toN = (d, v) => {
   const r = d.c === 'log' ? Math.log(Math.max(v, d.min) / d.min) / Math.log(d.max / d.min)
@@ -1036,7 +1281,7 @@ const Engine = {
     const merge = ctx.createChannelMerger(2); split.connect(merge, 0, 0); split.connect(merge, 4, 1); merge.connect(ctx.destination);
     const sink = ctx.createGain(); sink.gain.value = 0; sink.connect(ctx.destination);
     this.an = [0, 1, 2, 3].map(i => { const a = ctx.createAnalyser(); a.fftSize = N; a.smoothingTimeConstant = 0.5; split.connect(a, i); a.connect(sink); return a; });
-    this.post({t:'all', v:{...params}});
+    this.post({t:'all', v:effP()});
     this.ready = true;
   }
 };
@@ -1063,24 +1308,43 @@ function setParam(k, v){
   const old = params[k];
   params[k] = v;
   state.nchg[k] = (state.nchg[k] || 0) + 1;
-  Engine.post({t:'p', k, v});
+  Engine.post({t:'p', k, v:effV(k)});
+  if (PW_DEPS[k]) PW_DEPS[k].forEach(d => Engine.post({t:'p', k:d, v:effV(d)}));
   if (controls[k]) controls[k]();
   if (hud.k === k) hudText();
   if (LAYOUT_KEYS.has(k)) relayout();
   if (k === 'arpOn' && !old !== !v) arpToggle(!!v);
   if (k === 'poly' && !old !== !v) polyToggle(!!v);
+  tgtDirty = true;
+  if (PW_SEC[k]) { if (!old !== !v) powerFx(PW_SEC[k], !!v); }
+  else autoEngage(k, old, v);
+  if (pwInfo) pwInfo();
+  MEM.cmp = null;  // a knob turned while comparing: the stored sound becomes the new starting point
+  memOnChange();
 }
+function autoEngage(k, old, v){
+  const sec = AUTO_ENGAGE[k]; if (!sec || params[PW[sec]]) return;
+  if (sec === 'eq') { const was = {...params, [k]:old}; if (['eqLo', 'eqMid', 'eqHi'].some(q => Math.abs(was[q]) > 0.05) || Math.abs(v) <= 0.05) return; }
+  else if (old > 0.001 || v <= 0.001) return;
+  setParam(PW[sec], 1);
+}
+function togglePower(sec){ const k = PW[sec]; setParam(k, params[k] ? 0 : 1); hudShow(k); hudHold(); }
 const LAYOUT_KEYS = new Set(['o1w', 'lsync', 'dSync', 'e1Type', 'modType']);
 let layoutSig = '';
 function curLayout(){ const t = TABS.find(x => x.id === state.tab); if (!t) return ''; const sb = t.sub && t.sub.find(x => x.id === state.sub[t.id]); return JSON.stringify(sb ? (sb.env ? 'env' : rowsOf(sb.rows)) : t.rows ? rowsOf(t.rows) : ''); }
 function relayout(){ if (curLayout() !== layoutSig) showTab(state.tab); }
 function applyPatch(obj){
-  const arpWas = !!params.arpOn, polyWas = !!params.poly;
-  Object.assign(params, obj); Engine.post({t:'all', v:{...obj}});
+  obj = normPatch(obj);
+  const arpWas = !!params.arpOn, polyWas = !!params.poly, pwWas = {};
+  for (const s in PW) pwWas[s] = !!params[PW[s]];
+  Object.assign(params, obj); Engine.post({t:'all', v:effP()});
   if (polyWas !== !!params.poly) polyToggle(!!params.poly);
   Object.keys(obj).forEach(k => controls[k] && controls[k]());
   if (Object.keys(obj).some(k => LAYOUT_KEYS.has(k))) relayout();
   if (arpWas !== !!params.arpOn) arpToggle(!!params.arpOn);
+  for (const s in PW) if (pwWas[s] !== !!params[PW[s]]) powerFx(s, !!params[PW[s]], true);
+  if (pwInfo) pwInfo();
+  if (typeof MEM !== 'undefined') memOnChange();
 }
 
 /* ---------- knob geometry ---------- */
@@ -1097,12 +1361,62 @@ const TICK_SVG = TICK_A.map((a, i) => { const maj = i % 6 === 0, [x0, y0] = pol(
   return `<line class="k-t${maj ? ' maj' : ''}" x1="${x0}" y1="${y0}" x2="${x1}" y2="${y1}"/>`; }).join('');
 const KNURL = Array.from({length:18}, (_, i) => { const a = i * 20, [x0, y0] = pol(a, 13.2), [x1, y1] = pol(a, 15.2); return `M${x0} ${y0}L${x1} ${y1}`; }).join('');
 
+/* ---------- lesson targets ----------
+   Each step's goal is a function, so instead of hand-writing targets we ask it: for every position of a focused knob
+   (keeping everything else as it is now), would this complete the step? The positions that say yes become the yellow
+   band on that knob and the "aim" chip in the lesson strip. If every position or none would pass, no band is shown. */
+let TGT = {}, tgtDirty = false;
+function computeTargets(){
+  tgtDirty = false; TGT = {};
+  const st = coach.L && !coach.done && !coach.met ? coach.L.steps[coach.i] : null;
+  if (st && st.goal && st.focus && coach.E) {
+    const base = snapshot(), E = coach.E;
+    st.focus.forEach(k => {
+      const d = DEFS[k]; if (!d) return;
+      const N = d.step ? Math.round((d.max - d.min) / d.step) + 1 : 97, ok = [];
+      let any = false, all = true;
+      for (let i = 0; i < N; i++) {
+        const S = {...base, p:{...base.p, [k]:fromN(d, i / (N - 1))}, n:{...base.n, [k]:(E.n[k] || 0) + 5}, gates:Math.max(base.gates, E.gates + 3)};
+        let r = false; try { r = !!st.goal(S, E); } catch (e) {}
+        ok.push(r); any = any || r; all = all && r;
+      }
+      if (any && !all) TGT[k] = {ok, N};
+    });
+  }
+  paintTargets();
+}
+function tgtRuns(t){ const runs = []; let s = -1; t.ok.forEach((v, i) => { if (v && s < 0) s = i; if ((!v || i === t.N - 1) && s >= 0) { runs.push([s, v ? i : i - 1]); s = -1; } }); return runs; }
+function inTarget(k){ const t = TGT[k]; if (!t) return false; return !!t.ok[Math.round(toN(DEFS[k], params[k]) * (t.N - 1))]; }
+function targetText(k){
+  const t = TGT[k]; if (!t) return '';
+  if (inTarget(k)) return '✓ on target';
+  const d = DEFS[k], runs = tgtRuns(t), v = i => d.f(fromN(d, i / (t.N - 1)));
+  if (runs.length !== 1) return 'aim: yellow band';
+  const [a, b] = runs[0];
+  return a === b ? 'aim ' + v(a) : a === 0 ? 'aim ≤ ' + v(b) : b === t.N - 1 ? 'aim ≥ ' + v(a) : 'aim ' + v(a) + '–' + v(b);
+}
+function paintTargets(){
+  $('module').querySelectorAll('.knob').forEach(el => {
+    const k = el.dataset.hint, t = TGT[k], p = el.querySelector('.k-tgt'); if (!p) return;
+    let dd = '';
+    if (t) {
+      const half = 135 / (t.N - 1);
+      tgtRuns(t).forEach(([a, b]) => {
+        let a0 = -135 + 270 * a / (t.N - 1) - (a ? half : 0), a1 = -135 + 270 * b / (t.N - 1) + (b < t.N - 1 ? half : 0);
+        if (a1 - a0 < 8) { const m = (a0 + a1) / 2; a0 = m - 4; a1 = m + 4; }
+        dd += arcPath(a0, a1, 31.6);
+      });
+    }
+    p.setAttribute('d', dd);
+    el.classList.toggle('tgt-in', inTarget(k));
+  });
+}
 function knobEl(k, idx){
   const d = DEFS[k];
   const el = document.createElement('div');
-  el.className = 'knob'; el.dataset.hint = k; el.tabIndex = 0; el.style.setProperty('--i', idx || 0);
+  el.className = 'knob' + (LIVE.has(k) ? ' live' : ''); el.dataset.hint = k; el.tabIndex = 0; el.style.setProperty('--i', idx || 0);
   el.setAttribute('role', 'slider'); el.setAttribute('aria-label', d.l);
-  el.innerHTML = `<svg viewBox="0 0 64 64" aria-hidden="true"><g class="k-ticks" filter="url(#lz)">${TICK_SVG}</g><path class="k-trk" d="${TRACK}"/><path class="k-arc" filter="url(#lz)"/>`
+  el.innerHTML = `<svg viewBox="0 0 64 64" aria-hidden="true"><g class="k-ticks" filter="url(#lz)">${TICK_SVG}</g><path class="k-trk" d="${TRACK}"/><path class="k-tgt"/><path class="k-arc" filter="url(#lz)"/>`
     + `<g class="k-rot"><circle class="k-cap" cx="32" cy="32" r="16.5"/><path class="k-knurl" d="${KNURL}"/><line class="k-ptr" x1="32" y1="27.5" x2="32" y2="19.5"/><circle class="k-dot" cx="32" cy="19.5" r="1.7" filter="url(#lz)"/></g></svg>`
     + `<div class="k-lab">${d.l}</div><div class="k-v"></div>`;
   const arc = el.querySelector('.k-arc'), rot = el.querySelector('.k-rot'), val = el.querySelector('.k-v'), ticks = [...el.querySelectorAll('.k-t')];
@@ -1118,6 +1432,7 @@ function knobEl(k, idx){
     }
     const txt = d.f(v); if (val.textContent !== txt) val.textContent = txt;
     el.setAttribute('aria-valuetext', txt);
+    el.classList.toggle('tgt-in', inTarget(k));
   };
   controls[k] = upd; upd();
   let drag = null, lastTap = 0;
@@ -1166,14 +1481,19 @@ function segEl(k){
   const row = document.createElement('div'); row.className = 'mod-row';
   row.innerHTML = `<span class="lab">${s.l}</span>`;
   const seg = document.createElement('div'); seg.className = 'seg' + (s.icons ? ' icons' : ''); seg.dataset.hint = k;
+  const base = s.base || 0;
   s.o.forEach(([ic, lab], i) => {
     const b = document.createElement('button'); b.setAttribute('aria-label', lab);
     b.innerHTML = (ic ? IC[ic] : '') + `<span>${lab}</span>`;
-    b.addEventListener('click', () => { setParam(k, i); hudShow(k); hudHold(); });
+    b.addEventListener('click', () => {
+      setParam(k, i + base);
+      const en = SEG_ENGAGE[k]; if (en && !params[PW[en]]) setParam(PW[en], 1);
+      hudShow(k); hudHold();
+    });
     seg.appendChild(b);
   });
   row.appendChild(seg);
-  controls[k] = () => [...seg.children].forEach((b, i) => b.classList.toggle('on', params[k] === i));
+  controls[k] = () => [...seg.children].forEach((b, i) => b.classList.toggle('on', params[k] === i + base));
   controls[k]();
   return row;
 }
@@ -1186,17 +1506,365 @@ function togEl(k, idx){
   controls[k]();
   return b;
 }
+// long-press anything that has a power switch to flip it without opening it
+function longPress(el, fn, ms = 430){
+  let tm = 0, fired = false;
+  const stop = () => { clearTimeout(tm); el.classList.remove('lpress'); };
+  el.addEventListener('pointerdown', () => { fired = false; stop(); el.classList.add('lpress'); tm = setTimeout(() => { fired = true; el.classList.remove('lpress'); fn(); }, ms); });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => el.addEventListener(ev, stop));
+  el.addEventListener('contextmenu', e => e.preventDefault());
+  // returns true once if the click that follows was really the end of a long press
+  return () => { if (fired) { fired = false; return true; } return false; };
+}
+const TAB_SHORT = {osc1:'Osc 1', osc2:'Osc 2', mix:'Mix', filter:'Filter', env:'Env', lfo:'LFO', fx:'FX', arp:'Arp'};
+let tabsUI = null;
+const tabsRO = new ResizeObserver(() => { if (!tabsUI) return; const r = tabsUI.cv.getBoundingClientRect(), d = DPR(); tabsUI.w = tabsUI.cv.width = Math.max(1, Math.round(r.width * d)); tabsUI.h = tabsUI.cv.height = Math.max(1, Math.round(r.height * d)); });
 function buildTabs(){
   const nav = $('tabs');
+  const cv = document.createElement('canvas'); cv.setAttribute('aria-hidden', 'true'); nav.appendChild(cv);
   TABS.forEach(t => {
-    const b = document.createElement('button'); b.textContent = t.l; b.dataset.tab = t.id; b.dataset.hint = 'tab-' + t.id; b.style.setProperty('--tc', `var(--${TAB_C[t.id]})`);
-    b.addEventListener('click', () => showTab(t.id));
-    nav.appendChild(b);
+    const c = document.createElement('div'); c.className = 'tp'; c.dataset.tab = t.id; c.dataset.hint = 'tab-' + t.id; c.style.setProperty('--tc', `var(--${TAB_C[t.id]})`);
+    c.innerHTML = `<button class="psel"><span class="pl">${TAB_SHORT[t.id]}</span></button>` + (PW[t.id] ? `<button class="psw" data-hint="${PW[t.id]}" aria-label="${TAB_SHORT[t.id]} on or off"></button>` : '');
+    const sel = c.querySelector('.psel');
+    const wasLong = PW[t.id] ? longPress(sel, () => togglePower(t.id)) : () => false;
+    sel.addEventListener('click', () => { if (!wasLong()) showTab(t.id); });
+    if (PW[t.id]) c.querySelector('.psw').addEventListener('click', () => togglePower(t.id));
+    nav.appendChild(c);
+  });
+  tabsUI = {cv, w:0, h:0};
+  tabsRO.observe(cv);
+  refreshTabs();
+}
+// flicker timing: switching on snaps up with a short stutter; switching off takes a little longer to die away
+const FLK_ON_MS = 230, FLK_OFF_MS = 400, flkMs = on => on ? FLK_ON_MS : FLK_OFF_MS;
+function flick(el, on){
+  el.classList.remove('flk-on', 'flk-off'); void el.offsetWidth; el.classList.add(on ? 'flk-on' : 'flk-off');
+  clearTimeout(el._flk); el._flk = setTimeout(() => el.classList.remove('flk-on', 'flk-off'), flkMs(on));
+}
+function refreshTabs(){
+  $('tabs').querySelectorAll('.tp').forEach(c => {
+    const id = c.dataset.tab, sel = c.querySelector('.psel');
+    if (PW[id]) {
+      const on = !!params[PW[id]];
+      c.classList.toggle('off', !on);
+      sel.setAttribute('aria-label', `${TAB_SHORT[id]} page, ${on ? 'on' : 'off'}`);
+      c.querySelector('.psw').setAttribute('aria-pressed', on);
+    } else if (id === 'fx') sel.setAttribute('aria-label', `FX page, ${FX_IDS.filter(f => params[PW[f]]).length} of 6 effects on`);
+    else sel.setAttribute('aria-label', `${TAB_SHORT[id]} page`);
   });
 }
+// knobs on another section's page (Mix's OSC levels, Routing's Env Amt) go dark with their section
+function refreshDead(){ $('module').querySelectorAll('.knob').forEach(el => { const s = KEY_SEC[el.dataset.hint]; if (s) el.classList.toggle('dead', !params[PW[s]]); }); }
+// the part of the current page whose lights follow a power switch
+let pwHost = null, pwHostSec = null, pwInfo = null;
+function powerFx(sec, on, quiet){
+  refreshTabs();
+  pdT[sec] = quiet ? null : {t0:performance.now(), on};
+  if (pwHost && pwHostSec === sec) {
+    const h = pwHost;
+    if (quiet) h.classList.toggle('pwr-off', !on);
+    else {
+      // lights flicker out (or stutter on), then settle
+      if (on) h.classList.remove('pwr-off');
+      flick(h, on);
+      clearTimeout(h._pw); h._pw = setTimeout(() => { if (pwHost === h && pwHostSec === sec) h.classList.toggle('pwr-off', !params[PW[sec]]); }, on ? 0 : FLK_OFF_MS - 20);
+    }
+  }
+  refreshDead(); refreshChain();
+  if (!quiet) try { navigator.vibrate && navigator.vibrate(on ? 12 : [5, 40, 5]); } catch (e) {}
+}
+function pwStateText(sec){
+  const P = params, on = !!P[PW[sec]];
+  if (sec === 'osc1') return on ? 'in the mix · ' + fPct(P.mix1) : P.pwO2 && (P.fm > .001 || P.meFm > .001 || P.sync || P.ring) ? 'muted · still drives osc 2' : 'off · out of the mix';
+  if (sec === 'osc2') return on ? 'in the mix · ' + fPct(P.mix2) : 'off · out of the mix';
+  if (sec === 'filter') return on ? SEGS.ftype.o[P.ftype | 0][1].toLowerCase() + ' · ' + fHz(P.cut) : 'bypassed · osc straight to amp';
+  if (sec === 'lfo') { const r = [P.lpitch > .01 && 'pitch', P.lcut > .01 && 'cutoff', P.lpw > .005 && 'shape'].filter(Boolean); return on ? (r.length ? '→ ' + r.join(' · ') : 'on · not routed yet') : 'off · routes muted'; }
+  if (sec === 'arp') return on ? ADIV_L[P.arpDiv | 0] + ' · ' + P.tempo + ' bpm' : 'off · keys play normally';
+  return '';
+}
+/* ---------- FX pedalboard: one canvas draws the pedals and the signal line, buttons on top take the taps ---------- */
+const pdT = {};
+let chainUI = null;
+const chainRO = new ResizeObserver(() => { if (!chainUI) return; const r = chainUI.cv.getBoundingClientRect(), d = DPR(); chainUI.w = chainUI.cv.width = Math.max(1, Math.round(r.width * d)); chainUI.h = chainUI.cv.height = Math.max(1, Math.round(r.height * d)); });
+function chainEl(){
+  const w = document.createElement('div'); w.className = 'chain';
+  w.innerHTML = '<canvas aria-hidden="true"></canvas><div class="cells">' + FX_IDS.map(id =>
+    `<div class="pd" data-fx="${id}" data-hint="sub-${id}"><button class="psel" aria-label="${FX_L[id]} page"><span class="pl">${FX_L[id]}</span></button><button class="psw" data-hint="${PW[id]}" aria-label="${FX_L[id]} on or off"></button></div>`).join('') + '</div>';
+  w.querySelectorAll('.pd').forEach(pd => {
+    const id = pd.dataset.fx, sel = pd.querySelector('.psel'), sw = pd.querySelector('.psw');
+    const wasLong = longPress(sel, () => togglePower(id));
+    sel.addEventListener('click', () => { if (wasLong()) return; if (state.sub.fx === id) return; state.sub.fx = id; bump('sub'); showTab('fx'); });
+    sw.addEventListener('click', () => togglePower(id));
+    pd.classList.toggle('sel', state.sub.fx === id);
+  });
+  chainUI = {el:w, cv:w.querySelector('canvas'), w:0, h:0, flow:0, last:performance.now(), wl:0};
+  chainRO.disconnect(); chainRO.observe(chainUI.cv);
+  return w;
+}
+// little live pictures, one per effect; they read the current knob values, so they change as you patch
+const PD_ICON = {
+  fx1(g, X0, Y0, X1, Y1, t, d, c){
+    const P = params, ty = P.e1Type | 0, w = X1 - X0, h = Y1 - Y0, my = (Y0 + Y1) / 2, rate = Math.min(8, P.e1Rate);
+    g.beginPath();
+    if (ty === 2) {
+      // auto-pan: a dot swinging between the L and R walls
+      const s = Math.sin(6.2832 * t * Math.min(rate, 3) * 0.5) * (0.15 + 0.85 * P.e1Depth), x = X0 + w / 2 + s * (w / 2 - 4 * d);
+      g.moveTo(X0 + d, Y0 + 2 * d); g.lineTo(X0 + d, Y1 - 2 * d); g.moveTo(X1 - d, Y0 + 2 * d); g.lineTo(X1 - d, Y1 - 2 * d); g.stroke();
+      g.globalAlpha *= 0.35; g.beginPath(); g.moveTo(X0 + w / 2, my - 2 * d); g.lineTo(X0 + w / 2, my + 2 * d); g.stroke(); g.globalAlpha /= 0.35;
+      g.beginPath(); g.arc(x, my, 2.6 * d, 0, 6.2832); g.fill();
+      return;
+    }
+    if (ty === 3) {
+      // auto-wah: a resonant peak that jumps up the spectrum with each note
+      const tgt = 0.12 + 0.72 * Math.min(1, c.wl * (0.3 + 1.7 * P.e1Sens)) * (0.3 + 0.7 * P.e1Depth);
+      c.wah += (tgt - c.wah) * 0.18;
+      const bw = 0.05 + 0.16 * (1 - P.e1Q);
+      for (let i = 0; i <= 50; i++) { const u = i / 50, v = 1 / (1 + Math.pow((u - c.wah) / bw, 2)), x = X0 + u * w, y = Y1 - (0.08 + 0.88 * v) * h; i ? g.lineTo(x, y) : g.moveTo(x, y); }
+      g.stroke(); return;
+    }
+    // tremolo: a tone whose height pulses
+    for (let i = 0; i <= 64; i++) {
+      const u = i / 64, env = 1 - P.e1Depth * (0.5 + 0.5 * Math.sin(6.2832 * (u * 1.4 - t * rate * 0.3)));
+      const x = X0 + u * w, y = my - Math.sin(6.2832 * u * 7) * env * h * 0.47; i ? g.lineTo(x, y) : g.moveTo(x, y);
+    }
+    g.stroke();
+  },
+  amp(g, X0, Y0, X1, Y1, t, d){
+    // a wave squashed flat by the preamp; more Drive, squarer tops
+    const P = params, w = X1 - X0, h = Y1 - Y0, my = (Y0 + Y1) / 2, gn = 1 + P.ampDrive * 9, nm = Math.tanh(gn);
+    g.beginPath();
+    for (let i = 0; i <= 64; i++) { const u = i / 64, s = Math.sin(6.2832 * (u * 2.5 - t * 0.5)), x = X0 + u * w, y = my - Math.tanh(gn * s) / nm * h * 0.42; i ? g.lineTo(x, y) : g.moveTo(x, y); }
+    g.stroke();
+    g.globalAlpha *= 0.3; g.setLineDash([1.5 * d, 2.5 * d]); g.beginPath(); g.moveTo(X0, my - h * 0.46); g.lineTo(X1, my - h * 0.46); g.moveTo(X0, my + h * 0.46); g.lineTo(X1, my + h * 0.46); g.stroke(); g.setLineDash([]); g.globalAlpha /= 0.3;
+  },
+  eq(g, X0, Y0, X1, Y1, t, d){
+    // the actual 3-band curve: two shelves and the sweepable mid
+    const P = params, w = X1 - X0, h = Y1 - Y0, my = (Y0 + Y1) / 2, L = Math.log(1000), uL = Math.log(9) / L, uH = Math.log(225) / L, uM = Math.log(P.eqFreq / 20) / L;
+    const gain = u => P.eqLo / (1 + Math.exp((u - uL) / 0.05)) + P.eqMid * Math.exp(-Math.pow((u - uM) / 0.08, 2)) + P.eqHi / (1 + Math.exp(-(u - uH) / 0.05));
+    const Y = v => my - Math.max(-12, Math.min(12, v)) / 12 * h * 0.47;
+    g.globalAlpha *= 0.3; g.beginPath(); g.moveTo(X0, my); g.lineTo(X1, my); g.stroke(); g.globalAlpha /= 0.3;
+    g.beginPath();
+    for (let i = 0; i <= 50; i++) { const u = i / 50, x = X0 + u * w, y = Y(gain(u)); i ? g.lineTo(x, y) : g.moveTo(x, y); }
+    g.stroke();
+    [uL * 0.55, uM, (uH + 1) / 2].forEach(u => { g.beginPath(); g.arc(X0 + u * w, Y(gain(u)), 1.5 * d, 0, 6.2832); g.fill(); });
+  },
+  mod(g, X0, Y0, X1, Y1, t, d){
+    const P = params, ty = P.modType | 0, w = X1 - X0, h = Y1 - Y0, my = (Y0 + Y1) / 2, sw = 0.5 + 0.5 * Math.sin(6.2832 * t * Math.min(P.chRate, 3));
+    g.beginPath();
+    if (ty === 0) {
+      // chorus: the dry wave and a copy that drifts against it
+      const off = (0.25 + P.chDepth) * 0.9 * (sw - 0.5);
+      for (let i = 0; i <= 56; i++) { const u = i / 56, x = X0 + u * w, y = my - Math.sin(6.2832 * (u * 2.2 - t * 0.25)) * h * 0.42; i ? g.lineTo(x, y) : g.moveTo(x, y); }
+      g.stroke(); g.globalAlpha *= 0.55; g.beginPath();
+      for (let i = 0; i <= 56; i++) { const u = i / 56, x = X0 + u * w, y = my - Math.sin(6.2832 * (u * 2.2 - t * 0.25) + off * 3) * h * 0.42; i ? g.lineTo(x, y) : g.moveTo(x, y); }
+      g.stroke(); g.globalAlpha /= 0.55; return;
+    }
+    if (ty === 1) {
+      // flanger: a comb of evenly spaced notches sliding; feedback sharpens the teeth
+      const f = 2.5 + 3.5 * sw * (0.3 + 0.7 * P.chDepth), ex = 1 + 3 * P.chFb;
+      for (let i = 0; i <= 80; i++) { const u = i / 80, x = X0 + u * w, y = Y1 - Math.pow(Math.abs(Math.cos(Math.PI * u * f)), ex) * h * 0.92; i ? g.lineTo(x, y) : g.moveTo(x, y); }
+      g.stroke(); return;
+    }
+    // phaser: two wide notches gliding
+    const c1 = 0.12 + 0.36 * sw * (0.3 + 0.7 * P.chDepth), c2 = c1 + 0.38, nw = 0.06 + 0.03 * (1 - P.chFb);
+    for (let i = 0; i <= 64; i++) { const u = i / 64, v = 1 - 0.95 * Math.exp(-Math.pow((u - c1) / nw, 2)) - 0.95 * Math.exp(-Math.pow((u - c2) / nw, 2)), x = X0 + u * w, y = Y1 - Math.max(0.04, v) * h * 0.92; i ? g.lineTo(x, y) : g.moveTo(x, y); }
+    g.stroke();
+  },
+  delay(g, X0, Y0, X1, Y1, t, d){
+    // the dry hit and its repeats; Time spaces them, Feedback sets how slowly they fade, a playhead walks along them
+    const P = params, w = X1 - X0, h = Y1 - Y0, my = (Y0 + Y1) / 2;
+    const T = P.dSync ? 60 / P.tempo * [1, .75, .5, 1 / 3, .25][P.dDiv | 0] : P.dTime, s = 0.09 + 0.3 * Math.min(1, Math.log(Math.max(T, .002) / .002) / Math.log(750));
+    const per = 1.4, head = (t % per) / per * 1.15 - 0.05, base = g.globalAlpha;
+    let lvl = 1, k = 0;
+    for (let u = 0.03; u <= 1.001 && k < 24; u += s, k++) {
+      const a = k ? (0.3 + 0.7 * P.dMix) * lvl : 1, x = X0 + u * w, hl = Math.exp(-Math.pow((u - head) * 9, 2));
+      g.globalAlpha = base * (k ? 0.45 + 0.55 * hl : 0.9); g.lineWidth = (1.3 + 1.2 * hl) * d;
+      g.beginPath();
+      if (P.dPing && k) { const up = k % 2; g.moveTo(x, my); g.lineTo(x, up ? my - a * h * 0.48 : my + a * h * 0.48); }
+      else { g.moveTo(x, Y1); g.lineTo(x, Y1 - a * h * 0.95); }
+      g.stroke();
+      if (k) lvl *= Math.max(0.05, P.dFb);
+      if (lvl < 0.03) break;
+    }
+    g.globalAlpha = base; g.lineWidth = 1.3 * d;
+  },
+  reverb(g, X0, Y0, X1, Y1, t, d){
+    // a dense, flickering tail; Size stretches it, Damping dims its far end
+    const P = params, w = X1 - X0, h = Y1 - Y0, N = 26, kd = 1.2 + 9 * Math.pow(1 - P.rvSize, 1.6), fr = Math.floor(t * 9), base = g.globalAlpha;
+    g.lineWidth = 1 * d;
+    for (let i = 0; i < N; i++) {
+      const u = (i + 0.5) / N, env = Math.exp(-kd * u), rn = Math.abs(Math.sin((i + 1) * 12.9898 + fr * 78.233) * 43758.5453) % 1;
+      g.globalAlpha = base * (0.35 + 0.65 * (1 - P.rvDamp * u)); g.beginPath();
+      const x = X0 + u * w; g.moveTo(x, Y1); g.lineTo(x, Y1 - env * (0.35 + 0.65 * rn) * h * 0.95); g.stroke();
+    }
+    g.globalAlpha = base * 0.8; g.lineWidth = 1.3 * d; g.beginPath();
+    for (let i = 0; i <= 40; i++) { const u = i / 40, x = X0 + u * w, y = Y1 - Math.exp(-kd * u) * h * 0.95; i ? g.lineTo(x, y) : g.moveTo(x, y); }
+    g.stroke(); g.globalAlpha = base;
+  },
+};
+const rrect = (g, x, y, w, h, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); };
+const MINT = '#7dffd0', FLK_OFF = [1, .12, .85, .05, .5, 0], FLK_ON = [0, .85, .15, 1];
+function pdLit(id, now){
+  const on = !!params[PW[id]], tr = pdT[id], ms = tr ? flkMs(tr.on) : 0;
+  if (!tr || now - tr.t0 >= ms) return on ? 1 : 0;
+  const pat = tr.on ? FLK_ON : FLK_OFF; return pat[Math.min(pat.length - 1, Math.floor((now - tr.t0) / ms * pat.length))];
+}
+const hexA = (h, a) => `rgba(${parseInt(h.slice(1, 3), 16)},${parseInt(h.slice(3, 5), 16)},${parseInt(h.slice(5, 7), 16)},${a})`;
+// shared pedal parts, so the tab row and the FX board look like one family
+function pedalBody(g, bx, by, bw, bh, col, L, on, sel, d, rr){
+  g.save(); rrect(g, bx + 0.5, by + 0.5, bw - 1, bh - 1, rr);
+  if (sel) { g.fillStyle = hexA(col, 0.03 + 0.05 * L); g.fill(); }
+  g.setLineDash(on ? [] : [3 * d, 3 * d]); g.lineWidth = (sel ? 1.2 : 1) * d;
+  g.strokeStyle = sel ? (L > 0.5 ? col : 'rgba(242,245,248,.5)') : L > 0.5 ? hexA(col, 0.42) : '#2b333c';
+  if (sel && L > 0.5) { g.shadowColor = col; g.shadowBlur = 7 * d; }
+  g.stroke(); g.restore();
+}
+// a metal stomp switch: knurled outer nut, a dark cap, and the LED glowing through the cap
+function footswitch(g, x, y, col, L, d){
+  const R = 9.5 * d, rc = 6 * d;
+  g.save(); g.lineCap = 'round';
+  g.lineWidth = 1 * d; g.strokeStyle = L > 0.5 ? hexA(col, 0.55) : '#353d46';
+  g.beginPath(); g.arc(x, y, R, 0, 6.2832); g.stroke();
+  g.beginPath(); for (let i = 0; i < 16; i++) { const a = i / 16 * 6.2832; g.moveTo(x + Math.cos(a) * (R - 2.4 * d), y + Math.sin(a) * (R - 2.4 * d)); g.lineTo(x + Math.cos(a) * (R - 1 * d), y + Math.sin(a) * (R - 1 * d)); }
+  g.globalAlpha = 0.7; g.stroke(); g.globalAlpha = 1;
+  g.beginPath(); g.arc(x, y, rc, 0, 6.2832); g.fillStyle = '#07090b'; g.fill();
+  g.lineWidth = 1.2 * d; g.strokeStyle = L > 0 ? hexA(col, 0.35 + 0.55 * L) : '#3b434d';
+  if (L > 0) { g.shadowColor = col; g.shadowBlur = 6 * d * L; }
+  g.stroke();
+  g.beginPath(); g.arc(x, y, 2.6 * d, 0, 6.2832);
+  if (L > 0) { g.globalAlpha = L; g.fillStyle = col; g.shadowColor = col; g.shadowBlur = 10 * d; g.fill(); }
+  else { g.shadowBlur = 0; g.fillStyle = '#0b0e11'; g.fill(); g.strokeStyle = '#3b434d'; g.lineWidth = 1 * d; g.stroke(); }
+  g.restore();
+}
+// Mix and Env have no switch: they get a small pot instead (Volume and amp Sustain)
+function potGlyph(g, x, y, col, v, d){
+  const R = 7.5 * d, a = (-135 + 270 * v) * Math.PI / 180;
+  g.save(); g.lineCap = 'round'; g.lineWidth = 1 * d; g.strokeStyle = '#353d46';
+  g.beginPath(); g.arc(x, y, R, 0.75 * Math.PI, 2.25 * Math.PI); g.stroke();
+  if (v > 0.005) { g.strokeStyle = hexA(col, 0.75); g.lineWidth = 1.4 * d; g.beginPath(); g.arc(x, y, R, 0.75 * Math.PI, 0.75 * Math.PI + v * 1.5 * Math.PI); g.stroke(); }
+  g.strokeStyle = '#3b434d'; g.lineWidth = 1 * d; g.beginPath(); g.arc(x, y, 4.4 * d, 0, 6.2832); g.stroke();
+  g.strokeStyle = col; g.lineWidth = 1.4 * d; g.beginPath(); g.moveTo(x + Math.sin(a) * 1.2 * d, y - Math.cos(a) * 1.2 * d); g.lineTo(x + Math.sin(a) * 4.4 * d, y - Math.cos(a) * 4.4 * d); g.stroke();
+  g.restore();
+}
+// FX has no single switch: its slot is a bank of six LEDs, one per effect, in signal order
+function ledBank(g, x, y, d, now){
+  const s = 4.6 * d, gap = 3 * d;
+  FX_IDS.forEach((id, i) => {
+    const cx = x + ((i % 3) - 1) * (s + gap), cy = y + (i < 3 ? -1 : 1) * (s + gap) / 2, L = pdLit(id, now);
+    g.save(); rrect(g, cx - s / 2, cy - s / 2, s, s, 1.2 * d);
+    if (L > 0) { g.globalAlpha = L; g.fillStyle = MINT; g.shadowColor = MINT; g.shadowBlur = 6 * d; g.fill(); }
+    else { g.fillStyle = '#0b0e11'; g.fill(); g.strokeStyle = '#3b434d'; g.lineWidth = 0.8 * d; g.stroke(); }
+    g.restore();
+  });
+}
+function wavePic(g, X0, Y0, X1, Y1, w, pw){
+  const my = (Y0 + Y1) / 2, h = Y1 - Y0; g.beginPath();
+  for (let i = 0; i <= 56; i++) { const u = i / 56, p = (u * 2) % 1, v = nw(w, p, pw), x = X0 + u * (X1 - X0), y = my - Math.max(-1.1, Math.min(1.1, v)) * h * 0.45; i ? g.lineTo(x, y) : g.moveTo(x, y); }
+  g.stroke();
+}
+// live pictures for the main pedals; each one reads its section's current settings
+const TAB_ICON = {
+  osc1(g, X0, Y0, X1, Y1){ wavePic(g, X0, Y0, X1, Y1, params.o1w, params.o1pw); },
+  osc2(g, X0, Y0, X1, Y1){ wavePic(g, X0, Y0, X1, Y1, params.o2w, params.o1pw); },
+  mix(g, X0, Y0, X1, Y1, t, d){
+    const P = params, bars = [[P.mix1, P.pwO1], [P.mix2, P.pwO2], [P.noise, 1], [P.vol, 1]], w = (X1 - X0) / 4, base = g.globalAlpha;
+    g.lineWidth = 2.2 * d;
+    bars.forEach(([v, on], i) => { const x = X0 + w * (i + 0.5); g.globalAlpha = base * (on ? 1 : 0.3); g.beginPath(); g.moveTo(x, Y1); g.lineTo(x, Y1 - Math.max(0.06, v) * (Y1 - Y0)); g.stroke(); });
+    g.globalAlpha = base; g.lineWidth = 1.3 * d;
+  },
+  filter(g, X0, Y0, X1, Y1){
+    const P = params, ft = P.ftype | 0, uc = Math.log(Math.max(20, P.cut) / 20) / Math.log(1000), h = Y1 - Y0, pk = P.res * 1.1;
+    g.beginPath();
+    for (let i = 0; i <= 40; i++) {
+      const u = i / 40, x = (u - uc) / 0.09, lp = x < 0 ? 1 : Math.exp(-x * x * (ft === 0 ? 1.4 : 0.6)), hp = x > 0 ? 1 : Math.exp(-x * x * 0.8), bp = Math.exp(-x * x * 0.9), peak = pk * Math.exp(-x * x * 6);
+      const v = ft === 2 ? hp + peak : ft === 3 ? bp * 0.8 + peak : ft === 4 ? lp * 0.75 + bp * 0.45 + peak : lp + peak;
+      const px = X0 + u * (X1 - X0), py = Y1 - Math.min(1, v / 1.6) * h; i ? g.lineTo(px, py) : g.moveTo(px, py);
+    }
+    g.stroke();
+  },
+  env(g, X0, Y0, X1, Y1){
+    const P = params, wv = s => 0.08 + Math.log10(1 + s * 30) / Math.log10(301) * 0.3, ws = [wv(P.aA), wv(P.aD), 0.22, wv(P.aR)], tot = ws.reduce((a, b) => a + b), sx = (X1 - X0) / tot, h = Y1 - Y0;
+    let x = X0; g.beginPath(); g.moveTo(x, Y1); x += ws[0] * sx; g.lineTo(x, Y0); x += ws[1] * sx; g.lineTo(x, Y1 - P.aS * h); x += ws[2] * sx; g.lineTo(x, Y1 - P.aS * h); x += ws[3] * sx; g.lineTo(x, Y1); g.stroke();
+  },
+  lfo(g, X0, Y0, X1, Y1, t){
+    const P = params, ls = P.lshape | 0, rate = P.lsync ? P.tempo / 60 / [4, 2, 1, .5, .25, .125, 2 / 3, 1 / 3][P.ldiv | 0] : P.lrate, ph0 = t * Math.min(rate, 3) * 0.5, my = (Y0 + Y1) / 2, h = Y1 - Y0;
+    g.beginPath();
+    for (let i = 0; i <= 48; i++) {
+      const u = i / 48, q = u * 2 + ph0, p = q - Math.floor(q), ci = Math.floor(q);
+      const v = ls === 0 ? (p < .5 ? 4 * p - 1 : 3 - 4 * p) : ls === 1 ? (p < .5 ? 1 : -1) : ls === 2 ? 1 - 2 * p : ls === 3 ? 2 * p - 1 : (Math.abs(Math.sin(ci * 12.9898) * 43758.5453) % 1) * 2 - 1;
+      const x = X0 + u * (X1 - X0), y = my - v * h * 0.46; i ? g.lineTo(x, y) : g.moveTo(x, y);
+    }
+    g.stroke();
+  },
+  fx(g, X0, Y0, X1, Y1, t){
+    // the signal leaving the effects: it swirls more the more pedals are on, and swells while a note sounds
+    const n = FX_IDS.filter(f => params[PW[f]]).length, my = (Y0 + Y1) / 2, h = Y1 - Y0, lv = 0.6 + 0.4 * Math.min(1, (tele.a || 0) * 1.2);
+    g.beginPath();
+    for (let i = 0; i <= 48; i++) { const u = i / 48, wob = 1 + n * 0.08 * Math.sin(6.2832 * (u * 1.3 - t * 0.5)), x = X0 + u * (X1 - X0), y = my - Math.sin(6.2832 * (u * 2.5 - t * 0.4)) * h * 0.46 * lv * Math.min(1, wob * 0.8); i ? g.lineTo(x, y) : g.moveTo(x, y); }
+    g.stroke();
+  },
+  arp(g, X0, Y0, X1, Y1, t, d){
+    const P = params, m = P.arpMode | 0, N = 8, sw = (X1 - X0) / N, h = Y1 - Y0, step = 60 / P.tempo * [1, .5, .25, 1 / 3, 1 / 6][P.arpDiv | 0], cur = Math.floor(t / step) % N, base = g.globalAlpha;
+    g.lineWidth = 2 * d;
+    for (let i = 0; i < N; i++) {
+      const lvl = m === 1 ? 3 - (i % 4) : m === 2 ? [0, 1, 2, 3, 2, 1, 0, 1][i] : m === 3 ? [2, 0, 3, 1, 3, 0, 2, 1][i] : i % 4, y = Y1 - (lvl / 3) * (h - 2 * d) - 1 * d;
+      g.globalAlpha = base * (P.arpOn && i === cur ? 1 : 0.55); g.beginPath(); g.moveTo(X0 + i * sw + 1 * d, y); g.lineTo(X0 + i * sw + Math.max(2 * d, sw * Math.max(0.3, P.arpGate) - 0.5 * d), y); g.stroke();
+    }
+    g.globalAlpha = base; g.lineWidth = 1.3 * d;
+  },
+};
+function drawTabs(){
+  const c = tabsUI; if (!c || !c.w) return;
+  const g = c.cv.getContext('2d'), W = c.w, H = c.h, d = DPR(), now = performance.now(), t = now / 1000, n = TABS.length, cw = W / n;
+  g.clearRect(0, 0, W, H); g.lineCap = 'round'; g.lineJoin = 'round';
+  TABS.forEach((tb, i) => {
+    const id = tb.id, col = COL[TAB_C[id]], pk = PW[id], on = pk ? !!params[pk] : true, L = pk ? pdLit(id, now) : 1, sel = state.tab === id;
+    const x0 = i * cw, bx = x0 + 2 * d, bw = cw - 4 * d, by = 1.5 * d, bh = H - 3 * d;
+    pedalBody(g, bx, by, bw, bh, col, L, on, sel, d, 6 * d);
+    const ix0 = bx + 5 * d, ix1 = bx + bw - 5 * d, iy0 = 4.5 * d, iy1 = 13.5 * d;
+    if (L < 1) { g.save(); g.strokeStyle = g.fillStyle = '#3b434d'; g.lineWidth = 1.2 * d; g.globalAlpha = 0.9 * (1 - L); TAB_ICON[id](g, ix0, iy0, ix1, iy1, 0, d); g.restore(); }
+    if (L > 0) { g.save(); g.strokeStyle = g.fillStyle = col; g.lineWidth = 1.3 * d; g.globalAlpha = L * (sel ? 1 : 0.75); g.shadowColor = col; g.shadowBlur = (sel ? 5 : 3) * d; TAB_ICON[id](g, ix0, iy0, ix1, iy1, t, d); g.restore(); }
+    const fx = x0 + cw / 2, fy = H - 13 * d;
+    if (pk) footswitch(g, fx, fy, col, L, d);
+    else if (id === 'fx') ledBank(g, fx, fy, d, now);
+    else potGlyph(g, fx, fy, col, id === 'mix' ? params.vol : params.aS, d);
+  });
+}
+function drawChain(){
+  const c = chainUI; if (!c.w) return;
+  const g = c.cv.getContext('2d'), W = c.w, H = c.h, d = DPR(), now = performance.now(), t = now / 1000;
+  const dt = Math.min(0.1, (now - c.last) / 1000); c.last = now;
+  c.wl += (Math.min(1, (tele.a || 0) * 1.1) - c.wl) * 0.15; if (c.wah == null) c.wah = 0.15;
+  c.flow = (c.flow + dt * (5 + 34 * c.wl) * d) % (9 * d);
+  g.clearRect(0, 0, W, H); g.lineCap = 'round'; g.lineJoin = 'round';
+  const n = FX_IDS.length, cw = W / n, yc = Math.round(13.5 * d) + 0.5, sigA = 0.22 + 0.6 * c.wl;
+  // the signal line: dashes march left to right, faster and brighter while a note sounds
+  const line = (xa, xb, fine, a) => { if (xb <= xa) return; g.save(); g.globalAlpha = a; g.strokeStyle = MINT; g.lineWidth = 1 * d; g.setLineDash(fine ? [2 * d, 2.5 * d] : [5 * d, 4 * d]); g.lineDashOffset = -c.flow; g.beginPath(); g.moveTo(xa, yc); g.lineTo(xb, yc); g.stroke(); g.restore(); };
+  FX_IDS.forEach((id, i) => {
+    const on = !!params[PW[id]], L = pdLit(id, now), sel = state.sub.fx === id;
+    const x0 = i * cw, bx = x0 + 3 * d, bw = cw - 6 * d, by = 1.5 * d, bh = H - 3 * d, rr = 7 * d;
+    const ix0 = bx + 6 * d, ix1 = bx + bw - 6 * d, iy0 = 5 * d, iy1 = (H / d < 58 ? 20.5 : 22) * d;
+    pedalBody(g, bx, by, bw, bh, MINT, L, on, sel, d, rr);
+    // cables into and out of the pedal
+    line(i ? x0 : 0, ix0 - 1.5 * d, false, sigA); line(ix1 + 1.5 * d, i < n - 1 ? x0 + cw : W, false, sigA);
+    // bypassed: the signal runs straight through over a dark picture
+    if (L < 1) {
+      g.save(); g.strokeStyle = g.fillStyle = '#3b434d'; g.lineWidth = 1.2 * d; g.globalAlpha = 0.9 * (1 - L);
+      PD_ICON[id](g, ix0, iy0, ix1, iy1, pdT[id] && !on ? pdT[id].t0 / 1000 : 0, d, c); g.restore();
+      line(ix0 - 1.5 * d, ix1 + 1.5 * d, true, Math.max(sigA, 0.5) * (1 - L));
+    }
+    if (L > 0) {
+      g.save(); g.strokeStyle = g.fillStyle = MINT; g.lineWidth = 1.3 * d; g.globalAlpha = L; g.shadowColor = MINT; g.shadowBlur = 5 * d;
+      PD_ICON[id](g, ix0, iy0, ix1, iy1, t, d, c); g.restore();
+    }
+    footswitch(g, x0 + cw / 2, H - 13.5 * d, MINT, L, d);
+  });
+}
+function refreshChain(){ if (!chainUI) return; chainUI.el.querySelectorAll('.pd').forEach(pd => { const id = pd.dataset.fx, on = !!params[PW[id]]; pd.classList.toggle('byp', !on); pd.querySelector('.psw').setAttribute('aria-pressed', on); }); }
 state.sub = {fx:'fx1', env:'shape'};
 function showTab(id){
-  state.tab = id;
+  state.tab = id; pwInfo = null; chainUI = null; pwHost = null; pwHostSec = null;
+  { const m = $('module'); clearTimeout(m._pw); clearTimeout(m._flk); m.classList.remove('pwr-off', 'flk-on', 'flk-off'); }
   Object.keys(controls).forEach(k => { if (DEFS[k] || SEGS[k] || TOGS[k]) delete controls[k]; });
   const t = TABS.find(x => x.id === id), m = $('module');
   m.style.setProperty('--mc', `var(--${TAB_C[id]})`); $('pgPatch').style.setProperty('--mc', `var(--${TAB_C[id]})`);
@@ -1205,57 +1873,83 @@ function showTab(id){
   const grid = (row, cls, into) => { const g = document.createElement('div'); g.className = 'kgrid' + (cls ? ' ' + cls : ''); row.forEach(k => g.appendChild(TOGS[k] ? togEl(k, idx++) : knobEl(k, idx++))); (into || m).appendChild(g); return g; };
   const envRows = () => [['Filter env', ['fA','fD','fS','fR']], ['Amp env', ['aA','aD','aS','aR']]].forEach(([lab, ks]) => {
     const r = document.createElement('div'); r.className = 'envrow'; r.innerHTML = `<span class="vlab">${lab}</span>`; m.appendChild(r); grid(ks, 'c4', r); });
+  let host = m;
+  if (PW[id]) { pwHost = m; pwHostSec = id; }
   if (t.seg) m.appendChild(segEl(t.seg));
   if (t.sub) {
-    const seg = document.createElement('div'); seg.className = 'seg subseg';
-    t.sub.forEach(sb => {
-      const b = document.createElement('button'); b.innerHTML = `<span>${sb.l}</span>`; b.dataset.hint = 'sub-' + sb.id;
-      b.classList.toggle('on', state.sub[id] === sb.id);
-      b.addEventListener('click', () => { if (state.sub[id] === sb.id) return; state.sub[id] = sb.id; bump('sub'); showTab(id); });
-      seg.appendChild(b);
-    });
-    m.appendChild(seg);
+    if (id === 'fx') {
+      m.appendChild(chainEl());
+      host = document.createElement('div'); host.className = 'fxbody'; m.appendChild(host);
+      pwHost = host; pwHostSec = state.sub.fx;
+    } else {
+      const seg = document.createElement('div'); seg.className = 'seg subseg';
+      t.sub.forEach(sb => {
+        const b = document.createElement('button'); b.innerHTML = `<span>${sb.l}</span>`; b.dataset.hint = 'sub-' + sb.id;
+        b.classList.toggle('on', state.sub[id] === sb.id);
+        b.addEventListener('click', () => { if (state.sub[id] === sb.id) return; state.sub[id] = sb.id; bump('sub'); showTab(id); });
+        seg.appendChild(b);
+      });
+      m.appendChild(seg);
+    }
     const sb = t.sub.find(x => x.id === state.sub[id]);
-    if (sb.seg) m.appendChild(segEl(sb.seg));
+    if (sb.seg) host.appendChild(segEl(sb.seg));
     if (sb.env) envRows(); else {
       const rows = rowsOf(sb.rows);
-      rows.forEach(r => grid(r, r.length === 4 ? 'c4' : ''));
-      if (!rows.length) { const e = document.createElement('div'); e.className = 'empty'; e.textContent = 'Pick a type to switch this effect on.'; m.appendChild(e); }
+      rows.forEach(r => grid(r, r.length === 4 ? 'c4' : '', host));
     }
   } else rowsOf(t.rows).forEach(r => grid(r));
+  if (pwHost) pwHost.classList.toggle('pwr-off', !params[PW[pwHostSec]]);
+  refreshChain(); refreshDead();
   [...$('tabs').children].forEach(b => b.classList.toggle('on', b.dataset.tab === id));
   layoutSig = curLayout();
+  paintTargets();
   applyHints();
 }
 
 /* ---------- parameter display (HUD over the mini screen) ---------- */
-const hud = {k:null, until:0, fine:false, el:$('phud'), cv:$('phC'), w:0, h:0};
+const hud = {k:null, until:0, fine:false, mode:'big', el:$('phud'), cv:$('phC'), w:0, h:0, s:{cv:$('lrC'), w:0, h:0}};
 $('phud').addEventListener('click', () => { if (coach.L) hudHide(); });
-function hudHide(){ hud.k = null; hud.el.classList.remove('on'); $('coach').classList.remove('hud-on'); }
+$('lread').addEventListener('click', hudHide);
+function hudHide(){ hud.k = null; hud.el.classList.remove('on'); $('coach').classList.remove('hud-on', 'reading'); }
 function hudResize(){
-  const r = hud.cv.getBoundingClientRect(), d = DPR();
-  if (r.width && (hud.w !== Math.round(r.width * d) || hud.h !== Math.round(r.height * d))) { hud.w = hud.cv.width = Math.round(r.width * d); hud.h = hud.cv.height = Math.round(r.height * d); }
+  const d = DPR();
+  [hud, hud.s].forEach(o => { const r = o.cv.getBoundingClientRect();
+    if (r.width && (o.w !== Math.round(r.width * d) || o.h !== Math.round(r.height * d))) { o.w = o.cv.width = Math.round(r.width * d); o.h = o.cv.height = Math.round(r.height * d); } });
 }
+// in a lesson (with the coach open) the readout is the slim strip; otherwise it takes over the coach panel as before
+const stripMode = () => !!coach.L && !coach.done && !$('coach').classList.contains('min');
 // Outside a lesson the coach box becomes a permanent parameter display once any control has been touched.
 let freeK = store.get('freeK', null);
 const freeHud = () => !coach.L && !!freeK;
 function hudShow(k){
-  hud.k = k; hud.until = Infinity; hud.el.classList.add('on'); $('coach').classList.add('hud-on');
+  hud.k = k; hud.until = Infinity; hud.mode = stripMode() ? 'strip' : 'big';
+  const strip = hud.mode === 'strip';
+  hud.el.classList.toggle('on', !strip); $('coach').classList.toggle('hud-on', !strip); $('coach').classList.toggle('reading', strip);
   if (!coach.L) { freeK = k; store.set('freeK', k); }
   hudResize(); hudText();
 }
-function hudHold(ms = 1100){ hud.until = performance.now() + ms; }
+// lessons: the strip lingers long enough to read the result, then hands the slot back to Back/Next
+function hudHold(ms){ hud.until = performance.now() + (ms || (hud.mode === 'strip' ? 1600 : 1100)); }
 function hudText(){
   const k = hud.k; if (!k) return;
   const tab = TABS.find(t => t.id === TAB_OF[k]);
-  const lab = DEFS[k] ? DEFS[k].l : SEGS[k] ? SEGS[k].l : TOGS[k].l;
+  const isPw = !!PW_SEC[k] && k !== 'arpOn', isFx = FX_SET.has(secOf(k));
+  const lab = DEFS[k] ? DEFS[k].l : SEGS[k] ? SEGS[k].l : TOGS[k] ? TOGS[k].l : 'Power';
   const v = params[k];
-  const txt = DEFS[k] ? DEFS[k].f(v) : SEGS[k] ? SEGS[k].o[v][1] : (v ? 'on' : 'off');
+  const txt = DEFS[k] ? DEFS[k].f(v) : SEGS[k] ? SEGS[k].o[v - (SEGS[k].base || 0)][1] : v ? 'on' : isPw && isFx ? 'bypassed' : 'off';
   const sub = SUB_OF[k] ? ' · ' + SUB_OF[k] : '';
   $('phK').textContent = `${tab ? tab.l : ''}${sub} · ${lab}`;
-  $('phV').textContent = txt; $('phV').classList.toggle('long', txt.length > 9);
-  $('phF').hidden = !hud.fine;
+  $('phV').textContent = txt; $('phV').classList.toggle('long', txt.length > (isPw ? 6 : 9));
+  const off = !isPw && secOff(k), pst = isPw && !isFx ? pwStateText(secOf(k)) : '';
+  $('phF').textContent = pst || (off ? (isFx ? 'bypassed' : secOf(k).startsWith('osc') ? 'osc off' : 'off') + (hud.fine ? ' · fine' : '') : 'fine');
+  $('phF').hidden = !(hud.fine || off || pst);
   hud.el.style.setProperty('--hc', colOf(k));
+  // the slim lesson strip: same label and value, plus where to aim
+  $('lrK').textContent = lab;
+  $('lrV').textContent = txt;
+  const tg = $('lrT'), done = coach.L && coach.met, t = done ? '✓ got it' : targetText(k);
+  tg.textContent = t; tg.classList.toggle('ok', done || t.startsWith('✓'));
+  $('lread').style.setProperty('--hc', off ? '#7c8794' : colOf(k));
 }
 const HUD_G = {o1w:'o1',o1pw:'o1',o1pos:'o1',o1vow:'o1',o1oct:'o1',bl:'o1',mePitch:'me',meFm:'me',meShape:'me',
   e1Type:'fx1',e1Rate:'fx1',e1Depth:'fx1',e1Sens:'fx1',e1Q:'fx1',modType:'ch',chFb:'ch',ampType:'amp',ampDrive:'amp',ampTone:'amp',ampLvl:'amp',eqLo:'eq',eqMid:'eq',eqFreq:'eq',eqHi:'eq',glide:'glide',uniN:'uni',uniDet:'uni',
@@ -1263,7 +1957,8 @@ const HUD_G = {o1w:'o1',o1pw:'o1',o1pos:'o1',o1vow:'o1',o1oct:'o1',bl:'o1',mePit
   mix1:'mix',mix2:'mix',noise:'mix',vol:'mix', cut:'flt',res:'flt',ftype:'flt',fenv:'flt',drive:'drive',kt:'kt',
   lshape:'lfo',lrate:'lfo',ldiv:'lfo',lsync:'lfo',lpitch:'lfo',lcut:'lfo',lpw:'lfo',
   chRate:'ch',chDepth:'ch',chMix:'ch', dTime:'dly',dDiv:'dly',dSync:'dly',dFb:'dly',dTone:'dly',dMix:'dly',dPing:'dly',
-  rvSize:'rv',rvDamp:'rv',rvMix:'rv', poly:'poly', arpOn:'arp',arpMode:'arp',arpOct:'arp',arpGate:'arp',arpDiv:'arp',tempo:'arp'};
+  rvSize:'rv',rvDamp:'rv',rvMix:'rv', poly:'poly', arpOn:'arp',arpMode:'arp',arpOct:'arp',arpGate:'arp',arpDiv:'arp',tempo:'arp',
+  pwO1:'o1',pwO2:'o2',pwFlt:'flt',pwLfo:'lfo',pwFx1:'fx1',pwAmp:'amp',pwEq:'eq',pwMod:'ch',pwDly:'dly',pwRev:'rv'};
 let DSPV = null;
 const nw = (w, ph, pw) => {
   if (w === 0) return Math.sin(6.2832 * ph);
@@ -1277,13 +1972,14 @@ const nw = (w, ph, pw) => {
 };
 const fr1 = x => x - Math.floor(x);
 function drawHud(){
-  const g = hud.cv.getContext('2d'), W = hud.w, H = hud.h, d = DPR(), k = hud.k, col = colOf(k), P = params;
+  const T = hud.mode === 'strip' ? hud.s : hud, compact = T !== hud;
+  const g = T.cv.getContext('2d'), W = T.w, H = T.h, d = DPR(), k = hud.k, off = secOff(k), col = off ? '#4b5562' : colOf(k), P = params;
   if (!W) return;
   g.clearRect(0, 0, W, H);
-  const pad = 6 * d, x0 = pad, x1 = W - pad, y0 = pad + 2 * d, y1 = H - pad - 10 * d, mid = (y0 + y1) / 2;
+  const pad = compact ? 2 * d : 6 * d, x0 = pad, x1 = W - pad, y0 = compact ? 3 * d : pad + 2 * d, y1 = compact ? H - 3 * d : H - pad - 10 * d, mid = (y0 + y1) / 2;
   const glow = (c, b) => { g.shadowColor = c; g.shadowBlur = (b || 6) * d; };
   const path = (pts, c, lw, dash) => { g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.setLineDash(dash || []); g.strokeStyle = c; g.lineWidth = (lw || 1.4) * d; g.lineJoin = 'round'; g.stroke(); g.setLineDash([]); };
-  const txt = (s, x, y, c, al) => { g.shadowBlur = 0; g.fillStyle = c || 'rgba(124,135,148,.95)'; g.font = `${9 * d}px "IBM Plex Mono", monospace`; g.textAlign = al || 'left'; g.textBaseline = 'top'; g.fillText(s, x, y); };
+  const txt = compact ? () => {} : (s, x, y, c, al) => { g.shadowBlur = 0; g.fillStyle = c || 'rgba(124,135,148,.95)'; g.font = `${9 * d}px "IBM Plex Mono", monospace`; g.textAlign = al || 'left'; g.textBaseline = 'top'; g.fillText(s, x, y); };
   const dim = c => c + '55';
   g.strokeStyle = 'rgba(242,245,248,.08)'; g.lineWidth = 1; g.beginPath(); g.moveTo(x0, mid); g.lineTo(x1, mid); g.stroke();
   const grp = HUD_G[k] || (/^[fa][ADSR]$/.test(k) ? 'env' : 'mix');
@@ -1352,12 +2048,12 @@ function drawHud(){
     path([[x0, y1], [x1, y1]], 'rgba(242,245,248,.15)'); path([[x0, y0], [x1, y0]], 'rgba(242,245,248,.15)');
     glow(col, 8); path(pts, col, 2); txt('note A', x0, y1 + 3 * d); txt('note B · ' + fT(T), x1, y1 + 3 * d, null, 'right');
   } else if (grp === 'mix') {
-    const bars = [['osc1', P.mix1], ['osc2', P.mix2], ['noise', P.noise], ['vol', P.vol]], bw = (x1 - x0) / bars.length;
-    bars.forEach(([lab, v], i) => { const on = (k === 'mix1' && i === 0) || (k === 'mix2' && i === 1) || (k === 'noise' && i === 2) || (k === 'vol' && i === 3);
-      const bx = x0 + i * bw + bw * 0.3, w2 = bw * 0.4;
-      g.shadowBlur = 0; g.strokeStyle = 'rgba(242,245,248,.25)'; g.lineWidth = 1 * d; g.strokeRect(bx, y0, w2, y1 - y0);
-      glow(col, on ? 10 : 0); g.fillStyle = on ? col : dim(col); g.fillRect(bx, y1 - v * (y1 - y0), w2, v * (y1 - y0));
-      txt(lab, bx + w2 / 2, y1 + 3 * d, on ? col : null, 'center'); });
+    const bars = [['osc1', P.mix1, P.pwO1], ['osc2', P.mix2, P.pwO2], ['noise', P.noise, 1], ['vol', P.vol, 1]], bw = (x1 - x0) / bars.length, mc = colOf('vol');
+    bars.forEach(([lab, v, pw], i) => { const on = (k === 'mix1' && i === 0) || (k === 'mix2' && i === 1) || (k === 'noise' && i === 2) || (k === 'vol' && i === 3);
+      const bx = x0 + i * bw + bw * 0.3, w2 = bw * 0.4, c = pw ? mc : '#4b5562';
+      g.shadowBlur = 0; g.strokeStyle = 'rgba(242,245,248,.25)'; g.lineWidth = 1 * d; g.setLineDash(pw ? [] : [2 * d, 3 * d]); g.strokeRect(bx, y0, w2, y1 - y0); g.setLineDash([]);
+      glow(c, on && pw ? 10 : 0); g.fillStyle = on && pw ? c : dim(c); g.fillRect(bx, y1 - v * (y1 - y0), w2, v * (y1 - y0));
+      txt(pw ? lab : lab + ' off', bx + w2 / 2, y1 + 3 * d, on ? c : null, 'center'); });
   } else if (grp === 'lfo') {
     const rate = P.lsync ? P.tempo / 60 / [4, 2, 1, .5, .25, .125, 2 / 3, 1 / 3][P.ldiv | 0] : P.lrate, win = 2, cyc = Math.min(40, rate * win), pts = [];
     let seed = 7, sh = 0, lastC = -1;
@@ -1475,6 +2171,7 @@ function drawHud(){
     txt(`${ADIV_L[P.arpDiv | 0]} @ ${P.tempo} bpm · ${P.arpOn ? 'on' : 'off'}`, x0, y1 + 3 * d);
   }
   g.shadowBlur = 0;
+  if (off && grp !== 'arp') txt(FX_SET.has(secOf(k)) ? 'bypassed' : 'switched off', x1, y0 - 2 * d, '#7c8794', 'right');
 }
 
 /* ---------- pages ---------- */
@@ -1781,7 +2478,7 @@ function drawEnv(s){
       g.beginPath(); pts.forEach((p, j) => { const x = X(p.t), y = Y(fn(p)); j ? g.lineTo(x, y) : g.moveTo(x, y); }); }
     g.setLineDash(dash ? [5 * d, 4 * d] : []); g.strokeStyle = color; g.lineWidth = lw * d; g.shadowColor = color; g.shadowBlur = 5 * d; g.stroke(); g.setLineDash([]); g.shadowBlur = 0;
   };
-  if (params.lpitch > 0.01 || params.lcut > 0.01 || params.lpw > 0.01) line(p => 0.5 + p.l * 0.12, 'rgba(162,140,255,0.55)', 1, false);
+  if (params.pwLfo && (params.lpitch > 0.01 || params.lcut > 0.01 || params.lpw > 0.01)) line(p => 0.5 + p.l * 0.12, 'rgba(162,140,255,0.55)', 1, false);
   line(p => Math.max(0, Math.min(1, Math.log(p.c / 20) / Math.log(1000))), C.yel, 1.1, true);
   line(p => p.f, C.mag, 1.4, false);
   line(p => p.a, C.main, 1.6, false, true);
@@ -1884,7 +2581,7 @@ function legendHTML(){
     if (state.tap !== 'osc') parts.push(`${sw(C.mag, 1)}cutoff`);
   } else if (state.mode === 'env') {
     parts.push(`${sw(C.main)}amp env`, `${sw(C.mag)}filter env`, `${sw(C.yel, 1)}cutoff`);
-    if (params.lpitch > 0.01 || params.lcut > 0.01 || params.lpw > 0.01) parts.push(`${sw(C.vio)}lfo`);
+    if (params.pwLfo && (params.lpitch > 0.01 || params.lcut > 0.01 || params.lpw > 0.01)) parts.push(`${sw(C.vio)}lfo`);
   } else {
     parts.push(`${sw(C.main)}${tl}`);
     if (state.ghost && state.tap !== 'osc') parts.push(`${sw('rgba(242,245,248,.5)')}raw osc`);
@@ -1973,6 +2670,7 @@ function polyToggle(on){
 }
 function press(n){
   if (!Engine.ready) Engine.start();
+  else if (Engine.ctx.state !== 'running') Engine.ctx.resume().catch(() => {});
   if (params.arpOn) {
     state.gates++; state.held.push(n);
     if (state.hold) { if (arpNotes.has(n)) arpNotes.delete(n); else arpNotes.add(n); }
@@ -2035,6 +2733,18 @@ function setHold(n){
   litKeys();
 }
 $('holdBtn').addEventListener('click', () => setHold(!state.hold));
+// Silence everything and drop Hold. Used whenever you arrive in the app (first load, coming back from the
+// home screen or another app) so nothing is ever left droning on a latched note.
+function allQuiet(){
+  state.hold = false; state.latched = null; state.held.length = 0; state.gateOn = false;
+  ptrNote.clear(); arpNotes.clear(); polyNotes.clear();
+  Engine.post({t:'kill'});
+  $('holdBtn').classList.remove('on'); litKeys();
+}
+const awake = () => { allQuiet(); const c = Engine.ctx; if (c && c.state !== 'running' && c.state !== 'closed') c.resume().catch(() => {}); };
+document.addEventListener('visibilitychange', () => document.hidden ? allQuiet() : awake());
+addEventListener('pagehide', allQuiet);
+addEventListener('pageshow', e => { if (e.persisted) awake(); });
 // computer keyboard (desktop)
 const KMAP = 'awsedftgyhujk';
 addEventListener('keydown', e => { if (e.repeat || e.metaKey || e.ctrlKey) return; const i = KMAP.indexOf(e.key); if (i >= 0) press(state.base + i); });
@@ -2106,7 +2816,7 @@ const LESSONS = [
    more:{h:'How the coach works', b:['Steps marked <b>Your turn</b> watch the synth and switch to <b>Got it</b> once you\'ve done the thing. You can still tap Skip if you want to move on without doing it.', 'The segmented bar fills in for every step you complete. Completed steps are remembered, so the lesson list shows how much of each lesson you\'ve done.', 'Tap ✕ to leave a lesson at any time; your place is saved. The ⌄ button shrinks the coach to give the synth more room.']}},
   {x:"Swipe sideways on the panel, or tap Scope at the top, to change page. Then come back to Patch.", focus:['pageScope'], goal:(S,E)=>(S.ui.page||0)-(E.ui.page||0)>=2&&S.page===0},
   {x:"The tabs choose which part of the synth the knobs control. Tap the Filter tab.", focus:['tab-filter'], goal:S=>S.tab==='filter'},
-  {x:"Turn a knob by dragging up or down on it. For fine control, slide your finger out to the side while you drag. While you turn it, the coach panel becomes a readout with a picture of what the knob does, and the screen above keeps showing the live signal. Turn Cutoff down.", focus:['cut'], goal:S=>S.p.cut<=800},
+  {x:"Turn a knob by dragging up or down on it. For fine control, slide your finger out to the side while you drag. In a lesson, a yellow band on a knob marks where to aim, and while you turn it the strip at the bottom of this panel shows its value and what it does. These words stay put. Turn Cutoff down into the yellow band.", focus:['cut'], goal:S=>S.p.cut<=800},
   {x:"Double-tap a knob to reset it to its starting value. Double-tap Cutoff.", focus:['cut'], goal:(S,E)=>(S.ui.reset||0)>(E.ui.reset||0)},
   {x:"Hold keeps a note sounding so your hands are free. Tap Hold to turn it off, then play a few keys yourself. ▲ and ▼ shift the octave.", focus:['hold'], goal:(S,E)=>!S.hold&&S.gates>E.gates},
   {x:"When something glows yellow, that's the coach pointing at it. A yellow dot on a tab or page name means the thing to touch is over there."},
@@ -2585,14 +3295,28 @@ const LESSONS = [
   {nord:1, x:"This is a simple version of your Nord's Formant oscillator type, which also sweeps vowels with its shape control."},
   ]},
 /* ============================ EFFECTS ============================ */
-{ id:'fxchain', g:5, t:'The effects chain', s:'Six pages, in the order the signal runs.',
+{ id:'fxchain', g:5, t:'The effects chain', s:'Six pedals, in the order the signal runs.',
   setup:{...BASE, cut:2000, res:.2, aD:.4, aS:.5}, hold:57, go:{page:0, tab:'fx', sub:'fx1'},
   steps:[
-  {fig:'fxchain', x:"The FX tab has six pages in signal order: FX1, Mod, Amp, EQ, Delay and Reverb. Each processes the output of the one before.",
+  {fig:'fxchain', x:"The FX tab is a row of six pedals in signal order: FX1, Amp, EQ, Mod, Delay and Reverb. Each processes the output of the one before. The dashed line running through them is your signal.",
    more:{h:'Order matters', b:['Distortion before a delay gives clean repeats of a dirty sound; delay before distortion smears the repeats into the grit. Most players put wah and drive first, then modulation, then time-based effects such as delay and reverb.', 'This app runs FX1 (tremolo or wah), then the amp, EQ, chorus, flanger or phaser, delay and reverb. Auto-pan is applied after the Mod page so it can move a stereo sound.'], fig:'fxchain'}},
-  {x:"Tap through the pages. Each effect stays off until you pick a type or raise its Mix.", focus:['sub-mod'], goal:(S,E)=>(S.ui.sub||0)-(E.ui.sub||0)>=3},
+  {x:"Tap a pedal to open its page. Tap through a few. Right now every pedal is dark: switched off, so the signal runs straight through it.", focus:['sub-mod'], goal:(S,E)=>(S.ui.sub||0)-(E.ui.sub||0)>=3},
+  {x:"Tap the round footswitch at the bottom of the Delay pedal. Its LED lights, its picture comes alive, and echoes follow each note. Picking a type or raising a Mix from zero also switches a pedal on.", setup:{pwDly:0, dMix:.35, dFb:.45}, focus:['pwDly'], goal:S=>!!S.p.pwDly},
   {x:"Effects come after the amp envelope, so they process the finished note. On the Scope, the Out test point includes every effect.", focus:['pageScope'], goal:S=>S.page===1},
   {x:"The next lessons open each page in turn."},
+  ]},
+{ id:'power', g:5, t:'Switching sections on and off', s:'Power buttons, bypass, and why a muted oscillator still matters.',
+  setup:{...BASE, o1w:2, o2w:2, mix1:.75, mix2:.75, o2fine:7, cut:3000, res:.15}, hold:45, go:{page:0, tab:'osc1', mode:'wave', tap:'osc', zoom:10.3, ghost:false},
+  steps:[
+  {x:"Two detuned saws are playing. The tabs are a row of pedals, and the glowing footswitch on a pedal means that section is on. Stomp Osc 1's footswitch: its lights flicker out, the pedal goes dark, and only Osc 2 is left.", focus:['pwO1'], goal:S=>!S.p.pwO1,
+   more:{h:'Off is not the same as zero', b:['Switching a section off leaves every knob where it was, so switching it back on returns the exact sound. Turning OSC 1 down on the Mix tab would do the same job for the sound, but you would lose the level you had set.', 'Hardware synths do this with mixer on/off buttons and effect bypass switches. Your Nord has an on button for every effect slot.']}},
+  {x:"You can also press and hold a pedal anywhere to switch it. Hold the Osc 1 pedal to bring it back.", focus:['tab-osc1'], goal:S=>!!S.p.pwO1},
+  {x:"Switching an oscillator off only takes it out of the mix: it keeps running. Switch Osc 1 off again, then on the Osc 2 tab turn on Hard Sync and sweep Semi. You hear the classic sync sweep, driven by a master you can't hear.", focus:['pwO1','sync','o2semi'], goal:(S,E)=>!S.p.pwO1&&!!S.p.sync&&changed(S,E,['o2semi']),
+   more:{h:'The silent master', b:['Hard sync restarts Osc 2 every time Osc 1 finishes a cycle, so Osc 1 sets the pitch you hear while Osc 2\'s tuning only changes the tone. Most sync patches mute the master so its plain wave doesn\'t cover the sweep.', 'FM and ring mod work the same way: Osc 1 is a modulator and doesn\'t need to be heard itself. The power bar says “still drives osc 2” when that is happening.']}},
+  {x:"The filter can be bypassed too. On the Filter tab, switch it off and on a couple of times. Off, the oscillators go straight to the amp: as bright as this patch can get.", setup:{sync:0, o2semi:0, pwO1:1}, focus:['pwFlt'], goal:(S,E)=>(S.n.pwFlt||0)-(E.n.pwFlt||0)>=2},
+  {x:"On the FX tab each pedal has its own footswitch. Switch on Delay, then Reverb. The FX pedal's six little LEDs show which effects are on even when you're on another tab.", setup:{pwFlt:1, dMix:.3, rvMix:.3, pwDly:0, pwRev:0}, go:{tab:'fx', sub:'delay'}, focus:['pwDly','pwRev'], goal:S=>!!S.p.pwDly&&!!S.p.pwRev},
+  {x:"Turning knobs on a switched-off section never switches it on, so you can set it up silently and bring it in at the right moment. Choosing an effect type, or raising its Mix from zero, does switch it on, since that's a clear sign you want to hear it."},
+  {nord:1, x:"On your Nord, each effect has its own On button with an LED, and the settings stay put while it's off. Players often set up a delay or a reverb in advance and tap it in mid-song."},
   ]},
 { id:'trem', g:5, t:'Tremolo and auto-pan', s:'Pulse the volume, or move the sound in space.',
   setup:{...BASE, o1w:3, o1pw:.5, cut:2000, aS:1}, hold:57, go:{page:0, tab:'fx', sub:'fx1', mode:'gram', tap:'out'},
@@ -2622,7 +3346,7 @@ const LESSONS = [
   {x:"On the Mod page, with Chorus selected, raise Mix to about 60%. The sound widens and gently shimmers. Headphones make it obvious.", focus:['chMix'], goal:S=>S.p.chMix>=.5,
    more:{h:'How chorus works', b:['Chorus mixes the dry sound with copies delayed by a few milliseconds, where the delay time slowly wobbles. A changing delay bends the copy\'s pitch very slightly, so it beats against the original like a second, slightly out-of-tune player.', 'Opposite wobbles in the left and right channels spread it across the stereo field, the trick behind the classic Juno chorus. While you turn a chorus knob, the panel below the knobs draws those two wobbles.'], m:'delay(t) = 7 ms ± depth · 5 ms · sin(2π · rate · t)'}},
   {x:"Raise Depth for more pitch wobble, then try Rate: slow is lush, fast turns into a warble like vibrato.", focus:['chDepth','chRate'], goal:(S,E)=>changed(S,E,['chDepth'])&&changed(S,E,['chRate'])},
-  {x:"Flip Mix between 0 and about 60% a few times. Notice how much life chorus adds to a plain pulse wave."},
+  {x:"Tap the Mod pedal's footswitch a few times to flip the chorus in and out. Notice how much life it adds to a plain pulse wave.", focus:['pwMod'], goal:(S,E)=>(S.n.pwMod||0)-(E.n.pwMod||0)>=2},
   {nord:1, x:"Your Nord has two choruses in its second effect slot, next to a flanger, vibe and two phasers. All of them are built on short, modulated delays."},
   ]},
 { id:'flanger', g:5, t:'Flanger and phaser', s:'Sweeping notches: jet planes and swirls.',
@@ -2694,7 +3418,7 @@ const LESSONS = [
    more:{h:'How stereo works', b:['Stereo needs the left and right channels to differ: in level (panning), in timing (delays) or in tone. Identical channels sound like a single source in the middle.']}},
   {x:"Width: on the Mod page, with Chorus, raise Mix to about 60%. Chorus wobbles the left and right copies in opposite directions, so the sound spreads out.", focus:['chMix'], goal:S=>S.p.chMix>=.5},
   {x:"Position: on the FX1 page, pick Pan with a slow Rate. The sound now moves across the stereo field.", focus:['e1Type'], goal:S=>S.p.e1Type===2},
-  {x:"Bounce: set FX1 back to Off, and on the Delay page turn on Ping-pong with Mix about 35%. Echoes alternate between your ears.", focus:['e1Type','dPing','dMix'], goal:S=>S.p.e1Type===0&&!!S.p.dPing&&S.p.dMix>=.3},
+  {x:"Bounce: switch FX1 off with its footswitch, and on the Delay page turn on Ping-pong with Mix about 35%. Echoes alternate between your ears.", focus:['pwFx1','dPing','dMix'], goal:S=>S.p.e1Type===0&&!!S.p.dPing&&S.p.dMix>=.3},
   {x:"Depth: add Reverb at about 30%. Reverb pushes the sound back in space, while dry sounds feel close.", focus:['rvMix'], goal:S=>S.p.rvMix>=.25,
    more:{h:'Mono compatibility', b:['Phone speakers and club systems are often mono. Wide chorus and some stereo tricks partly cancel when the two channels are summed, so producers keep bass and key parts fairly centred and check their mixes in mono.']}},
   ]},
@@ -3256,9 +3980,9 @@ function markStep(i){
 function startLesson(id){
   const L = LESSONS.find(l => l.id === id); if (!L) return;
   const pr = prog[id] || {};
-  coach.L = L; coach.done = false; coach.exited = null;
+  coach.L = L; coach.done = false; coach.exited = null; MEM.cur = null; MEM.ref = null; MEM.cmp = null;
   hudHide();
-  applyPatch({...INIT, ...L.setup});
+  applyPatch({...INIT, ...normPatch(L.setup || {})});
   setHold(L.hold === undefined ? null : L.hold);
   if (L.go) applyGo(L.go);
   closeSheet();
@@ -3272,7 +3996,7 @@ function goStep(i){
   if (st.setup) applyPatch(st.setup);
   if ('hold' in st) setHold(st.hold);
   if (st.go) applyGo(st.go);
-  coach.E = {p:{...params}, gates:state.gates, n:{...state.nchg}, ui:{...state.ui}, zoom:Math.pow(2, state.zoomL2), time:performance.now()};
+  coach.E = {p:effP(), gates:state.gates, n:{...state.nchg}, ui:{...state.ui}, zoom:Math.pow(2, state.zoomL2), time:performance.now()};
   state.hints = new Set(st.focus || []);
   const tabFocus = (st.focus || []).map(f => TAB_OF[f]).find(Boolean);
   const subFocus = (st.focus || []).map(f => SUB_OF[f]).find(Boolean);
@@ -3281,15 +4005,17 @@ function goStep(i){
   if (tabFocus && (tabFocus !== state.tab || subChange)) showTab(tabFocus); else applyHints();
   prog[L.id] = {...(prog[L.id] || {}), step:i}; store.set('progress', prog);
   renderCoach();
+  computeTargets();
+  if (hud.k && hud.mode === 'strip') hudText();
 }
 function exitLesson(){
   if (!coach.L) return;
   coach.exited = {t:coach.L.t, i:coach.i + 1, n:coach.L.steps.length, done:coach.done};
   coach.L = null; state.hints.clear(); applyHints(); setHold(null);
-  hudHide(); renderCoach();
+  hudHide(); renderCoach(); computeTargets(); coachMode();
   if (freeK) setTimeout(() => { if (!coach.L && !hud.k) hudShow(freeK); }, 2600);
 }
-function snapshot(){ return {nv:tele.nv, arpN:arpNotes.size, subs:state.sub, sub:state.sub.fx, p:params, n:state.nchg, ui:state.ui, run:state.run, ghost:state.ghost, tab:state.tab, hold:state.hold, meas:state.meas, page:state.page, mode:state.mode, tap:state.tap, lin:state.lin, zoom:Math.pow(2, state.zoomL2), hz:tele.f1, note:state.lastNote, playing:state.gateOn, gates:state.gates}; }
+function snapshot(){ return {nv:tele.nv, arpN:arpNotes.size, subs:state.sub, sub:state.sub.fx, p:effP(), n:state.nchg, ui:state.ui, run:state.run, ghost:state.ghost, tab:state.tab, hold:state.hold, meas:state.meas, page:state.page, mode:state.mode, tap:state.tap, lin:state.lin, zoom:Math.pow(2, state.zoomL2), hz:tele.f1, note:state.lastNote, playing:state.gateOn, gates:state.gates}; }
 function fillText(x){ return (typeof x === 'function' ? x(snapshot()) : x).replace('{sr}', SR.toLocaleString() + ' Hz').replace('{nyq}', fHz(SR / 2)); }
 function renderProg(){
   const el = $('prog');
@@ -3302,7 +4028,7 @@ function renderCoach(){
   ct.style.animation = 'none'; void ct.offsetWidth; ct.style.animation = '';
   $('learnBtn').hidden = true; fg.hidden = true;
   $('coachExit').hidden = !coach.L;
-  renderProg();
+  renderProg(); updMin();
   if (!coach.L) {
     $('crumbT').textContent = 'Free play'; $('crumbN').textContent = '';
     $('nordTag').hidden = true;
@@ -3337,6 +4063,7 @@ function renderStatus(){
   else if (st.goal && before) { s.className = 'st ok'; s.innerHTML = '<i></i>Done before'; nx.textContent = go; nx.classList.add('pri'); }
   else if (st.goal) { s.className = 'st'; s.innerHTML = '<i></i>Your turn'; nx.textContent = 'Skip'; nx.classList.remove('pri'); }
   else { s.className = 'st'; s.innerHTML = ''; nx.textContent = go; nx.classList.add('pri'); }
+  updMin();
 }
 function nextLesson(id){ const i = LESSONS.findIndex(l => l.id === id); return LESSONS.slice(i + 1).find(l => !(prog[l.id] || {}).done) || null; }
 function next(){
@@ -3346,7 +4073,7 @@ function next(){
   if (!st.goal) markStep(coach.i);
   if (coach.i < coach.L.steps.length - 1) goStep(coach.i + 1);
   else {
-    coach.done = true; state.hints.clear(); applyHints();
+    coach.done = true; state.hints.clear(); applyHints(); computeTargets(); hudHide();
     prog[coach.L.id] = {...(prog[coach.L.id] || {}), step:0, done:true}; store.set('progress', prog);
     renderCoach();
   }
@@ -3359,15 +4086,50 @@ function checkGoal(){
   if (ok) {
     coach.met = true; markStep(coach.i);
     state.hints.clear(); applyHints(); renderStatus(); renderProg();
+    computeTargets(); if (hud.k) hudText();
     try { navigator.vibrate && navigator.vibrate(12); } catch (e) {}
   }
 }
 $('cNext').addEventListener('click', next);
 $('cBack').addEventListener('click', () => { if (!coach.L) return; if (coach.done) { goStep(coach.L.steps.length - 1); return; } if (coach.i > 0) goStep(coach.i - 1); });
-function coachMode(){ const scope = state.page === 1; $('coach').classList.toggle('min', scope && !!state.coachMin); $('coachMin').style.visibility = scope ? '' : 'hidden'; $('coachMin').disabled = !scope; }
-$('coachMin').addEventListener('click', () => { if (state.page !== 1) return; state.coachMin = !state.coachMin; coachMode(); });
+// the coach can fold away on the Scope page, and on any page during a lesson (free play on Patch stays full height)
+const canMin = () => state.page === 1 || !!coach.L;
+function coachMode(){
+  const can = canMin(), min = can && !!state.coachMin;
+  $('coach').classList.toggle('min', min);
+  if (hud.k && hud.mode !== (stripMode() ? 'strip' : 'big')) { const u = hud.until; hudShow(hud.k); hud.until = u; }
+  $('coachMin').style.visibility = can ? '' : 'hidden'; $('coachMin').disabled = !can;
+  $('coachMin').setAttribute('aria-label', min ? (coach.L ? 'Show lesson' : 'Expand') : coach.L ? 'Minimize lesson' : 'Minimize');
+  updMin();
+}
+// minimized lessons keep a Next button in the title bar once the step is done, so you never have to reopen it just to move on
+function updMin(){
+  const L = coach.L, st = L && !coach.done ? L.steps[coach.i] : null, ready = !!L && (coach.done || (!!st && (!st.goal || coach.met || stepsDone(L.id).has(coach.i))));
+  $('coach').classList.toggle('met', !!L && !coach.done && !!st && !!st.goal && coach.met);
+  const b = $('minNext'); b.hidden = !($('coach').classList.contains('min') && ready);
+  b.textContent = coach.done ? (nextLesson(L.id) ? 'Next lesson' : 'Lessons') : coach.i === L?.steps.length - 1 ? 'Finish' : 'Next';
+}
+function setMin(v){ if (!canMin()) return; state.coachMin = v; coachMode(); }
+$('coachMin').addEventListener('click', () => setMin(!state.coachMin));
+$('minNext').addEventListener('click', next);
+(() => {
+  // swipe the title bar: down folds, up unfolds
+  const top = document.querySelector('.coach-top'); let y0 = null; top._swiped = false;
+  top.addEventListener('pointerdown', e => { y0 = e.clientY; top._swiped = false; });
+  // follow the finger on the window, so a swipe still counts once it leaves the bar
+  addEventListener('pointermove', e => {
+    if (y0 == null) return; const dy = e.clientY - y0;
+    if (dy > 22 && !state.coachMin) { setMin(true); top._swiped = true; y0 = null; }
+    else if (dy < -22 && state.coachMin) { setMin(false); top._swiped = true; y0 = null; }
+  });
+  ['pointerup', 'pointercancel'].forEach(ev => addEventListener(ev, () => { y0 = null; }));
+})();
 $('coachExit').addEventListener('click', exitLesson);
-$('crumb').addEventListener('click', () => openSheet(coach.L ? coach.L.g : undefined));
+$('crumb').addEventListener('click', () => {
+  if (document.querySelector('.coach-top')._swiped) return;
+  if ($('coach').classList.contains('min')) { setMin(false); return; }
+  openSheet(coach.L ? coach.L.g : undefined);
+});
 
 /* ---------- Learn more + chart key panels ---------- */
 function openPanel(mo){
@@ -3480,7 +4242,355 @@ $('sheetBack').addEventListener('click', () => renderSheet(null));
 $('sheetClose').addEventListener('click', closeSheet);
 $('sheet').addEventListener('click', e => { if (e.target === $('sheet')) closeSheet(); });
 $('freeBtn').addEventListener('click', () => { if (coach.L) exitLesson(); closeSheet(); });
-$('initBtn').addEventListener('click', () => { applyPatch({...INIT}); closeSheet(); });
+$('initBtn').addEventListener('click', () => { memLoad('A1'); closeSheet(); });
+/* =====================================================================
+   Patch memory
+   Eight banks of eight, like a Prophet or Jupiter: A–C are factory sounds, D–H are empty user banks. Every slot is shown
+   as a patch sheet, the pencilled knob charts players kept before synths had memory. Writing is press-and-hold
+   (as on the OP-1) while WRITE is armed (a record button), and the whole memory can be dumped to and loaded from "tape"
+   (a backup file), the way early polysynths saved to cassette. Factory slots can be overwritten and restored.
+   ===================================================================== */
+const BANKS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+const BANK_NAME = {A:'basics', B:'classics', C:'pads & keys', D:'basses', E:'leads', F:'pads & textures', G:'keys & bells', H:'drums & fx'};
+const FACTORY = {
+  A1:{n:'init saw', p:{}},
+  A2:{n:'pure sine', p:{o1w:0, mix2:0, cut:20000, res:0, fenv:0, aS:1, aR:.3}},
+  A3:{n:'soft tri', p:{o1w:1, mix2:0, cut:6000, res:0, fenv:.5, aA:.02, aS:.9, aR:.4}},
+  A4:{n:'square lead', p:{o1w:3, o1pw:.5, o2w:3, mix2:.5, o2fine:5, cut:3500, res:.2, fenv:1, glide:.05, aS:.9, dMix:.2}},
+  A5:{n:'pulse pluck', p:{o1w:3, o1pw:.3, mix2:0, cut:500, res:.35, fenv:3.5, fA:.002, fD:.2, fS:0, aD:.5, aS:0, aR:.25, rvMix:.25}},
+  A6:{n:'saw brass', p:{o2w:2, mix1:.8, mix2:.8, o2fine:8, cut:400, res:.15, kt:.5, fenv:2.8, fA:.08, fD:.6, fS:.35, fR:.3, aA:.04, aD:.4, aS:.9, aR:.3, rvMix:.2}},
+  A7:{n:'sub bass', p:{o1w:1, o1oct:-1, mix1:1, mix2:0, vol:.95, cut:400, res:0, kt:0, fenv:0, aA:.005, aD:.4, aS:.9, aR:.12, drive:0}},
+  A8:{n:'noise wind', p:{mix1:0, mix2:0, noise:1, ftype:1, cut:1400, res:.55, drive:.5, vol:1, fenv:0, lshape:0, lrate:.15, lcut:1.5, aA:.6, aS:1, aR:1.5, rvMix:.4}},
+  B1:{n:'acid bass', p:{o1w:2, o1oct:-1, mix2:0, cut:350, res:.75, kt:.3, fenv:2.5, fA:.002, fD:.25, fS:0, fR:.15, aA:.002, aD:.4, aS:.8, aR:.08, drive:.3, glide:.06}},
+  B2:{n:'reese bass', p:{o1w:2, o2w:2, o1oct:-1, o2oct:-1, mix1:.9, mix2:.9, o2fine:15, cut:900, res:.25, kt:.2, fenv:0, aA:.01, aS:1, aR:.2, lshape:0, lrate:.2, lcut:.5}},
+  B3:{n:'wobble', p:{o1w:2, o2w:3, o2oct:-1, mix2:.8, cut:250, res:.55, kt:.2, fenv:0, aS:1, aR:.15, lshape:0, lsync:1, ldiv:3, lcut:3, tempo:140, drive:.4}},
+  B4:{n:'sync lead', p:{o2w:2, mix1:0, mix2:1, sync:1, o2semi:9, cut:5000, res:.2, fenv:.5, aS:.9, aR:.3, glide:.06, lrate:5.5, lpitch:.15, dMix:.25}},
+  B5:{n:'supersaw', p:{o1w:2, uniN:7, uniDet:25, mix2:0, cut:6000, res:.15, kt:.5, fenv:.5, aA:.01, aS:.9, aR:.4, chMix:.3, rvMix:.3}},
+  B6:{n:'fm e-piano', p:{vol:.55, o1w:0, o2w:0, mix1:0, mix2:1, fm:.5, cut:8000, res:0, fenv:0, fA:.001, fD:.9, fS:0, aA:.002, aD:1.6, aS:0, aR:.4, meFm:4, poly:1, e1Type:1, e1Rate:4, e1Depth:.35, ampType:2, ampDrive:.2, ampLvl:.5}},
+  B7:{n:'fm bell', p:{o1w:0, o2w:0, mix1:0, mix2:1, fm:1, o1oct:1, o2semi:0, o2fine:0, cut:20000, res:0, fenv:0, fA:.001, fD:1.5, fS:0, aA:.001, aD:2.5, aS:0, aR:1.5, meFm:4, poly:1, rvMix:.35, rvSize:.7}},
+  B8:{n:'wave pad', p:{o1w:4, o1pos:.15, o2w:2, mix2:.5, o2fine:7, ftype:1, cut:2200, res:.15, fenv:0, aA:.8, aD:1, aS:.85, aR:2.5, lshape:0, lrate:.07, lpw:.3, poly:1, chMix:.4, rvMix:.4, rvSize:.8}},
+  C1:{n:'string pad', p:{poly:1, o1w:3, o1pw:.5, o2w:2, mix1:.8, mix2:.5, o2fine:6, ftype:1, cut:2500, res:.1, kt:.5, fenv:0, aA:.4, aD:.4, aS:.9, aR:.8, lshape:0, lrate:.8, lpw:.25, chMix:.4, rvMix:.3}},
+  C2:{n:'choir', p:{o1w:5, o1vow:.75, mix2:0, cut:6000, res:0, fenv:0, aA:.4, aD:1, aS:.9, aR:1.5, uniN:3, uniDet:12, poly:1, chMix:.5, rvMix:.45, rvSize:.85, lpitch:.08, lrate:5}},
+  C3:{n:'organ', p:{vol:.5, o1w:4, o1pos:.2857, mix2:0, cut:12000, res:0, fenv:0, aA:.002, aD:.1, aS:1, aR:.02, poly:1, e1Type:1, e1Rate:6, e1Depth:.3, chMix:.3, ampType:2, ampDrive:.45, ampLvl:.42}},
+  C4:{n:'poly pad', p:{o2w:2, mix1:.8, mix2:.7, o2fine:9, ftype:1, cut:1400, res:.15, kt:.4, fenv:1, fA:.6, fD:1.5, fS:.5, fR:1.5, aA:.5, aD:1, aS:.85, aR:2, poly:1, chMix:.5, rvMix:.35, rvSize:.75}},
+  C5:{n:'arp pluck', p:{o1w:3, o1pw:.35, mix2:0, cut:600, res:.45, fenv:3, fA:.002, fD:.18, fS:0, aD:.25, aS:0, aR:.15, arpOn:1, arpMode:2, arpOct:2, tempo:118, arpDiv:2, arpGate:.5, dSync:1, dDiv:1, dMix:.3, dFb:.4, dTone:3500}},
+  C6:{n:'chip lead', p:{o1w:3, o1pw:.125, mix2:0, cut:20000, res:0, fenv:0, kt:0, aA:.001, aD:.1, aS:.7, aR:.03, lrate:6, lpitch:.25}},
+  C7:{n:'kick', p:{vol:.95, o1w:0, o1oct:-1, mix1:1, mix2:0, cut:20000, res:0, fenv:0, fA:.001, fD:.12, fS:0, fR:.1, aA:.001, aD:.35, aS:0, aR:.2, mePitch:24}},
+  C8:{n:'zap', p:{o1w:2, mix2:0, cut:8000, res:.4, fenv:0, fA:.001, fD:.3, fS:0, aA:.001, aD:.4, aS:0, aR:.3, mePitch:24, dMix:.35, dFb:.5, dTime:.18}},
+  // D · basses: play these around C1–C2
+  D1:{n:'moog bass', p:{o1w:2, o1oct:-1, o2w:3, o2oct:-2, mix1:.9, mix2:.5, o2fine:0, cut:320, res:.35, kt:.4, fenv:2.2, fA:.002, fD:.32, fS:.15, fR:.15, aA:.002, aD:.5, aS:.75, aR:.1, drive:.35, glide:.03}},
+  D2:{n:'pluck bass', p:{o1w:3, o1pw:.4, o1oct:-1, mix2:0, cut:260, res:.45, kt:.5, fenv:3.2, fA:.001, fD:.18, fS:0, fR:.1, aA:.001, aD:.35, aS:0, aR:.12}},
+  D3:{n:'fm bass', p:{o1w:0, o2w:0, o1oct:-1, o2oct:-1, o2semi:0, o2fine:0, mix1:0, mix2:1, fm:2.2, meFm:3, cut:3200, res:0, fenv:0, fA:.001, fD:.25, fS:.1, fR:.1, aA:.001, aD:.6, aS:.6, aR:.1}},
+  D4:{n:'sync growl', p:{vol:.5, o2w:2, o1oct:-1, o2oct:-1, o2semi:9, o2fine:0, mix1:0, mix2:1, sync:1, cut:1800, res:.3, kt:.3, fenv:1.5, fA:.002, fD:.3, fS:.3, aA:.003, aS:.8, aR:.1, drive:.4, ampType:1, ampDrive:.45, ampLvl:.42}},
+  D5:{n:'dub bass', p:{vol:1, o1w:1, o1oct:-1, o2w:0, o2oct:-1, o2fine:0, mix1:.8, mix2:.45, cut:600, res:.1, kt:.2, fenv:.8, fA:.005, fD:.4, fS:.3, aA:.005, aD:.8, aS:.7, aR:.25, drive:.2, dMix:.22, dSync:1, dDiv:1, dFb:.35, dTone:1200}},
+  D6:{n:'organ bass', p:{vol:.9, o1w:4, o1pos:.2857, o1oct:-1, mix2:0, cut:2500, res:0, kt:.3, fenv:.5, fA:.001, fD:.2, fS:0, aA:.002, aD:.3, aS:.5, aR:.08}},
+  D7:{n:'pwm bass', p:{o1w:3, o1pw:.5, o1oct:-1, o2w:3, o2oct:-1, o2fine:-6, mix1:.8, mix2:.6, cut:700, res:.2, kt:.3, fenv:1.6, fA:.003, fD:.4, fS:.3, aA:.003, aS:.9, aR:.15, lshape:0, lrate:.4, lpw:.3}},
+  D8:{n:'hoover', p:{o1w:2, o1oct:-1, uniN:7, uniDet:45, o2w:3, o2oct:-1, o2fine:0, mix1:.9, mix2:.5, cut:4000, res:.1, fenv:.8, fA:.08, fD:.5, fS:0, mePitch:-3, glide:.15, aA:.01, aS:.9, aR:.3, chMix:.4, chRate:.4, drive:.3}},
+  // E · leads
+  E1:{n:'mono lead', p:{o1w:2, o2w:2, mix1:.85, mix2:.7, o2fine:6, cut:2600, res:.3, kt:.6, fenv:1.2, fA:.01, fD:.5, fS:.5, aA:.005, aS:.9, aR:.2, glide:.08, drive:.3, lshape:0, lrate:5.5, lpitch:.12, dMix:.2, dTime:.32, dFb:.3}},
+  E2:{n:'pwm lead', p:{o1w:3, o1pw:.5, mix2:0, cut:4000, res:.2, kt:.5, fenv:.8, fD:.4, fS:.5, aA:.005, aS:.9, aR:.25, glide:.05, lshape:0, lrate:2.5, lpw:.3, chMix:.3, rvMix:.2}},
+  E3:{n:'glide lead', p:{o1w:2, o2w:3, o2oct:1, o2fine:3, mix1:.85, mix2:.5, cut:1800, res:.55, kt:.5, fenv:2, fA:.01, fD:.6, fS:.4, aA:.005, aS:1, aR:.3, glide:.25, rvMix:.25, rvSize:.7}},
+  E4:{n:'fm lead', p:{o1w:0, o2w:0, o1oct:1, o2semi:0, o2fine:0, mix1:.3, mix2:.9, fm:1.6, meFm:2, cut:20000, res:0, fenv:0, fA:.002, fD:.6, fS:.3, aA:.005, aS:.9, aR:.25, lshape:0, lrate:5.5, lpitch:.15, dMix:.25, dSync:1, dDiv:1, dFb:.35}},
+  E5:{n:'breath flute', p:{o1w:1, mix2:0, noise:.15, cut:3500, res:.1, kt:.6, fenv:.6, fA:.08, fD:.3, fS:.7, aA:.06, aD:.2, aS:.85, aR:.2, lshape:0, lrate:5, lpitch:.2, rvMix:.3}},
+  E6:{n:'screamer', p:{vol:.45, o1w:3, o1pw:.4, mix2:0, cut:900, res:.8, kt:.4, fenv:3, fA:.002, fD:.3, fS:.3, aA:.003, aS:.9, aR:.15, drive:.8, glide:.04, ampType:1, ampDrive:.7, ampTone:.6, ampLvl:.38, dMix:.25, dSync:1, dDiv:2, dPing:1, dFb:.35}},
+  E7:{n:'funk wah', p:{vol:.55, o1w:2, o2w:2, mix1:.8, mix2:.6, o2fine:9, cut:6000, res:.1, fenv:0, aA:.003, aD:.3, aS:.8, aR:.15, e1Type:3, e1Sens:.6, e1Depth:.7, e1Q:.7, ampType:2, ampDrive:.4, ampLvl:.42}},
+  E8:{n:'talk lead', p:{o1w:5, o1vow:.25, mix2:0, uniN:3, uniDet:10, cut:8000, res:0, fenv:0, meShape:.5, fA:.3, fD:.8, fS:.4, aA:.05, aS:.9, aR:.3, lshape:0, lrate:5, lpitch:.15, rvMix:.3}},
+  // F · pads & textures: hold chords
+  F1:{n:'warm pad', p:{poly:1, o1w:2, o2w:3, o2fine:0, mix1:.8, mix2:.6, cut:1600, res:.1, kt:.4, fenv:.8, fA:.8, fD:1.5, fS:.6, fR:1.2, aA:.6, aD:1, aS:.9, aR:1.6, chMix:.6, chRate:.5, chDepth:.6, rvMix:.3}},
+  F2:{n:'glass pad', p:{poly:1, o1w:4, o1pos:.43, o2w:0, o2oct:1, o2fine:0, mix1:.8, mix2:.3, cut:9000, res:.1, fenv:0, aA:1.2, aD:1, aS:.8, aR:2.5, lshape:0, lrate:.1, lpw:.3, chMix:.3, dMix:.2, dTime:.45, dFb:.4, rvMix:.5, rvSize:.9}},
+  F3:{n:'dark drone', p:{o1w:2, o1oct:-1, o2w:2, o2oct:-1, o2fine:12, mix1:.8, mix2:.8, noise:.1, cut:500, res:.5, fenv:0, lshape:0, lrate:.08, lcut:1.5, aA:2, aS:1, aR:3, dMix:.25, dTime:.6, dFb:.5, dTone:1500, rvMix:.5, rvSize:.95}},
+  F4:{n:'shimmer', p:{poly:1, o1w:0, o2w:1, o2oct:1, o2fine:4, mix1:.8, mix2:.5, cut:12000, res:0, fenv:0, aA:1.5, aD:1, aS:.9, aR:3, modType:2, chMix:.4, chRate:.15, dMix:.35, dTime:.45, dFb:.6, dPing:1, dTone:6000, rvMix:.5, rvSize:.9}},
+  F5:{n:'sweep pad', p:{poly:1, o1w:2, o2w:2, mix1:.8, mix2:.7, o2fine:8, cut:400, res:.45, kt:.3, fenv:3, fA:3, fD:4, fS:.5, fR:2, aA:.8, aS:.9, aR:2, modType:1, chMix:.45, chRate:.1, chFb:.6, rvMix:.35}},
+  F6:{n:'vowel pad', p:{poly:1, o1w:5, o1vow:.1, mix2:0, uniN:3, uniDet:15, cut:9000, res:0, fenv:0, lshape:0, lrate:.12, lpw:.45, aA:1, aD:1, aS:.9, aR:2, chMix:.4, rvMix:.45, rvSize:.85}},
+  F7:{n:'ice texture', p:{vol:1, poly:1, o1w:4, o1pos:1, o1oct:1, mix2:0, noise:.1, ftype:2, cut:700, res:.3, fenv:0, aA:.002, aD:1.5, aS:.3, aR:2, lshape:4, lrate:6, lpw:.3, dMix:.4, dPing:1, dSync:1, dDiv:4, dFb:.5, rvMix:.45, rvSize:.85}},
+  F8:{n:'strings', p:{poly:1, o1w:2, uniN:3, uniDet:18, o2w:2, o2oct:1, o2fine:5, mix1:.8, mix2:.45, ftype:1, cut:3500, res:.05, kt:.5, fenv:0, aA:.35, aD:.5, aS:.9, aR:.9, lshape:0, lrate:5, lpitch:.05, chMix:.5, chDepth:.7, rvMix:.35, eqLo:-3, eqHi:-2}},
+  // G · keys & bells
+  G1:{n:'tine piano', p:{poly:1, o1w:0, o2w:0, o1oct:0, o2semi:0, o2fine:0, mix1:.3, mix2:.9, fm:.8, meFm:3, cut:20000, res:0, fenv:0, fA:.001, fD:.6, fS:0, aA:.002, aD:2, aS:0, aR:.5, e1Type:2, e1Rate:3, e1Depth:.4, chMix:.25, rvMix:.15}},
+  G2:{n:'clav', p:{vol:1, poly:1, o1w:3, o1pw:.2, mix2:0, ftype:3, cut:1500, res:.4, kt:.6, fenv:2, fA:.001, fD:.15, fS:.2, aA:.001, aD:.5, aS:.3, aR:.05, e1Type:3, e1Sens:.7, e1Depth:.5, e1Q:.6}},
+  G3:{n:'harpsichord', p:{poly:1, o1w:3, o1pw:.15, o2w:2, o2oct:1, o2fine:0, mix1:.8, mix2:.5, cut:3000, res:.2, kt:.7, fenv:2, fA:.001, fD:.4, fS:.2, aA:.001, aD:1.2, aS:0, aR:.3, rvMix:.2}},
+  G4:{n:'marimba', p:{poly:1, o1w:0, o2w:0, o2oct:2, o2fine:0, mix1:.9, mix2:.25, cut:20000, res:0, fenv:0, fA:.001, fD:.05, fS:0, mePitch:.5, aA:.001, aD:.5, aS:0, aR:.3, rvMix:.2}},
+  G5:{n:'kalimba', p:{poly:1, o1w:0, o2w:0, o1oct:2, o2semi:0, o2fine:0, mix1:0, mix2:1, fm:1.2, meFm:2.5, cut:20000, res:0, fenv:0, fA:.001, fD:.12, fS:0, aA:.001, aD:.9, aS:0, aR:.4, dMix:.15, dTime:.3, dFb:.3, rvMix:.3}},
+  G6:{n:'echo pluck', p:{poly:1, o1w:2, o2w:2, mix1:.8, mix2:.5, o2fine:6, cut:500, res:.3, kt:.5, fenv:3.2, fA:.001, fD:.2, fS:0, aA:.001, aD:.4, aS:0, aR:.3, tempo:120, dMix:.35, dSync:1, dDiv:1, dFb:.45, dPing:1, rvMix:.25}},
+  G7:{n:'glass bell', p:{poly:1, o1w:0, o2w:0, o1oct:0, o2semi:-5, o2fine:0, mix1:0, mix2:1, fm:2, meFm:3, cut:20000, res:0, fenv:0, fA:.001, fD:2, fS:0, aA:.001, aD:3, aS:0, aR:2, chMix:.2, rvMix:.4, rvSize:.8}},
+  G8:{n:'music box', p:{poly:1, o1w:1, o1oct:1, o2w:0, o2oct:2, o2fine:0, mix1:.8, mix2:.3, cut:20000, res:0, fenv:0, aA:.001, aD:1, aS:0, aR:.6, dMix:.2, dTime:.25, dFb:.3, dTone:5000, rvMix:.35}},
+  // H · drums & fx
+  H1:{n:'snare', p:{vol:.95, o1w:1, mix1:.4, mix2:0, noise:.9, cut:8000, res:0, fenv:0, fA:.001, fD:.05, fS:0, mePitch:7, aA:.001, aD:.18, aS:0, aR:.15, rvMix:.2}},
+  H2:{n:'hi-hat', p:{vol:.95, mix1:0, mix2:0, noise:1, ftype:2, cut:7000, res:.2, fenv:0, aA:.001, aD:.06, aS:0, aR:.05}},
+  H3:{n:'tom', p:{vol:.95, o1w:0, o1oct:-1, mix2:0, noise:.05, cut:20000, res:0, fenv:0, fA:.001, fD:.2, fS:0, mePitch:10, aA:.001, aD:.5, aS:0, aR:.3, rvMix:.2}},
+  H4:{n:'riser', p:{o1w:3, mix2:0, cut:3000, res:.5, fenv:0, aA:.02, aS:1, aR:.4, lshape:3, lrate:.5, lpitch:12, dMix:.3, dPing:1, dFb:.4, rvMix:.3}},
+  H5:{n:'siren', p:{o1w:0, mix2:0, cut:20000, res:0, fenv:0, aA:.02, aS:1, aR:.3, lshape:0, lrate:.6, lpitch:7}},
+  H6:{n:'berlin seq', p:{o1w:2, o2w:3, o2oct:1, o2fine:0, mix1:.8, mix2:.5, cut:700, res:.5, kt:.4, fenv:2.5, fA:.001, fD:.15, fS:0, aA:.001, aD:.2, aS:0, aR:.1, lshape:0, lrate:.07, lcut:1, arpOn:1, arpMode:0, arpOct:2, arpDiv:2, arpGate:.4, tempo:124, dMix:.3, dSync:1, dDiv:1, dFb:.4}},
+  H7:{n:'random bells', p:{o1w:0, o2w:0, o1oct:1, o2semi:0, o2fine:0, mix1:0, mix2:1, fm:1.5, meFm:2, cut:20000, res:0, fenv:0, fA:.001, fD:.4, fS:0, aA:.001, aD:.6, aS:0, aR:.4, arpOn:1, arpMode:3, arpOct:3, arpDiv:2, arpGate:.6, tempo:100, dMix:.35, dSync:1, dDiv:1, dPing:1, dFb:.5, rvMix:.4}},
+  H8:{n:'storm', p:{ampType:1, ampDrive:.6, ampLvl:.35, ampTone:.3, vol:1, mix1:0, mix2:0, noise:1, cut:900, res:.4, fenv:0, drive:1, lshape:4, lrate:8, lcut:2, aA:.05, aD:3, aS:0, aR:3, rvMix:.6, rvSize:1, ftype:1}},
+};
+const MEM = {user:store.get('patches', {}), cur:null, ref:null, cmp:null, armed:false, bank:'A', plot:{}, open:false};
+const slotData = id => MEM.user[id] || FACTORY[id] || null;
+// a full parameter set for a slot: factory sounds are short lists of changes from Init
+const fullP = data => ({...INIT, ...normPatch(data.p)});
+const memEdited = () => !!MEM.ref && Object.keys(params).some(k => Math.abs((params[k] || 0) - (MEM.ref[k] || 0)) > 1e-6);
+let memSaveT = 0;
+function memOnChange(){
+  memChip(); if (MEM.open) memRenderProg();
+  clearTimeout(memSaveT); memSaveT = setTimeout(() => store.set('work', {p:params, cur:MEM.cur}), 500);
+}
+function memLoad(id){
+  const d = slotData(id); if (!d) return;
+  MEM.comparing = true; applyPatch(fullP(d)); MEM.comparing = false;
+  MEM.cur = id; MEM.ref = {...params}; MEM.cmp = null;
+  memOnChange(); bump('memLoad');
+}
+// a name for a new patch, read from what it sounds like
+function autoName(){
+  const P = params, w = ['sine', 'tri', 'saw', 'pulse', 'wave', 'vox'][P.o1w | 0];
+  const role = P.mix1 < .05 && P.mix2 < .05 && P.noise > .1 ? 'noise' : P.aA > .3 ? 'pad' : P.aS < .1 && P.aD < .6 ? 'pluck' : P.o1oct < 0 || P.cut < 500 ? 'bass' : P.poly ? 'keys' : 'lead';
+  return `${w} ${role}`;
+}
+function memWrite(id){
+  const name = MEM.cur === id && slotData(id) ? slotData(id).n : autoName();
+  MEM.user[id] = {n:name, p:{...params}}; store.set('patches', MEM.user);
+  MEM.cur = id; MEM.ref = {...params}; MEM.cmp = null; MEM.armed = false;
+  try { navigator.vibrate && navigator.vibrate([8, 60, 18]); } catch (e) {}
+  memOnChange(); memRender(); memReels('rec', 1300);
+  setTimeout(() => memRename(id, true), 250);
+}
+function memCompare(){
+  if (MEM.cmp) { const back = MEM.cmp; MEM.comparing = true; applyPatch(back); MEM.comparing = false; MEM.cmp = null; }
+  else if (memEdited()) { MEM.cmp = {...params}; MEM.comparing = true; applyPatch(MEM.ref); MEM.comparing = false; }
+  memOnChange(); memRender();
+}
+/* ---------- patch memory: header chip ---------- */
+function memChip(){
+  const d = MEM.cur && slotData(MEM.cur), ed = memEdited();
+  $('memId').textContent = MEM.cur ? MEM.cur.toLowerCase() : '--';
+  $('memName').textContent = MEM.cmp ? 'compare' : d ? d.n : coach.L ? 'lesson sound' : 'unsaved';
+  $('memBtn').classList.toggle('ed', ed || (!MEM.cur && !coach.L)); $('memBtn').classList.toggle('cmp', !!MEM.cmp);
+}
+/* ---------- patch memory: banks, tracks and fingerprints ----------
+   8 bank keys (each showing a lamp per track) over 8 named tracks; tap a track to load it. Every track carries the sound's
+   fingerprint: one note of that patch, simulated and drawn the way a scope would capture it. The wave shape, octave, amp
+   and filter envelopes, pitch sweeps, FM, a second oscillator's beating, noise, tremolo, the arpeggiator and delay echoes
+   all show up, so a pluck, a pad, a bass, a bell and a kick look nothing alike. */
+const MX = {open:false, sel:0, cache:{}, ver:0, rec:{}, pulse:{}, raf:0, t0:performance.now()};
+const BANK_C = {A:COL.c1, B:COL.c2, C:COL.c3, D:COL.c5, E:COL.c4, F:COL.c6, G:COL.c1, H:COL.c2};
+const mxId = i => MEM.bank + (i + 1);
+function fpWave(w, P, ph){
+  if (w === 4) return Math.sin(6.2832 * ph) * 0.7 + 0.35 * Math.sin(6.2832 * ph * (2 + Math.round(P.o1pos * 5)));
+  if (w === 5) return (0.5 - 0.5 * Math.cos(6.2832 * ph)) * Math.sin(6.2832 * ph * (3 + Math.round(P.o1vow * 4)));
+  if (w === 0) return Math.sin(6.2832 * ph);
+  if (w === 1) return ph < .5 ? 4 * ph - 1 : 3 - 4 * ph;
+  if (w === 2) return 2 * ph - 1;
+  return ph < P.o1pw ? 1 : -1;
+}
+// one note of the patch, as a strip of samples: the simulated scope capture behind every fingerprint
+function fingerprint(d, N, cyc){
+  const P = fullP(d), out = new Float32Array(N);
+  const dly = !!P.pwDly && P.dMix > .01, rev = !!P.pwRev && P.rvMix > .01, arp = !!P.arpOn;
+  const hold = arp ? 1.2 : Math.min(2.2, P.aA + P.aD * 0.8 + 0.35);
+  const T = Math.min(4.5, Math.max(0.9, hold + Math.min(P.aR, 1.6) + (dly ? Math.min(1.5, P.dTime * 3) : 0) + (rev ? 0.4 : 0)));
+  const dt = T / N, step = 60 / P.tempo * [1, .5, .25, 1 / 3, 1 / 6][P.arpDiv | 0];
+  const cA = t => 1 - Math.exp(-dt * t);
+  const F = cyc / T * Math.pow(2, (P.o1oct | 0) * 0.45);
+  const r2 = Math.pow(2, (P.o2oct + P.o2semi / 12) * 0.5) * (1 + P.o2fine * 0.0025);
+  const fOn = !!P.pwFlt, e1 = P.pwFx1 ? P.e1Type | 0 : 0, ns = P.noise > .02 ? P.noise : 0;
+  const m1 = P.pwO1 ? P.mix1 : 0, m2 = P.pwO2 ? P.mix2 : 0, norm = Math.max(.15, m1 + m2 + ns);
+  let ae = 0, fe = 0, as = 0, fs = 0, p1 = 0, p2 = 0, lt = 0, seed = 7;
+  for (let i = 0; i < N; i++) {
+    const t = i * dt; let gate = t < hold;
+    if (arp && gate) { const k = t % step; gate = k < step * P.arpGate; if (k < dt) { as = 1; fs = 1; } }
+    if (gate && !as) { as = 1; fs = 1; } if (!gate) { if (as) as = 3; if (fs) fs = 3; }
+    if (as === 1) { ae += (1.3 - ae) * cA(1.466 / Math.max(P.aA, .001)); if (ae >= 1) { ae = 1; as = 2; } } else if (as === 2) ae += (P.aS - ae) * cA(3 / Math.max(P.aD, .005)); else if (as === 3) ae -= ae * cA(3 / Math.max(P.aR, .005));
+    if (fs === 1) { fe += (1.3 - fe) * cA(1.466 / Math.max(P.fA, .001)); if (fe >= 1) { fe = 1; fs = 2; } } else if (fs === 2) fe += (P.fS - fe) * cA(3 / Math.max(P.fD, .005)); else if (fs === 3) fe -= fe * cA(3 / Math.max(P.fR, .005));
+    lt += (P.lsync ? P.tempo / 60 : P.lrate) * dt; const lfo = Math.sin(6.2832 * lt) * (P.pwLfo ? 1 : 0);
+    const pitch = P.mePitch * fe + P.lpitch * lfo * 3;
+    const f = F * Math.pow(2, pitch / 12 * 0.6); p1 += f * dt; p2 += f * r2 * dt;
+    const fmI = P.fm + P.meFm * fe;
+    let w1 = fpWave(P.o1w | 0, P, p1 % 1);
+    let w2 = fmI > .01 ? Math.sin(6.2832 * (p2 + fmI * 0.12 * Math.sin(6.2832 * p1))) : fpWave(P.o2w | 0, {...P, o1pos:0, o1vow:0}, p2 % 1);
+    if (P.sync) w2 = fpWave(P.o2w | 0, P, ((p1 % 1) * r2 * 1.6) % 1);
+    if (P.ring) w2 *= w1;
+    // the filter: how far it is open (plus its envelope) blends the wave toward a plain sine
+    const br = fOn ? Math.max(0, Math.min(1, Math.log2(Math.max(20, P.cut * Math.pow(2, P.fenv * fe + P.lcut * lfo)) / 160) / 5.5)) : 1;
+    const sn = Math.sin(6.2832 * p1);
+    seed = (seed * 16807) % 2147483647;
+    let s = (m1 * (sn + (w1 - sn) * br) + m2 * (Math.sin(6.2832 * p2) + (w2 - Math.sin(6.2832 * p2)) * br) + ns * (seed / 1073741823 - 1) * (0.4 + 0.6 * br)) / norm;
+    if (e1 === 1) s *= 1 - P.e1Depth * (0.5 + 0.5 * Math.sin(6.2832 * P.e1Rate * t));
+    out[i] = s * Math.min(1, ae);
+  }
+  if (dly) { const D = Math.max(1, Math.round(P.dTime * 1.4 / dt)), src = out.slice(); let g = P.dMix * 0.9;
+    for (let k = 1; k <= 5 && g > .03; k++, g *= P.dFb) for (let i = D * k; i < N; i++) out[i] += src[i - D * k] * g * (P.dPing && k % 2 ? -1 : 1); }
+  if (rev) { let env = 0, sd = 3; for (let i = 0; i < N; i++) { env = Math.max(Math.abs(out[i]) * 0.6, env * (1 - dt / (0.3 + P.rvSize * 2))); sd = (sd * 16807) % 2147483647; out[i] += env * P.rvMix * 0.5 * (sd / 1073741823 - 1); } }
+  let pk = 0; for (let i = 0; i < N; i++) pk = Math.max(pk, Math.abs(out[i]));
+  if (pk > 0) for (let i = 0; i < N; i++) out[i] /= pk;
+  return out;
+}
+function fpOf(id, N, cyc){
+  const key = `${id}:${MX.ver}:${N}`; if (MX.cache[key]) return MX.cache[key];
+  const d = slotData(id); return (MX.cache[key] = d ? fingerprint(d, N, cyc) : null);
+}
+// draw a fingerprint: the part already "played" is bright, the rest waits dimmer; reveal < 1 draws it in while recording
+function drawFp(g, s, x0, y0, w, h, col, play, reveal, d, glow){
+  const mid = y0 + h / 2, N = s.length, n = Math.max(2, Math.floor(N * reveal));
+  g.lineJoin = 'round'; g.lineWidth = (glow ? 1.4 : 1.1) * d;
+  const seg = (a, b, alpha, blur) => { if (b <= a) return; g.beginPath(); for (let i = a; i < b; i++) { const x = x0 + i / (N - 1) * w, y = mid - s[i] * h * 0.46; i > a ? g.lineTo(x, y) : g.moveTo(x, y); }
+    g.globalAlpha = alpha; g.strokeStyle = col; g.shadowColor = col; g.shadowBlur = blur; g.stroke(); };
+  const ph = play == null ? n : Math.min(n, Math.floor(play * N));
+  seg(0, Math.min(ph + 1, n), 1, glow ? 8 * d : 0);
+  seg(ph, n, play == null ? 1 : 0.38, 0);
+  g.globalAlpha = 1; g.shadowBlur = 0;
+}
+const FLKM = [0, .8, .15, 1, .45, 1];
+function mxDraw(){
+  if (!MX.open) return;
+  MX.raf = requestAnimationFrame(mxDraw);
+  const d = DPR(), now = performance.now(), t = (now - MX.t0) / 1000;
+  // hero: the selected track, large, with a playhead looping through the note
+  const cv = $('mxC'), r = cv.getBoundingClientRect();
+  if (r.width) {
+    const W = Math.round(r.width * d), H = Math.round(r.height * d);
+    if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+    const g = cv.getContext('2d'); g.clearRect(0, 0, W, H);
+    const id = mxId(MX.sel), col = BANK_C[MEM.bank], s = fpOf(id, Math.max(200, Math.round(W / 1.6)), 22);
+    g.strokeStyle = 'rgba(242,245,248,.07)'; g.lineWidth = 1; g.beginPath(); g.moveTo(0, H / 2); g.lineTo(W, H / 2); g.stroke();
+    if (s) {
+      const rc = MX.rec[id], ru = rc ? Math.min(1, (now - rc) / 900) : 1; if (rc && ru >= 1) delete MX.rec[id];
+      const play = rc ? ru : (t % 2.6) / 2.6;
+      drawFp(g, s, 2 * d, 3 * d, W - 4 * d, H - 6 * d, rc ? '#ff5a4f' : col, play, ru, d, true);
+      const px = 2 * d + play * (W - 4 * d);
+      g.fillStyle = rc ? '#ff5a4f' : COL.ink; g.globalAlpha = 0.7; g.fillRect(px - d * 0.5, 0, d, H); g.globalAlpha = 1;
+      const pl = MX.pulse[id]; if (pl) { const u = (now - pl) / 500; if (u >= 1) delete MX.pulse[id]; else { g.fillStyle = col; g.globalAlpha = 0.25 * (1 - u); g.fillRect(0, 0, W, H); g.globalAlpha = 1; } }
+    } else { g.setLineDash([3 * d, 5 * d]); g.strokeStyle = '#3b434d'; g.beginPath(); g.moveTo(0, H / 2); g.lineTo(W, H / 2); g.stroke(); g.setLineDash([]); }
+  }
+  // track glyphs: redrawn while recording or flickering in, otherwise once per change
+  $('memGrid').querySelectorAll('.mt').forEach((c, i) => {
+    const id = mxId(i), cvs = c.querySelector('canvas'), rr = cvs.getBoundingClientRect();
+    if (!rr.width) return;
+    const rc = MX.rec[id], live = !!rc || i === MX.sel, sig = `${id}:${MX.ver}:${i === MX.sel}:${rr.width}`;
+    if (!live && cvs._sig === sig) return;
+    const W = Math.round(rr.width * d), H = Math.round(rr.height * d); if (cvs.width !== W || cvs.height !== H) { cvs.width = W; cvs.height = H; }
+    const g = cvs.getContext('2d'); g.clearRect(0, 0, W, H); cvs._sig = sig;
+    const s = fpOf(id, Math.max(90, Math.round(W / 1.4)), 10);
+    if (!s) { g.setLineDash([2 * d, 4 * d]); g.strokeStyle = '#2b333c'; g.lineWidth = 1 * d; g.beginPath(); g.moveTo(0, H / 2); g.lineTo(W, H / 2); g.stroke(); g.setLineDash([]); return; }
+    const ru = rc ? Math.min(1, (now - rc) / 900) : 1;
+    drawFp(g, s, 0, 1 * d, W, H - 2 * d, rc ? '#ff5a4f' : BANK_C[MEM.bank], i === MX.sel && !rc ? (t % 2.6) / 2.6 : null, ru, d, i === MX.sel);
+  });
+}
+/* the panel */
+function mxInfo(flick){
+  if (!MX.open) return;
+  const id = mxId(MX.sel), d = slotData(id), isCur = MEM.cur === id, ed = isCur && memEdited();
+  $('mxId').textContent = id.toLowerCase();
+  const nm = $('mxName'); if (!nm.querySelector('input')) { nm.textContent = d ? d.n : 'empty'; nm.classList.toggle('blank', !d); }
+  if (flick) { nm.classList.remove('in'); void nm.offsetWidth; nm.classList.add('in'); }
+  const st = $('mxState');
+  st.textContent = isCur && MEM.cmp ? 'comparing with stored' : ed ? 'loaded · edited' : isCur ? 'loaded' : d ? (MEM.user[id] ? (FACTORY[id] ? 'factory · your edit' : 'yours') : 'factory') : 'empty';
+  st.className = isCur && MEM.cmp ? 'cmp' : ed ? 'ed' : isCur ? 'ld' : '';
+  $('mCmp').disabled = !(MEM.cmp || memEdited()); $('mCmp').classList.toggle('on', !!MEM.cmp);
+  $('mWrite').classList.toggle('on', MEM.armed); $('mem').classList.toggle('armed', MEM.armed);
+  $('memHint').innerHTML = MEM.armed ? '<b>hold a track</b> to record onto it' : d ? 'tap a track to load it' : 'empty · tap write, then hold here';
+  const acts = !d || MEM.armed ? [] : [['rename', 'rename'], MEM.user[id] && FACTORY[id] ? ['restore', 'restore'] : null, MEM.user[id] && !FACTORY[id] ? ['erase', 'erase'] : null].filter(Boolean);
+  $('memActs').innerHTML = acts.map(([a, l]) => `<button data-a="${a}">${l}</button>`).join('');
+}
+function memRenderProg(){ mxInfo(false); mxTracks(); }
+function mxTracks(){
+  if (!MX.open) return;
+  const B = MEM.bank;
+  $('mem').style.setProperty('--bcol', BANK_C[B]);
+  document.querySelector('.mx-sub').textContent = `${B.toLowerCase()} · ${BANK_NAME[B]}`;
+  $('memBanks').querySelectorAll('button').forEach(b => {
+    const K = b.dataset.b; b.classList.toggle('on', K === B); b.setAttribute('aria-selected', K === B);
+    b.querySelectorAll('span i').forEach((x, i) => { const id = K + (i + 1); x.classList.toggle('f', !!slotData(id)); x.classList.toggle('c', MEM.cur === id); });
+  });
+  $('memGrid').querySelectorAll('.mt').forEach((c, i) => {
+    const id = mxId(i), d = slotData(id), isCur = MEM.cur === id;
+    c.querySelector('.mt-r b').textContent = i + 1;
+    c.querySelector('.mt-n').textContent = d ? d.n : 'empty';
+    c.classList.toggle('blank', !d); c.classList.toggle('sel', i === MX.sel); c.classList.toggle('cur', isCur); c.classList.toggle('ed', isCur && memEdited());
+    c.setAttribute('aria-label', `Track ${i + 1}, ${d ? d.n : 'empty'}${isCur ? ', loaded' : ''}`);
+  });
+  memChip();
+}
+const memRender = () => { MX.ver++; mxTracks(); mxInfo(false); };
+function memReels(){}
+function mxSelect(i, flick){ MX.sel = i; mxTracks(); mxInfo(flick); }
+function mxFlick(){ $('memGrid').querySelectorAll('.mt').forEach((c, i) => { c.classList.remove('flk'); void c.offsetWidth; c.style.animationDelay = (i * 28) + 'ms'; c.classList.add('flk'); }); }
+function memRename(id){
+  if (!MX.open || mxId(MX.sel) !== id) return;
+  const d = slotData(id); if (!d) return;
+  const nm = $('mxName');
+  nm.innerHTML = '<input maxlength="14" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="Patch name">';
+  const inp = nm.querySelector('input'); inp.value = d.n; inp.focus();
+  const done = ok => { if (!nm.contains(inp)) return; const v = inp.value.trim().toLowerCase().slice(0, 14);
+    if (ok && v && v !== d.n) { MEM.user[id] = {n:v, p:MEM.user[id] ? MEM.user[id].p : {...fullP(d)}}; store.set('patches', MEM.user); }
+    nm.textContent = slotData(id).n; memChip(); mxTracks(); mxInfo(false); };
+  inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); done(true); } if (e.key === 'Escape') done(false); });
+  inp.addEventListener('blur', () => done(true));
+}
+function mxBuild(){
+  $('memBanks').innerHTML = BANKS.map(B => `<button data-b="${B}" style="--bc:${BANK_C[B]}" role="tab" aria-label="Bank ${B}, ${BANK_NAME[B]}"><b>${B.toLowerCase()}</b><span aria-hidden="true">${'<i></i>'.repeat(8)}</span></button>`).join('');
+  $('memGrid').innerHTML = Array.from({length:8}, () => `<button class="mt"><span class="mt-r"><b></b><span class="mt-n"></span><i></i></span><canvas aria-hidden="true"></canvas></button>`).join('');
+  $('memBanks').addEventListener('click', e => { const b = e.target.closest('button'); if (!b || b.dataset.b === MEM.bank) return;
+    MEM.bank = b.dataset.b; MX.sel = MEM.cur && MEM.cur[0] === MEM.bank ? +MEM.cur[1] - 1 : 0; mxFlick(); mxTracks(); mxInfo(true); });
+  $('memGrid').querySelectorAll('.mt').forEach((c, i) => {
+    let tm = 0, fired = false;
+    const stop = () => { clearTimeout(tm); c.classList.remove('writing'); };
+    c.addEventListener('pointerdown', () => { fired = false; if (!MEM.armed) return; mxSelect(i, false); c.classList.add('writing');
+      tm = setTimeout(() => { c.classList.remove('writing'); fired = true; const id = mxId(i); memWrite(id); MX.ver++; MX.rec[id] = performance.now(); mxSelect(i, true); }, 700); });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => c.addEventListener(ev, stop));
+    c.addEventListener('contextmenu', e => e.preventDefault());
+    // one tap loads, like a program button
+    c.addEventListener('click', () => { if (MEM.armed || fired) return; const id = mxId(i); const flick = MX.sel !== i; MX.sel = i;
+      if (slotData(id)) { memLoad(id); MX.pulse[id] = performance.now(); try { navigator.vibrate && navigator.vibrate(8); } catch (e) {} }
+      mxTracks(); mxInfo(flick); });
+  });
+  $('mCmp').addEventListener('click', memCompare);
+  $('mWrite').addEventListener('click', () => { MEM.armed = !MEM.armed; mxInfo(false); });
+  $('mxName').addEventListener('click', () => { const id = mxId(MX.sel); if (slotData(id) && !$('mxName').querySelector('input')) memRename(id); });
+  $('memActs').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return; const id = mxId(MX.sel);
+    if (b.dataset.a === 'rename') memRename(id);
+    if (b.dataset.a === 'restore') { delete MEM.user[id]; store.set('patches', MEM.user); MX.ver++; MX.rec[id] = performance.now(); memLoad(id); mxTracks(); mxInfo(true); }
+    if (b.dataset.a === 'erase') { delete MEM.user[id]; store.set('patches', MEM.user); if (MEM.cur === id) { MEM.cur = null; MEM.ref = null; } MX.ver++; memOnChange(); mxTracks(); mxInfo(true); }
+  });
+}
+function memOpen(){
+  const kb = document.querySelector('.kbwrap').getBoundingClientRect();
+  $('mem').style.setProperty('--mxb', Math.max(0, innerHeight - kb.top + 6) + 'px');
+  MX.open = true; MEM.open = true; MEM.armed = false; MX.ver++;
+  if (MEM.cur) { MEM.bank = MEM.cur[0]; MX.sel = +MEM.cur[1] - 1; }
+  const m = $('mem'); m.classList.remove('closing'); m.hidden = false;
+  mxTracks(); mxInfo(true); mxFlick();
+  cancelAnimationFrame(MX.raf); mxDraw();
+}
+function memClose(){
+  const m = $('mem'); if (m.hidden) return;
+  MEM.armed = false; m.classList.add('closing');
+  setTimeout(() => { m.hidden = true; m.classList.remove('closing'); MX.open = false; MEM.open = false; cancelAnimationFrame(MX.raf); }, 210);
+}
+$('memBtn').addEventListener('click', memOpen);
+$('memClose').addEventListener('click', memClose);
+/* tape: dump the whole memory to a backup file, or load one back, like saving a synth's memory to cassette */
+function memTape(on){ $('memTape').classList.toggle('run', on); if (on) setTimeout(() => memTape(false), 1600); }
+$('tDump').addEventListener('click', async () => {
+  memTape(true);
+  const json = JSON.stringify({app:'signal-path', v:1, patches:MEM.user}, null, 1), name = 'signal-path-patches.json';
+  const file = new File([json], name, {type:'application/json'});
+  try { if (navigator.canShare && navigator.canShare({files:[file]})) { await navigator.share({files:[file], title:'Signal Path patches'}); return; } } catch (e) { if (e.name === 'AbortError') return; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+});
+$('tLoad').addEventListener('click', () => $('tFile').click());
+$('tFile').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  memTape(true);
+  try { const o = JSON.parse(await f.text()), P = o && o.patches;
+    if (!P || typeof P !== 'object') throw 0;
+    Object.keys(P).forEach(id => { if (/^[A-H][1-8]$/.test(id) && P[id] && P[id].p && typeof P[id].n === 'string') MEM.user[id] = {n:P[id].n.slice(0, 14), p:P[id].p}; });
+    store.set('patches', MEM.user); $('tapeMsg').textContent = 'tape loaded';
+  } catch (err) { $('tapeMsg').textContent = 'not a patch tape'; }
+  setTimeout(() => { $('tapeMsg').textContent = ''; }, 2500);
+  memRender();
+});
+mxBuild();
+
 
 /* =====================================================================
    Main loop
@@ -3489,7 +4599,7 @@ let frameN = 0, lastNoteTxt = '';
 function frame(){
   requestAnimationFrame(frame);
   frameN++;
-  const showBig = state.page === 1, showMini = state.page === 0;
+  const showBig = state.page === 1 && !MX.open, showMini = state.page === 0 && !MX.open;
   if (Engine.ready && state.run && state.mode !== 'env') {
     const i = TAPI[state.tap];
     if (state.mode === 'gram') {
@@ -3507,6 +4617,8 @@ function frame(){
   let win = 0;
   if (showBig) win = drawScreen(screens[0]) || Math.pow(2, state.zoomL2);
   if (showMini || frameN % 6 === 0) drawScreen(screens[1]);
+  if (showMini) { drawTabs(); if (chainUI) drawChain(); }
+  if (tgtDirty && frameN % 4 === 0) { computeTargets(); if (hud.k) hudText(); }
   if (hud.k) { if (frameN % 30 === 0) hudResize(); if (coach.L && performance.now() > hud.until) hudHide(); else drawHud(); }
   if (params.arpOn) {
     const g = !!tele.g; if (g !== state.gateOn || tele.n !== state.lastNote) { state.gateOn = g; state.lastNote = tele.n; litKeys(); }
@@ -3524,18 +4636,24 @@ function frame(){
 /* ---------- boot ---------- */
 function preview(){
   const d = DSPV = new SynthDSP(48000);
-  d.msg({t:'all', v:{...params}});
+  d.msg({t:'all', v:effP()});
   const junk = [0, 1, 2, 3, 4].map(() => new Float32Array(4096));
   d.render(...junk, 4096);
   d.render(TD[0], TD[1], TD[2], TD[3], new Float32Array(N), N);
   Object.assign(tele, d.tele);
 }
-buildTabs(); showTab('osc1'); coachMode(); buildKeys(); setMode('wave'); setTap('filter'); renderCoach(); preview();
-if (freeK && (DEFS[freeK] || SEGS[freeK] || TOGS[freeK])) requestAnimationFrame(() => hudShow(freeK));
+buildTabs(); showTab('osc1'); coachMode(); buildKeys(); setMode('wave'); setTap('filter'); renderCoach();
+// pick up where you left off: the last sound you were playing, and which memory slot it came from
+{ const w = store.get('work', null);
+  if (w && w.p) { applyPatch({...INIT, ...w.p}); MEM.cur = w.cur && /^[A-H][1-8]$/.test(w.cur) ? w.cur : null; const d = MEM.cur && slotData(MEM.cur); MEM.ref = d ? fullP(d) : null; if (MEM.cur && !d) MEM.cur = null; }
+  else { MEM.cur = 'A1'; MEM.ref = {...params}; } }
+allQuiet(); preview(); memChip();
+if (freeK && (DEFS[freeK] || SEGS[freeK] || TOGS[freeK] || PW_SEC[freeK])) requestAnimationFrame(() => hudShow(freeK));
 requestAnimationFrame(frame);
 $('goBtn').addEventListener('click', async () => {
   $('start').hidden = true;
   await Engine.start();
+  allQuiet();
   openSheet();
 });
 })();
