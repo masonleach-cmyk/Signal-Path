@@ -221,7 +221,7 @@ button:focus-visible,.knob:focus-visible{outline:1px solid var(--c1);outline-off
 .unplug{height:26px;padding:0 10px 0 8px;border-radius:13px;border:1px solid var(--line2);color:var(--dim);display:flex;align-items:center;gap:6px;font-weight:700;font-size:9px;letter-spacing:.16em;text-transform:uppercase;flex:0 0 auto;transition:color .15s,border-color .15s,box-shadow .15s}
 .unplug svg{width:18px;height:9px;stroke:currentColor;fill:none;stroke-width:1.2;stroke-linecap:round;stroke-linejoin:round}
 .unplug:active{color:var(--rec,#ff5a4f);border-color:var(--rec,#ff5a4f);box-shadow:0 0 8px rgba(255,90,79,.25)}
-/* the library: ten pedals by what they do, numbered in the order players usually chain them */
+/* the library: pedals in seven groups, numbered in the order players usually chain them */
 .fxlib{display:flex;flex-direction:column;gap:5px;padding:1px 1px 2px}
 .li{display:flex;align-items:baseline;gap:10px;min-height:34px;padding:2px 3px 0}
 .li b{font-family:var(--f-disp);font-weight:400;font-size:17px;line-height:1;color:var(--c5);text-shadow:0 0 8px rgba(125,255,208,.6);text-transform:lowercase;flex:0 0 auto}
@@ -240,12 +240,28 @@ button:focus-visible,.knob:focus-visible{outline:1px solid var(--c1);outline-off
 .lt.on{border-color:var(--c5);background:rgba(125,255,208,.06);box-shadow:0 0 14px rgba(125,255,208,.22),inset 0 0 10px rgba(125,255,208,.07);transform:translateY(1px)}
 .lt.on span{color:var(--ink);text-shadow:0 0 6px rgba(125,255,208,.7)}
 .lt.full:not(.on){opacity:.45}
-.fxlib.in .lt,.fxlib.in .lh{animation:kin .34s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 22ms)}
+.fxlib.in .lt,.fxlib.in .lh,.fxlib.in .lg,.lgrid.sw .lt{animation:kin .34s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 22ms)}
+/* the group selector: a number and a name per group, lit underline on the open one, a lamp when it has a pedal on the board */
+.lgs{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px;border-bottom:1px solid var(--line)}
+.lg{position:relative;height:31px;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--dim);transition:color .15s}
+.lg i{font-style:normal;font-family:var(--f-mono);font-weight:400;font-size:8.5px;line-height:1;color:var(--c5);opacity:.55;transition:opacity .15s}
+.lg span{font-weight:700;font-size:7.5px;line-height:1;letter-spacing:.07em;text-transform:uppercase;white-space:nowrap}
+.lg u{position:absolute;top:4px;right:4px;width:4px;height:4px;border-radius:50%;background:var(--c5);box-shadow:0 0 5px var(--c5);opacity:0;transition:opacity .3s}
+.lg.has u{opacity:.85}
+.lg::after{content:"";position:absolute;left:16%;right:16%;bottom:-1px;height:1.5px;background:var(--c5);box-shadow:0 0 6px var(--c5);opacity:0;transition:opacity .2s}
+.lg.on{color:var(--ink);text-shadow:0 0 6px rgba(125,255,208,.6)}
+.lg.on i{opacity:1;text-shadow:0 0 5px rgba(125,255,208,.6)}
+.lg.on::after{opacity:1}
+.lgrid{grid-auto-rows:50px;min-height:104px;align-content:start}
+.fxlib .lt.hint{animation:pulse 1.5s ease-in-out infinite}
+.seg.dense{gap:0}
+.seg.dense>button{font-size:9.5px;letter-spacing:.05em}
+.mod-row.dense .lab{min-width:40px}
 /* a pedal under your finger while you drag it */
 #fxGhost{position:fixed;left:0;top:0;z-index:60;pointer-events:none;will-change:transform;transform-origin:50% 40%}
 #fxGhost.gone{opacity:0;transition:opacity .18s}
 #fxGhost.rmv{animation:flkOff .4s step-end both}
-@media (max-height:720px){.fxb{height:64px}.lt{height:42px}.lt canvas{top:6px;height:15px}.lt span{font-size:8px}.li{min-height:22px;align-items:center}.li b{font-size:15px}.li span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}.lh{padding-top:2px}.fxhead{min-height:24px}}
+@media (max-height:720px){.fxb{height:64px}.lt{height:42px}.lgrid{grid-auto-rows:42px;min-height:88px}.lg{height:27px}.lt canvas{top:6px;height:15px}.lt span{font-size:8px}.li{min-height:22px;align-items:center}.li b{font-size:15px}.li span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}.lh{padding-top:2px}.fxhead{min-height:24px}}
 
 /* scope page */
 .sbar{display:flex;gap:8px;align-items:center;flex:0 0 auto}
@@ -694,7 +710,10 @@ class SynthDSP {
     this.dLen = Math.ceil(sr * 2.2) + 8;
     const sc = sr / 48000;
     this.rvL = [1031, 1327, 1523, 1747, 1949, 2221, 2477, 2729].map(l => Math.round(l * sc));
-    this.apL = [142, 379, 107].map(l => Math.round(l * sc));
+    this.apL = [142, 379, 107, 277, 191].map(l => Math.round(l * sc));
+    const p2 = x => { let n = 256; while (n < x) n <<= 1; return n; };
+    this.preLen = p2(sr * 0.27 + 600); this.pLen = p2(sr * 0.13); this.wLen = p2(sr * 0.035); this.spLen = Math.ceil(sr * 0.045);
+    this.fxm = {};
     this.fxU = []; this.fxM = new Map();
     this.arpN = []; this.arpSeq = []; this.arpI = 0; this.arpCnt = 0; this.arpOff = 0;
     this.act = [];
@@ -798,27 +817,49 @@ class SynthDSP {
      Each unit is one pedal: its family (fx1 = trem/pan/wah, amp, eq, mod = chorus/flanger/phaser, delay, reverb), its own
      settings and its own buffers. The UI sends the whole chain in order; units keep their state across updates by id. */
   fxNew(f, id){
-    const u = {id, f, t:0, act:false, on:false, p:null, c:{}};
-    if (f === 'fx1') { u.ph = 0; u.wE = 0; u.wC = 0; u.wG = 0.1; u.wL = [0, 0]; u.wB = [0, 0]; }
+    const u = {id, f, t:0, act:false, on:false, p:null, c:{}, mtr:0};
+    if (f === 'fx1') { u.ph = 0; u.wE = 0; u.wC = 0; u.wG = 0.1; u.wL = [0, 0]; u.wB = [0, 0]; u.sg = 1; }
     else if (f === 'amp' || f === 'eq') { const z = () => [new Float64Array(4), new Float64Array(4), new Float64Array(4)]; u.sL = z(); u.sR = z(); }
-    else if (f === 'mod') { u.chB = new Float32Array(4096); u.chW = 0; u.chP = 0; u.flL = new Float32Array(2048); u.flR = new Float32Array(2048); u.flW = 0;
-      u.phX = [new Float64Array(6), new Float64Array(6)]; u.phY = [new Float64Array(6), new Float64Array(6)]; u.phO = [0, 0]; u.phA = [0, 0]; u.phC = 0; }
-    else if (f === 'delay') { u.dBL = new Float32Array(this.dLen); u.dBR = new Float32Array(this.dLen); u.dW = 0; u.dTs = 0.35 * this.sr; u.dLpL = 0; u.dLpR = 0; }
-    else if (f === 'reverb') { u.rvB = this.rvL.map(l => new Float32Array(l)); u.rvI = new Int32Array(8); u.rvLp = new Float64Array(8); u.rvY = new Float64Array(8); u.ap = this.apL.map(l => ({b:new Float32Array(l), i:0})); }
+    else if (f === 'mod') { u.chB = new Float32Array(4096); u.chW = 0; u.chP = 0; u.enP = 0; u.flL = new Float32Array(2048); u.flR = new Float32Array(2048); u.flW = 0;
+      u.phX = [new Float64Array(6), new Float64Array(6)]; u.phY = [new Float64Array(6), new Float64Array(6)]; u.phO = [0, 0]; u.phA = [0, 0]; u.phC = 0;
+      u.vbZ = [new Float64Array(4), new Float64Array(4)]; u.vbA = [new Float64Array(4), new Float64Array(4)]; u.vbG = [1, 1]; }
+    else if (f === 'delay') { u.dBL = new Float32Array(this.dLen); u.dBR = new Float32Array(this.dLen); u.dW = 0; u.dTs = 0.35 * this.sr; u.dLpL = 0; u.dLpR = 0; u.wow = 0; u.flt = 0; }
+    else if (f === 'reverb') { u.rvB = this.rvL.map(l => new Float32Array(l)); u.rvI = new Int32Array(8); u.rvLp = new Float64Array(8); u.rvY = new Float64Array(8);
+      u.ap = this.apL.map(l => ({b:new Float32Array(l), i:0}));
+      u.pre = new Float32Array(this.preLen); u.preW = 0;
+      u.spB = [0, 1].map(() => new Float32Array(this.spLen)); u.spI = [0, 0]; u.spX = [new Float64Array(80), new Float64Array(80)]; u.spY = [new Float64Array(80), new Float64Array(80)]; u.spR = 0; u.spL = [0, 0]; u.sh1 = 0; u.sl1 = 0;
+      u.shB = new Float32Array(this.pLen); u.shW = 0; u.shS = {d:0}; u.shO = 0; }
+    else if (f === 'dyn') { u.dG = 0; u.e1 = 0; u.e2 = 0; u.e3 = 0; u.gG = 0; u.gOpen = 0; }
+    else if (f === 'drv') { u.zL = 0; u.zR = 0; u.dxL = 0; u.dyL = 0; u.dxR = 0; u.dyR = 0; }
+    else if (f === 'crush') { u.cph = 1; u.hL = 0; u.hR = 0; }
+    else if (f === 'filt') { u.ph = 0; u.fC = 0; u.fG = 0.1; u.fL = [0, 0]; u.fB = [0, 0]; }
+    else if (f === 'pitch') { u.pB = new Float32Array(this.pLen); u.pW = 0; u.pS = [{d:0}, {d:0}, {d:0}]; }
+    else if (f === 'rot') { u.hb = new Float32Array(1024); u.db = new Float32Array(1024); u.rw = 0; u.hs = 0.83; u.ds = 0.67; u.hp = 0; u.dp = 0.37; u.lo = 0; }
+    else if (f === 'wide') { u.wB = new Float32Array(this.wLen); u.wW = 0; u.sLp = 0; u.hz = 0; }
     return u;
   }
   // a pedal coming back from silence starts with empty buffers, so no stale echoes replay
   fxClear(u){
-    if (u.f === 'fx1') { u.wE = 0; u.wL[0] = u.wL[1] = u.wB[0] = u.wB[1] = 0; }
+    if (u.f === 'fx1') { u.wE = 0; u.wL[0] = u.wL[1] = u.wB[0] = u.wB[1] = 0; u.sg = 1; }
     else if (u.sL) { u.sL.forEach(a => a.fill(0)); u.sR.forEach(a => a.fill(0)); }
-    else if (u.f === 'mod') { u.chB.fill(0); u.flL.fill(0); u.flR.fill(0); u.phX.forEach(a => a.fill(0)); u.phY.forEach(a => a.fill(0)); u.phO[0] = u.phO[1] = 0; }
+    else if (u.f === 'mod') { u.chB.fill(0); u.flL.fill(0); u.flR.fill(0); u.phX.forEach(a => a.fill(0)); u.phY.forEach(a => a.fill(0)); u.phO[0] = u.phO[1] = 0; u.vbZ.forEach(a => a.fill(0)); }
     else if (u.f === 'delay') { u.dBL.fill(0); u.dBR.fill(0); u.dLpL = u.dLpR = 0; }
-    else if (u.f === 'reverb') { u.rvB.forEach(b => b.fill(0)); u.rvLp.fill(0); u.rvY.fill(0); u.ap.forEach(a => a.b.fill(0)); }
+    else if (u.f === 'reverb') { u.rvB.forEach(b => b.fill(0)); u.rvLp.fill(0); u.rvY.fill(0); u.ap.forEach(a => a.b.fill(0)); u.pre.fill(0);
+      u.spB.forEach(b => b.fill(0)); u.spX.forEach(a => a.fill(0)); u.spY.forEach(a => a.fill(0)); u.spL[0] = u.spL[1] = 0; u.sh1 = u.sl1 = 0; u.shB.fill(0); u.shO = 0; }
+    else if (u.f === 'dyn') { u.dG = 0; u.e1 = u.e2 = u.e3 = 0; u.gG = 0; u.gOpen = 0; }
+    else if (u.f === 'drv') { u.zL = u.zR = u.dxL = u.dyL = u.dxR = u.dyR = 0; }
+    else if (u.f === 'crush') { u.hL = u.hR = 0; }
+    else if (u.f === 'filt') { u.fL[0] = u.fL[1] = u.fB[0] = u.fB[1] = 0; }
+    else if (u.f === 'pitch') { u.pB.fill(0); }
+    else if (u.f === 'rot') { u.hb.fill(0); u.db.fill(0); u.lo = 0; }
+    else if (u.f === 'wide') { u.wB.fill(0); u.sLp = 0; }
   }
   fxCalc(u){
-    const p = u.p, sr = this.sr, c = u.c, on = u.on;
-    if (u.f === 'fx1') { const ty = p.e1Type | 0; u.t = ty >= 1 && ty <= 3 ? ty : 0; u.act = on && u.t > 0;
-      c.rate = p.e1Rate; c.dep = p.e1Depth; c.wQk = 2 - 1.85 * p.e1Q; c.wSens = p.e1Sens * 14; c.wRange = p.e1Depth * 4.5; }
+    const p = u.p, sr = this.sr, c = u.c, on = u.on, TAU = 6.283185307179586;
+    const tc = s => 1 - Math.exp(-1 / (Math.max(s, 0.00002) * sr)), lp1 = f => 1 - Math.exp(-TAU * Math.min(f, sr * 0.45) / sr);
+    if (u.f === 'fx1') { const ty = p.e1Type | 0; u.t = ty === 4 ? 11 : ty === 5 ? 12 : ty >= 1 && ty <= 3 ? ty : 0; u.act = on && u.t > 0;
+      c.rate = p.e1Rate; c.dep = p.e1Depth; c.wQk = 2 - 1.85 * p.e1Q; c.wSens = p.e1Sens * 14; c.wRange = p.e1Depth * 4.5;
+      c.rf = p.e1Freq; c.div = Math.max(0, Math.min(4, p.e1Div | 0)); c.duty = p.e1Duty; c.sm = tc(0.0025); }
     else if (u.f === 'amp') {
       // amp cabinets: [low cut, mid bump Hz, mid dB, top cut]
       const at = p.ampType | 0, cab = [null, [120, 1200, 4, 2600], [80, 700, 2.5, 4500], [60, 2800, 1.5, 7500]][at];
@@ -827,15 +868,70 @@ class SynthDSP {
       c.aG = 1 + p.ampDrive * 20; c.aNorm = 1 / Math.tanh(0.35 * c.aG + 0.25); c.aLvl = p.ampLvl * 1.3; }
     else if (u.f === 'eq') { u.t = 5; u.act = on && (Math.abs(p.eqLo) > 0.05 || Math.abs(p.eqMid) > 0.05 || Math.abs(p.eqHi) > 0.05);
       c.C = [this.bq('ls', 180, .7, p.eqLo), this.bq('pk', p.eqFreq, .9, p.eqMid), this.bq('hs', 4500, .7, p.eqHi)]; }
-    else if (u.f === 'mod') { u.t = 6 + Math.max(0, Math.min(2, p.modType | 0)); u.act = on && p.chMix > 0.001;
+    else if (u.f === 'mod') { const mt = Math.max(0, Math.min(5, p.modType | 0)); u.t = mt <= 2 ? 6 + mt : 10 + mt; u.act = on && p.chMix > 0.001;
       c.rate = p.chRate; c.depth = p.chDepth; c.fb = p.chFb;
       c.chBase = 0.007 * sr; c.chDep = 0.005 * sr * p.chDepth; c.chDry = 1 - 0.45 * p.chMix; c.chWet = 0.8 * p.chMix;
-      c.flBase = 0.0006 * sr; c.flDep = 0.004 * sr * p.chDepth; c.mDry = 1 - 0.5 * p.chMix; c.mWet = p.chMix * 0.75; }
-    else if (u.f === 'delay') { u.t = 9; u.act = on && p.dMix > 0.001;
-      c.dTc = 1 - Math.exp(-6.283185307179586 * Math.min(p.dTone, sr * 0.45) / sr); c.dry = 1 - 0.3 * p.dMix; c.mix = p.dMix; c.fb = p.dFb; c.ping = !!p.dPing; }
+      c.flBase = 0.0006 * sr; c.flDep = 0.004 * sr * p.chDepth; c.mDry = 1 - 0.5 * p.chMix; c.mWet = p.chMix * 0.75;
+      // ensemble: three voices a third of a cycle apart, plus a quick shimmer on top
+      c.enBase = 0.009 * sr; c.enDep = 0.004 * sr * p.chDepth; c.enFast = 0.0003 * sr * (0.3 + 0.7 * p.chDepth);
+      // vibrato: one copy whose delay wobbles, heard on its own (Mix 100%) or under the dry sound (chorus)
+      c.viDep = 0.003 * sr * p.chDepth; c.viBase = 0.0008 * sr + c.viDep; c.viDry = 1 - p.chMix; c.viWet = p.chMix; }
+    else if (u.f === 'delay') { u.t = 9; u.act = on && p.dMix > 0.001; const tape = (p.dType | 0) === 1;
+      c.dTc = 1 - Math.exp(-TAU * Math.min(tape ? Math.min(p.dTone, 7000) : p.dTone, sr * 0.45) / sr); c.dry = 1 - 0.3 * p.dMix; c.mix = p.dMix; c.fb = p.dFb; c.ping = !tape && !!p.dPing;
+      c.tape = tape; c.wowA = 0.0016 * sr * p.dWow; c.flA = 0.00012 * sr * p.dWow; c.wowR = 0.55 / sr; c.flR = 6.3 / sr; }
     else if (u.f === 'reverb') { u.t = 10; u.act = on && p.rvMix > 0.001;
-      const t60 = 0.3 + p.rvSize * p.rvSize * 9.7; c.G = this.rvL.map(l => Math.pow(10, -3 * l / (t60 * sr)));
-      c.D = 0.05 + p.rvDamp * 0.8; c.dry = 1 - 0.4 * p.rvMix; c.mix = p.rvMix; }
+      const ty = Math.max(0, Math.min(4, p.rvType | 0)), s2 = p.rvSize * p.rvSize; c.ty = ty;
+      const t60 = [0.3 + s2 * 9.7, 0.15 + s2 * 1.6, 0.4 + s2 * 5.6, 0.9 + s2 * 4.5, 1.5 + s2 * 13.5][ty];
+      const sc = [1, 0.42, 0.68, 1, 1][ty];
+      c.len = this.rvL.map(l => Math.max(16, Math.round(l * sc)));
+      c.G = c.len.map(l => Math.pow(10, -3 * l / (t60 * sr)));
+      c.D = (0.05 + p.rvDamp * 0.8) * (ty === 2 ? 0.5 : ty === 4 ? 0.7 : 1);
+      c.nap = ty === 2 ? 5 : 3; c.apg = ty === 2 ? 0.7 : 0.6;
+      c.pre = Math.max(0, Math.min(this.preLen - 600, Math.round(p.rvPre * sr)));
+      // a small room's first, distinct reflections off the walls
+      c.er = ty === 1 ? 0.75 : 0; c.erT = [4.3, 7.9, 11.6, 15.2, 19.8, 23.9].map(ms => Math.round(ms * 0.001 * sr)); c.erG = [0.9, 0.8, -0.65, 0.6, 0.45, -0.4];
+      // spring: two long coils, each a delay loop through a chain of stretched all-pass filters (the dispersion that gives the drip)
+      c.spLenS = [Math.round(0.0331 * sr), Math.round(0.0389 * sr)]; c.spG = c.spLenS.map(l => Math.pow(10, -3 * (l + 300) / (t60 * sr)));
+      c.spA = -0.62; c.spHp = lp1(180); c.spLp = lp1(4200); c.spD = lp1(2500 + 6000 * (1 - p.rvDamp));
+      // shimmer: the tail is pitched up an octave and fed back in, so it climbs
+      c.shW = Math.round(0.07 * sr); c.shFb = 0.18 + 0.17 * p.rvSize;
+      c.dry = 1 - 0.4 * p.rvMix; c.mix = p.rvMix; }
+    else if (u.f === 'dyn') { const ty = Math.max(0, Math.min(3, p.dyType | 0)); u.t = ty === 2 ? 17 : ty === 3 ? 18 : 16; u.act = on;
+      c.ty = ty; c.thr = p.dyThr; c.slope = ty === 1 ? 1 : 1 - 1 / Math.max(1, p.dyRatio); c.knee = ty === 1 ? 1 : 6;
+      c.at = tc(ty === 1 ? 0.0002 : p.dyAtk); c.rl = tc(p.dyRel); c.mk = Math.pow(10, p.dyGain / 20);
+      c.gAt = tc(Math.max(0.0002, p.dyAtk)); c.gRl = tc(p.dyRel / 6.9); c.dAt = tc(0.0004); c.dRl = tc(0.04);
+      c.punch = p.dyPunch; c.sus = p.dySus; c.fa = tc(0.0004); c.fr = tc(0.025); c.sa = tc(0.03); c.lr = tc(0.35); }
+    else if (u.f === 'drv') { const ty = Math.max(0, Math.min(3, p.drvType | 0)); u.t = 19; u.act = on; c.ty = ty;
+      c.g = [1 + p.drvAmt * 30, 2 + p.drvAmt * 120, 1 + p.drvAmt * 60, 1 + p.drvAmt * 7][ty];
+      c.bias = p.drvBias * (ty === 3 ? 0.9 : 0.45); c.off = this.shp(c.bias, ty); c.tc = lp1(600 * Math.pow(2, p.drvTone * 4.5));
+      c.lvl = p.drvLvl * [0.65, 0.7, 0.6, 0.76][ty]; }
+    else if (u.f === 'crush') { u.t = 20; u.act = on && p.crMix > 0.001;
+      c.inc = Math.min(1, p.crRate / sr); c.q = Math.pow(2, Math.max(2, Math.round(p.crBits)) - 1); c.mix = p.crMix; }
+    else if (u.f === 'filt') { u.t = 21; u.act = on; c.ty = Math.max(0, Math.min(2, p.afType | 0));
+      c.rate = p.afRate; c.cut = p.afCut; c.dep = p.afDepth; c.k = 2 - 1.9 * p.afRes; c.on = 0.6 + 0.4 * c.k; }
+    else if (u.f === 'pitch') { const ty = (p.psType | 0) === 1 ? 1 : 0; u.t = ty ? 23 : 22;
+      u.act = on && (ty ? p.psMix > 0.001 : true);
+      c.r = Math.pow(2, Math.round(p.psSemi) / 12); c.W = Math.round(0.05 * sr); c.Wd = Math.round(0.06 * sr); c.Wu = Math.round(0.035 * sr);
+      c.sub = p.psSub; c.up = p.psUp; c.dry = p.psDry; c.mix = p.psMix; }
+    else if (u.f === 'rot') { u.t = 24; u.act = on; const fast = (p.rtSpd | 0) === 1;
+      c.hT = fast ? 6.8 : 0.83; c.dT = fast ? 5.9 : 0.67; c.hk = tc(Math.max(0.05, p.rtAccel * 0.3)); c.dk = tc(Math.max(0.15, p.rtAccel));
+      c.drv = 1 + p.rtDrive * 8; c.pg = 1 / (1 + 0.8 * p.rtDrive); c.xo = lp1(800); c.spr = p.rtSpread * Math.PI;
+      c.hBase = 0.0012 * sr; c.hDep = 0.00044 * sr; c.dBase = 0.0008 * sr; c.dDep = 0.00025 * sr; }
+    else if (u.f === 'wide') { u.t = 27; u.act = on; c.w = p.wdWidth; c.hz = Math.min(this.wLen - 4, p.wdHaas * sr); c.hp = lp1(Math.max(1, p.wdLow)); }
+  }
+  // the drive pedal's four curves (x is the boosted input)
+  shp(x, ty){
+    if (ty === 0) return Math.tanh(x);
+    if (ty === 1) return x > 0 ? 1 - Math.exp(-x) : -0.85 * (1 - Math.exp(1.4 * x));
+    if (ty === 2) return x >= 1 ? 1 : x <= -1 ? -1 : 1.5 * (x - x * x * x / 3);
+    return Math.sin(x * 1.5707963267948966);
+  }
+  rdm(buf, m, pos){ const i0 = Math.floor(pos), f = pos - i0; return buf[i0 & m] * (1 - f) + buf[(i0 + 1) & m] * f; }
+  // a pitch shifter: two read heads sweep through a short delay line at the new speed, each faded in and out so the jumps never show
+  shf(buf, m, w, s, W, r){
+    s.d += 1 - r; if (s.d >= W) s.d -= W; else if (s.d < 0) s.d += W;
+    const d1 = s.d, h = W * 0.5, d2 = d1 >= h ? d1 - h : d1 + h, g = 0.5 - 0.5 * Math.cos(6.283185307179586 * d1 / W);
+    return this.rdm(buf, m, w - d1) * g + this.rdm(buf, m, w - d2) * (1 - g);
   }
   fxSet(list){
     const M = new Map(), out = [];
@@ -848,7 +944,7 @@ class SynthDSP {
       if (u.act && !was) this.fxClear(u);
       M.set(s.id, u); out.push(u);
     }
-    this.fxM = M; this.fxU = out;
+    this.fxM = M; this.fxU = out; this.fxm = {};
   }
   msg(d){
     if (d.t === 'p') {
@@ -915,7 +1011,10 @@ class SynthDSP {
     const useP2 = !sync && p.mix2 > 0.01 && (p.mix1 < 0.01 || r2 < r1 * 0.999);
     const lrate = p.lsync ? p.tempo / 60 / this.LDIV[p.ldiv | 0] : p.lrate;
     const FU = this.fxU, nfx = FU.length, TAU = 6.283185307179586, wAt = this.wAt, wRl = this.wRl;
-    for (const u of FU) if (u.f === 'delay') { const q = u.p; u.c.dTgt = Math.min(this.dLen - 4, Math.max(16, (q.dSync ? 60 / p.tempo * this.DDIV[q.dDiv | 0] : q.dTime) * sr)); }
+    for (const u of FU) {
+      if (u.f === 'delay') { const q = u.p; u.c.dTgt = Math.min(this.dLen - 4, Math.max(16, (q.dSync ? 60 / p.tempo * this.DDIV[q.dDiv | 0] : q.dTime) * sr)); }
+      else if (u.t === 12) u.c.slr = p.tempo / 60 / this.ADIV[u.c.div];
+    }
     const arpOn = p.arpOn && this.arpSeq.length > 0, stepS = Math.max(64, 60 / p.tempo * this.ADIV[p.arpDiv | 0] * sr);
     const fOn = p.pwFlt !== 0, poly = this.polyOn, pg = poly ? 0.6 : 1, mix1 = p.mix1, mix2 = p.mix2, noise = p.noise, aS = p.aS, fS = p.fS, o1pw = p.o1pw, lpw = p.lpw, lpwN = lpw / 0.45, res = p.res;
     const isWT = o1w === 4, isFm = o1w === 5, shBase = isWT ? p.o1pos : p.o1vow, VOW = this.VOW;
@@ -924,6 +1023,12 @@ class SynthDSP {
     let tv = V[this.lastV];
     if (poly) { let lo = 1e9; for (const v of act) if (v.aSt && v.note < lo) { lo = v.note; tv = v; } }
     const tvPhase2 = useP2;
+    // pitch pedals size their crossfade windows to whole cycles of the lowest note, so the two read heads stay in phase
+    if (FU.some(u => u.f === 'pitch')) {
+      const per = sr / Math.max(20, 440 * Math.pow(2, (tv.cur - 69) / 12) * (useP2 ? r2 : r1)), cap = this.pLen - 8;
+      const win = half => Math.min(cap, 2 * per * Math.max(1, Math.round(half * sr / per)));
+      for (const u of FU) if (u.f === 'pitch') { u.c.W = win(0.025); u.c.Wd = win(0.03); u.c.Wu = win(0.0175); }
+    }
     let lfo = 0, nv = 0;
     for (let i = 0; i < n; i++) {
       if (arpOn) {
@@ -1082,26 +1187,167 @@ class SynthDSP {
               u.phO[ch] = xx; if (ch) oR = xx; else oL = xx;
             }
             L = L * c.mDry + oL * c.mWet; R = R * c.mDry + oR * c.mWet; break; }
-          case 9: { // delay
+          case 9: { // delay (digital, or tape: wobbling speed and a saturating loop)
             const len = this.dLen;
             u.dTs += (c.dTgt - u.dTs) * 0.0004;
-            const dl = this.rd(u.dBL, len, u.dW - u.dTs), dr = this.rd(u.dBR, len, u.dW - u.dTs);
+            let off = u.dTs;
+            if (c.tape) { u.wow += c.wowR; if (u.wow >= 1) u.wow -= 1; u.flt += c.flR; if (u.flt >= 1) u.flt -= 1; off += c.wowA * (1 + Math.sin(TAU * u.wow)) + c.flA * Math.sin(TAU * u.flt); }
+            const dl = this.rd(u.dBL, len, u.dW - off), dr = this.rd(u.dBR, len, u.dW - off);
             u.dLpL += (dl - u.dLpL) * c.dTc; u.dLpR += (dr - u.dLpR) * c.dTc;
             const fL = u.dLpL * c.fb, fR = u.dLpR * c.fb;
             if (c.ping) { u.dBL[u.dW] = (L + R) * 0.5 + fR; u.dBR[u.dW] = fL; }
+            else if (c.tape) { u.dBL[u.dW] = Math.tanh((L + fL) * 1.25) * 0.8; u.dBR[u.dW] = Math.tanh((R + fR) * 1.25) * 0.8; }
             else { u.dBL[u.dW] = L + fL; u.dBR[u.dW] = R + fR; }
             u.dW = (u.dW + 1) % len;
             L = L * c.dry + u.dLpL * c.mix; R = R * c.dry + u.dLpR * c.mix; break; }
-          case 10: { // reverb
-            let xi = (L + R) * 0.5;
-            for (let a = 0; a < 3; a++) { const A = u.ap[a], dd = A.b[A.i], w = xi - 0.6 * dd; xi = dd + 0.6 * w; A.b[A.i] = w; A.i = (A.i + 1) % A.b.length; }
-            const B = u.rvB, I = u.rvI, Lp = u.rvLp, Y = u.rvY, G = c.G, D = c.D;
-            let s8 = 0;
-            for (let j = 0; j < 8; j++) { const yv = B[j][I[j]]; Lp[j] += (yv - Lp[j]) * (1 - D); Y[j] = Lp[j]; s8 += Lp[j]; }
-            const h = s8 * 0.25;
-            for (let j = 0; j < 8; j++) { const len = B[j].length; B[j][I[j]] = (Y[j] - h) * G[j] + xi * ((j & 1) ? -0.3 : 0.3); I[j] = (I[j] + 1) % len; }
-            const wl = (Y[0] - Y[3] + Y[4] - Y[7]) * 0.6, wrr = (Y[1] - Y[2] + Y[5] - Y[6]) * 0.6;
-            L = L * c.dry + wl * c.mix; R = R * c.dry + wrr * c.mix; break; }
+          case 10: { // reverb: hall, room, plate, spring or shimmer, after an optional pre-delay
+            const PB = u.pre, pm = this.preLen - 1;
+            PB[u.preW] = (L + R) * 0.5;
+            let xi = c.pre > 0 ? PB[(u.preW - c.pre) & pm] : PB[u.preW], erL = 0, erR = 0;
+            if (c.er > 0) { const T = c.erT, Gs = c.erG; for (let j = 0; j < 6; j++) { const v = PB[(u.preW - c.pre - T[j]) & pm] * Gs[j]; if (j & 1) erR += v; else erL += v; } erL *= c.er; erR *= c.er; }
+            u.preW = (u.preW + 1) & pm;
+            let wl, wrr;
+            if (c.ty === 3) {
+              u.sh1 += (xi - u.sh1) * c.spHp; let x2 = xi - u.sh1; u.sl1 += (x2 - u.sl1) * c.spLp; x2 = u.sl1;
+              const ri = u.spR, a = c.spA; let o0 = 0, o1 = 0;
+              for (let s = 0; s < 2; s++) {
+                const B = u.spB[s], ln = c.spLenS[s], I = u.spI[s] >= ln ? 0 : u.spI[s], X = u.spX[s], Y = u.spY[s];
+                let v = B[I];
+                for (let k = 0; k < 20; k++) { const ix = k * 4 + ri, y = a * v + X[ix] - a * Y[ix]; X[ix] = v; Y[ix] = y; v = y; }
+                u.spL[s] += (v - u.spL[s]) * c.spD; v = u.spL[s];
+                B[I] = x2 * 0.7 + v * c.spG[s]; u.spI[s] = I + 1 >= ln ? 0 : I + 1;
+                if (s) o1 = v; else o0 = v;
+              }
+              u.spR = (ri + 1) & 3;
+              wl = (o0 + 0.35 * o1) * 1.6; wrr = (o1 + 0.35 * o0) * 1.6;
+            } else {
+              if (c.ty === 4) xi += u.shO * c.shFb;
+              for (let a = 0; a < c.nap; a++) { const A = u.ap[a], dd = A.b[A.i], w = xi - c.apg * dd; xi = dd + c.apg * w; A.b[A.i] = w; A.i = (A.i + 1) % A.b.length; }
+              const B = u.rvB, I = u.rvI, Lp = u.rvLp, Y = u.rvY, G = c.G, D = c.D, LN = c.len;
+              let s8 = 0;
+              for (let j = 0; j < 8; j++) { const yv = B[j][I[j]]; Lp[j] += (yv - Lp[j]) * (1 - D); Y[j] = Lp[j]; s8 += Lp[j]; }
+              const h = s8 * 0.25;
+              for (let j = 0; j < 8; j++) { B[j][I[j]] = (Y[j] - h) * G[j] + xi * ((j & 1) ? -0.3 : 0.3); I[j] = (I[j] + 1) % LN[j]; }
+              wl = (Y[0] - Y[3] + Y[4] - Y[7]) * 0.6; wrr = (Y[1] - Y[2] + Y[5] - Y[6]) * 0.6;
+              if (c.ty === 4) { const sm = this.pLen - 1; u.shB[u.shW] = (wl + wrr) * 0.5; u.shO = Math.tanh(this.shf(u.shB, sm, u.shW, u.shS, c.shW, 2)); u.shW = (u.shW + 1) & sm; }
+            }
+            L = L * c.dry + (wl + erL) * c.mix; R = R * c.dry + (wrr + erR) * c.mix; break; }
+          case 11: { // ring modulator: multiply by a sine carrier
+            u.ph += c.rf / sr; if (u.ph >= 1) u.ph -= 1;
+            const gn = 1 - c.dep + c.dep * Math.sin(TAU * u.ph); L *= gn; R *= gn; break; }
+          case 12: { // slicer: a tempo-locked gate chops the sound into steps
+            u.ph += c.slr / sr; if (u.ph >= 1) u.ph -= 1;
+            u.sg += ((u.ph < c.duty ? 1 : 0) - u.sg) * c.sm;
+            const gn = 1 - c.dep * (1 - u.sg); L *= gn; R *= gn; break; }
+          case 13: { // vibe: four uneven all-pass stages swept by a lamp-like, lopsided LFO
+            u.chP += c.rate / sr; if (u.chP >= 1) u.chP -= 1;
+            if (u.phC-- <= 0) {
+              u.phC = 3;
+              for (let ch = 0; ch < 2; ch++) {
+                const s = Math.sin(TAU * (u.chP + ch * 0.08)), lamp = Math.pow(0.5 + 0.5 * s, 1.8), m = Math.pow(2, -2.4 * c.depth * lamp), A = u.vbA[ch];
+                for (let st = 0; st < 4; st++) { const t = Math.tan(Math.PI * Math.min([3000, 1100, 380, 140][st] * m, sr * 0.45) / sr); A[st] = (t - 1) / (t + 1); }
+                u.vbG[ch] = 1 - 0.18 * c.depth * lamp;
+              }
+            }
+            for (let ch = 0; ch < 2; ch++) {
+              let xx = ch ? R : L; const Z = u.vbZ[ch], A = u.vbA[ch];
+              for (let st = 0; st < 4; st++) { const a = A[st], y = a * xx + Z[st]; Z[st] = xx - a * y; xx = y; }
+              const o = ((ch ? R : L) * c.mDry + xx * c.mWet) * u.vbG[ch];
+              if (ch) R = o; else L = o;
+            }
+            break; }
+          case 14: { // ensemble: three chorus voices 120° apart, with a fast shimmer on top
+            u.chP += c.rate / sr; if (u.chP >= 1) u.chP -= 1;
+            u.enP += 6.1 / sr; if (u.enP >= 1) u.enP -= 1;
+            u.chB[u.chW] = (L + R) * 0.5;
+            const fq = c.enFast * Math.sin(TAU * u.enP);
+            let wl = 0, wrr = 0;
+            for (let v = 0; v < 3; v++) {
+              const ph = TAU * (u.chP + v / 3), sl = Math.sin(ph), cl = Math.sin(ph + 1.0471975511965976);
+              wl += this.rd(u.chB, 4096, u.chW - c.enBase - c.enDep * sl - fq);
+              wrr += this.rd(u.chB, 4096, u.chW - c.enBase - c.enDep * cl + fq);
+            }
+            u.chW = (u.chW + 1) & 4095;
+            L = L * c.chDry + wl * 0.42 * c.chWet; R = R * c.chDry + wrr * 0.42 * c.chWet; break; }
+          case 15: { // vibrato: one copy on a wobbling delay; on its own you hear only the pitch wobble
+            u.chP += c.rate / sr; if (u.chP >= 1) u.chP -= 1;
+            const s1 = Math.sin(TAU * u.chP);
+            u.chB[u.chW] = (L + R) * 0.5;
+            const w = this.rd(u.chB, 4096, u.chW - c.viBase - c.viDep * s1);
+            u.chW = (u.chW + 1) & 4095;
+            L = L * c.viDry + w * c.viWet; R = R * c.viDry + w * c.viWet; break; }
+          case 16: { // compressor / limiter: a level detector in decibels turns the gain down above the threshold
+            const ax = Math.max(Math.abs(L), Math.abs(R)), xd = ax > 1e-6 ? 8.685889638065035 * Math.log(ax) : -120;
+            const ov = xd - c.thr, hk = c.knee * 0.5;
+            const gr = ov <= -hk ? 0 : ov >= hk ? ov * c.slope : c.slope * (ov + hk) * (ov + hk) / (2 * c.knee);
+            u.dG += (gr - u.dG) * (gr > u.dG ? c.at : c.rl);
+            const gn = Math.exp(-u.dG * 0.11512925464970229) * c.mk; L *= gn; R *= gn;
+            if (u.dG > u.mtr) u.mtr = u.dG; break; }
+          case 17: { // noise gate: open above the threshold, close (with a little hysteresis) below it
+            const ax = Math.max(Math.abs(L), Math.abs(R)); u.e1 += (ax - u.e1) * (ax > u.e1 ? c.dAt : c.dRl);
+            const ed = u.e1 > 1e-6 ? 8.685889638065035 * Math.log(u.e1) : -120;
+            if (u.gOpen) { if (ed < c.thr - 4) u.gOpen = 0; } else if (ed > c.thr) u.gOpen = 1;
+            const tg = u.gOpen ? 1 : 0.001; u.gG += (tg - u.gG) * (tg > u.gG ? c.gAt : c.gRl);
+            L *= u.gG; R *= u.gG; if (u.gG > u.mtr) u.mtr = u.gG; break; }
+          case 18: { // transient shaper: a fast and a slow follower find the attack; a long one finds the tail
+            const ax = Math.max(Math.abs(L), Math.abs(R));
+            u.e1 += (ax - u.e1) * (ax > u.e1 ? c.fa : c.fr);
+            u.e2 += (ax - u.e2) * (ax > u.e2 ? c.sa : c.fr);
+            u.e3 += (ax - u.e3) * (ax > u.e3 ? c.fa : c.lr);
+            const l1 = u.e1 > 1e-6 ? Math.log(u.e1) : -13.8, l2 = u.e2 > 1e-6 ? Math.log(u.e2) : -13.8, l3 = u.e3 > 1e-6 ? Math.log(u.e3) : -13.8;
+            const att = Math.max(0, l1 - l2) * 8.685889638065035, sus = Math.min(30, Math.max(0, l3 - l1) * 8.685889638065035);
+            let gd = c.punch * att + c.sus * sus * 0.6; gd = gd > 12 ? 12 : gd < -24 ? -24 : gd;
+            const gn = Math.exp(gd * 0.11512925464970229) * c.mk; L *= gn; R *= gn;
+            if (Math.abs(gd) > Math.abs(u.mtr)) u.mtr = gd; break; }
+          case 19: { // drive: boost into a clipping curve, a tone control, then block the DC that Bias leaves
+            const ty = c.ty, g = c.g, b = c.bias, of = c.off;
+            let a = this.shp(L * g + b, ty) - of; u.zL += (a - u.zL) * c.tc; let y = u.zL - u.dxL + 0.9975 * u.dyL; u.dxL = u.zL; u.dyL = y; L = y * c.lvl;
+            a = this.shp(R * g + b, ty) - of; u.zR += (a - u.zR) * c.tc; y = u.zR - u.dxR + 0.9975 * u.dyR; u.dxR = u.zR; u.dyR = y; R = y * c.lvl;
+            break; }
+          case 20: { // bitcrusher: hold each sample for longer (lower rate), round it to fewer steps (fewer bits)
+            u.cph += c.inc; if (u.cph >= 1) { u.cph -= 1; u.hL = Math.round(L * c.q) / c.q; u.hR = Math.round(R * c.q) / c.q; }
+            L = L * (1 - c.mix) + u.hL * c.mix; R = R * (1 - c.mix) + u.hR * c.mix; break; }
+          case 21: { // filter pedal: a resonant filter swept by its own LFO
+            u.ph += c.rate / sr; if (u.ph >= 1) u.ph -= 1;
+            if (u.fC-- <= 0) { u.fC = 3; const fc = Math.min(sr * 0.45, Math.max(20, c.cut * Math.pow(2, c.dep * Math.sin(TAU * u.ph)))); u.fG = Math.tan(Math.PI * fc / sr); }
+            const g = u.fG, k = c.k, a1 = 1 / (1 + g * (g + k)), a2 = g * a1, a3 = g * a2, FL = u.fL, FB = u.fB, ty = c.ty;
+            for (let ch = 0; ch < 2; ch++) {
+              const x = ch ? R : L, v3 = x - FB[ch], b1 = a1 * FL[ch] + a2 * v3, l2 = FB[ch] + a2 * FL[ch] + a3 * v3;
+              FL[ch] = 2 * b1 - FL[ch]; FB[ch] = 2 * l2 - FB[ch];
+              const o = ty === 0 ? l2 : ty === 1 ? b1 * Math.max(k, 0.35) * 1.4 : x - k * b1 - l2;
+              if (ch) R = o * c.on; else L = o * c.on;
+            }
+            break; }
+          case 22: case 23: { // octaver / pitch shifter
+            const pm = this.pLen - 1, m0 = (L + R) * 0.5; u.pB[u.pW] = m0;
+            if (u.t === 22) {
+              const dn = this.shf(u.pB, pm, u.pW, u.pS[0], c.Wd, 0.5), upv = this.shf(u.pB, pm, u.pW, u.pS[1], c.Wu, 2), w = dn * c.sub + upv * c.up;
+              L = L * c.dry + w; R = R * c.dry + w;
+            } else {
+              const w = this.shf(u.pB, pm, u.pW, u.pS[2], c.W, c.r);
+              L = L * (1 - c.mix) + w * c.mix; R = R * (1 - c.mix) + w * c.mix;
+            }
+            u.pW = (u.pW + 1) & pm; break; }
+          case 24: { // rotary speaker: a spinning horn and drum, each heard through two mics
+            u.hs += (c.hT - u.hs) * c.hk; u.ds += (c.dT - u.ds) * c.dk;
+            u.hp += u.hs / sr; if (u.hp >= 1) u.hp -= 1; u.dp += u.ds / sr; if (u.dp >= 1) u.dp -= 1;
+            const m0 = Math.tanh((L + R) * 0.5 * c.drv) * c.pg;
+            u.lo += (m0 - u.lo) * c.xo; const rw = u.rw;
+            u.hb[rw] = m0 - u.lo; u.db[rw] = u.lo;
+            const a = TAU * u.hp, b2 = TAU * u.dp, sp = c.spr;
+            const hL = this.rdm(u.hb, 1023, rw - c.hBase - c.hDep * Math.sin(a)) * (0.62 + 0.38 * Math.cos(a));
+            const hR = this.rdm(u.hb, 1023, rw - c.hBase - c.hDep * Math.sin(a + sp)) * (0.62 + 0.38 * Math.cos(a + sp));
+            const dL = this.rdm(u.db, 1023, rw - c.dBase - c.dDep * Math.sin(b2)) * (0.8 + 0.2 * Math.cos(b2));
+            const dR = this.rdm(u.db, 1023, rw - c.dBase - c.dDep * Math.sin(b2 + sp)) * (0.8 + 0.2 * Math.cos(b2 + sp));
+            u.rw = (rw + 1) & 1023;
+            L = (hL + dL) * 0.8; R = (hR + dR) * 0.8;
+            u.mtr = u.hs; break; }
+          case 27: { // widener: a short Haas delay on the right, then more or less side signal, with the bass kept mono
+            const wm = this.wLen - 1; u.wB[u.wW] = R; u.hz += (c.hz - u.hz) * 0.002;
+            const Rd = u.hz > 0.5 ? this.rdm(u.wB, wm, u.wW - u.hz) : R; u.wW = (u.wW + 1) & wm;
+            const M = (L + Rd) * 0.5; let S = (L - Rd) * 0.5;
+            u.sLp += (S - u.sLp) * c.hp; S = (S - u.sLp) * c.w;
+            L = M + S; R = M - S; break; }
         }
       }
       o0[i] = Math.tanh(L); o4[i] = Math.tanh(R);
@@ -1109,6 +1355,9 @@ class SynthDSP {
       o1[i] = tapM * ts; o2[i] = tapY * ts; o3[i] = tvPhase2 ? tv.p2 : tv.p1;
     }
     const lv = V[this.lastV], t = this.tele, fl = 440 * Math.pow(2, (lv.cur - 69) / 12), ft = 440 * Math.pow(2, (tv.cur - 69) / 12);
+    // meters for the pedal pictures: gain reduction, gate opening, shaper gain, rotor speed (peaks held briefly)
+    const M = this.fxm; for (const u of FU) if (u.f === 'dyn' || u.f === 'rot') { M[u.id] = u.act ? u.mtr : 0; if (u.f === 'dyn') u.mtr *= 0.6; }
+    t.fxm = M;
     t.a = lv.ae; t.f = lv.fe; t.l = lfo; t.c = lv.fc; t.g = lv.gate; t.f1 = fl * r1; t.f2 = fl * r2; t.f0 = ft * (useP2 ? r2 : r1); t.n = lv.note; t.nv = nv;
   }
 }
@@ -1131,9 +1380,12 @@ registerProcessor('sp-synth', SPProc);`;
 const INIT = {o1w:2,o1oct:0,o1pw:.5,o1pos:0,o1vow:0,glide:0,bl:1,uniN:1,uniDet:20,poly:0,o2w:2,o2oct:0,o2semi:0,o2fine:7,sync:0,fm:0,ring:0,mix1:.8,mix2:.6,noise:0,vol:.7,
   ftype:0,cut:2400,res:.25,fenv:1.5,kt:.5,drive:.1,fA:.005,fD:.35,fS:.3,fR:.3,aA:.005,aD:.3,aS:.8,aR:.35,mePitch:0,meFm:0,meShape:0,lshape:0,lrate:5,lsync:0,ldiv:3,lpitch:0,lcut:0,lpw:0,
   e1Type:1,e1Rate:4,e1Depth:.5,e1Sens:.5,e1Q:.5,modType:0,chRate:.6,chDepth:.5,chFb:.3,chMix:.5,ampType:2,ampDrive:.3,ampTone:.5,ampLvl:.7,eqLo:0,eqMid:0,eqFreq:1000,eqHi:0,dTime:.35,dSync:0,dDiv:2,dFb:.4,dTone:4000,dMix:.3,dPing:0,rvSize:.6,rvDamp:.5,rvMix:.25,
+  e1Freq:440,e1Div:2,e1Duty:.5,dType:0,dWow:.5,rvType:0,rvPre:0,
+  dyType:0,dyThr:-20,dyRatio:4,dyAtk:.01,dyRel:.15,dyGain:6,dyPunch:.5,dySus:0,drvType:0,drvAmt:.5,drvTone:.6,drvBias:0,drvLvl:.6,crBits:6,crRate:8000,crMix:1,
+  afType:0,afCut:700,afRes:.5,afRate:1,afDepth:2,psType:0,psSemi:7,psSub:.8,psUp:0,psDry:1,psMix:.5,rtSpd:0,rtAccel:1.5,rtDrive:.2,rtSpread:.6,wdWidth:1.4,wdHaas:.012,wdLow:150,
   arpOn:0,arpMode:0,arpOct:1,arpGate:.5,arpDiv:1,tempo:120,
   // power switches: oscillators, filter and LFO start on; every effect starts bypassed with its settings ready, as on a Nord
-  pwO1:1,pwO2:1,pwFlt:1,pwLfo:1,pwFx1:0,pwAmp:0,pwEq:0,pwMod:0,pwDly:0,pwRev:0,
+  pwO1:1,pwO2:1,pwFlt:1,pwLfo:1,pwFx1:0,pwAmp:0,pwEq:0,pwMod:0,pwDly:0,pwRev:0,pwDyn:0,pwDrv:0,pwCrs:0,pwAf:0,pwPs:0,pwRot:0,pwWid:0,
   // the FX board: pedals in the order the signal meets them (empty = the signal goes straight through)
   fxc:[]};
 const params = {...INIT};
@@ -1142,11 +1394,12 @@ const params = {...INIT};
    Each section's switch is one param. Turning a section off never changes its other settings: the UI just sends the engine an
    "effective" value (an off oscillator's mix level becomes 0, a bypassed delay's Mix becomes 0, and so on). The filter is the
    one section the engine bypasses itself (pwFlt). The Arp's power switch is its existing arpOn param. */
-const PW = {osc1:'pwO1', osc2:'pwO2', filter:'pwFlt', lfo:'pwLfo', arp:'arpOn', fx1:'pwFx1', amp:'pwAmp', eq:'pwEq', mod:'pwMod', delay:'pwDly', reverb:'pwRev'};
+const PW = {osc1:'pwO1', osc2:'pwO2', filter:'pwFlt', lfo:'pwLfo', arp:'arpOn', fx1:'pwFx1', amp:'pwAmp', eq:'pwEq', mod:'pwMod', delay:'pwDly', reverb:'pwRev',
+  dyn:'pwDyn', drv:'pwDrv', crush:'pwCrs', filt:'pwAf', pitch:'pwPs', rot:'pwRot', wide:'pwWid'};
 const PW_SEC = Object.fromEntries(Object.entries(PW).map(([s, k]) => [k, s]));
-const PW_NAME = {osc1:'osc 1', osc2:'osc 2', filter:'filter', lfo:'lfo', arp:'arp', fx1:'fx1', amp:'amp', eq:'eq', mod:'mod', delay:'delay', reverb:'reverb'};
-const FX_IDS = ['fx1', 'amp', 'eq', 'mod', 'delay', 'reverb'], FX_SET = new Set(FX_IDS);
-const FX_L = {fx1:'FX1', amp:'Amp', eq:'EQ', mod:'Mod', delay:'Delay', reverb:'Reverb'};
+const PW_NAME = {osc1:'osc 1', osc2:'osc 2', filter:'filter', lfo:'lfo', arp:'arp', fx1:'fx1', amp:'amp', eq:'eq', mod:'mod', delay:'delay', reverb:'reverb', dyn:'dynamics', drv:'drive', crush:'crush', filt:'filter', pitch:'pitch', rot:'rotary', wide:'wide'};
+const FX_IDS = ['fx1', 'amp', 'eq', 'mod', 'delay', 'reverb', 'dyn', 'drv', 'crush', 'filt', 'pitch', 'rot', 'wide'], FX_SET = new Set(FX_IDS);
+const FX_L = {fx1:'FX1', amp:'Amp', eq:'EQ', mod:'Mod', delay:'Delay', reverb:'Reverb', dyn:'Dynamics', drv:'Drive', crush:'Crush', filt:'Filter', pitch:'Pitch', rot:'Rotary', wide:'Wide'};
 const EFFK = {mix1:'pwO1', mix2:'pwO2', lpitch:'pwLfo', lcut:'pwLfo', lpw:'pwLfo', e1Type:'pwFx1', ampType:'pwAmp', eqLo:'pwEq', eqMid:'pwEq', eqHi:'pwEq', chMix:'pwMod', dMix:'pwDly', rvMix:'pwRev'};
 const PW_DEPS = {}; for (const k in EFFK) (PW_DEPS[EFFK[k]] = PW_DEPS[EFFK[k]] || []).push(k);
 const effV = k => EFFK[k] && !params[EFFK[k]] ? 0 : params[k];
@@ -1155,8 +1408,8 @@ function effP(){ const o = {...params}; for (const k in EFFK) if (!params[EFFK[k
 const KEY_SEC = {mix1:'osc1', mix2:'osc2', fenv:'filter'};
 const LIVE = new Set(['glide', 'tempo']);
 // choosing a type switches an effect on; so does raising its amount from zero
-const SEG_ENGAGE = {e1Type:'fx1', ampType:'amp', modType:'mod'};
-const AUTO_ENGAGE = {chMix:'mod', dMix:'delay', rvMix:'reverb', eqLo:'eq', eqMid:'eq', eqHi:'eq'};
+const SEG_ENGAGE = {e1Type:'fx1', ampType:'amp', modType:'mod', dType:'delay', rvType:'reverb', dyType:'dyn', drvType:'drv', afType:'filt', psType:'pitch'};
+const AUTO_ENGAGE = {chMix:'mod', dMix:'delay', rvMix:'reverb', eqLo:'eq', eqMid:'eq', eqHi:'eq', crMix:'crush', psMix:'pitch'};
 // turn an older-style patch (e1Type 0 = FX1 off, Mix 0 = effect off) into switch settings
 function normPatch(obj){
   const o = {...obj};
@@ -1177,31 +1430,67 @@ function normPatch(obj){
    same effect can sit on the line twice. A family with no pedal on the line has its switch (pwDly…) off. */
 const FX_MAX = 6;
 const FXF = {
-  fx1:{keys:['e1Type','e1Rate','e1Depth','e1Sens','e1Q'], pw:'pwFx1'},
+  fx1:{keys:['e1Type','e1Rate','e1Depth','e1Sens','e1Q','e1Freq','e1Div','e1Duty'], pw:'pwFx1'},
   amp:{keys:['ampType','ampDrive','ampTone','ampLvl'], pw:'pwAmp'},
   eq:{keys:['eqLo','eqMid','eqFreq','eqHi'], pw:'pwEq'},
   mod:{keys:['modType','chRate','chDepth','chFb','chMix'], pw:'pwMod'},
-  delay:{keys:['dTime','dSync','dDiv','dFb','dTone','dMix','dPing'], pw:'pwDly'},
-  reverb:{keys:['rvSize','rvDamp','rvMix'], pw:'pwRev'},
+  delay:{keys:['dTime','dSync','dDiv','dFb','dTone','dMix','dPing','dType','dWow'], pw:'pwDly'},
+  reverb:{keys:['rvSize','rvDamp','rvMix','rvType','rvPre'], pw:'pwRev'},
+  dyn:{keys:['dyType','dyThr','dyRatio','dyAtk','dyRel','dyGain','dyPunch','dySus'], pw:'pwDyn'},
+  drv:{keys:['drvType','drvAmt','drvTone','drvBias','drvLvl'], pw:'pwDrv'},
+  crush:{keys:['crBits','crRate','crMix'], pw:'pwCrs'},
+  filt:{keys:['afType','afCut','afRes','afRate','afDepth'], pw:'pwAf'},
+  pitch:{keys:['psType','psSemi','psSub','psUp','psDry','psMix'], pw:'pwPs'},
+  rot:{keys:['rtSpd','rtAccel','rtDrive','rtSpread'], pw:'pwRot'},
+  wide:{keys:['wdWidth','wdHaas','wdLow'], pw:'pwWid'},
 };
 const FXK = new Set(), KEY_FAM = {};
 for (const f in FXF) { FXF[f].keys.concat(FXF[f].pw).forEach(k => { FXK.add(k); KEY_FAM[k] = f; }); }
-// the ten pedals in the library. r is where "tap to add" puts one: filter, then drive and tone, then motion, then space
+// the pedals in the library, in seven groups. r is where "tap to add" puts one: filter, dynamics, pitch, drive and tone, motion,
+// space, and the master section last
 const VAR = {
   wah:{f:'fx1', set:{e1Type:3, e1Depth:.6}, l:'Wah', g:'filter', r:0, d:'A resonant filter that opens on every attack and closes as the note fades. Funky and vocal.'},
-  amp:{f:'amp', set:{ampType:2, ampLvl:.5}, l:'Amp', g:'tone', r:1, d:'A tube-style preamp that clips softly, into a speaker cabinet. Warm to growling.'},
-  eq:{f:'eq', set:{eqLo:3, eqMid:-2, eqHi:3}, l:'EQ', g:'tone', r:2, d:'Boost or cut the bass, mids and treble to balance the tone.'},
-  chorus:{f:'mod', set:{modType:0}, l:'Chorus', g:'motion', r:3, d:'A copy on a wobbling delay drifts against the dry sound: wide and shimmering.'},
-  flanger:{f:'mod', set:{modType:1, chRate:.3, chMix:.6, chFb:.5}, l:'Flanger', g:'motion', r:3.1, d:'A very short sweeping delay carves a comb of notches: the jet-plane swoosh.'},
-  phaser:{f:'mod', set:{modType:2, chRate:.4, chMix:.6}, l:'Phaser', g:'motion', r:3.2, d:'All-pass filters sweep a few wide notches: smooth and liquid.'},
-  trem:{f:'fx1', set:{e1Type:1}, l:'Trem', g:'motion', r:3.3, d:'Tremolo: an LFO pulses the volume up and down.'},
-  pan:{f:'fx1', set:{e1Type:2, e1Rate:.5, e1Depth:.8}, l:'Pan', g:'motion', r:3.5, d:'Auto-pan: an LFO swings the sound between your left and right ears.'},
-  delay:{f:'delay', set:{}, l:'Delay', g:'space', r:4, d:'Echoes that repeat and fade. Time spaces them; Feedback sets how many.'},
-  reverb:{f:'reverb', set:{rvMix:.3}, l:'Reverb', g:'space', r:5, d:'Thousands of blurred reflections put the sound in a room or a hall.'},
+  filt:{f:'filt', set:{}, l:'Filter', g:'filter', r:.1, d:'A resonant filter pedal swept up and down by its own LFO. Separate from the synth\'s filter.'},
+  comp:{f:'dyn', set:{dyType:0}, l:'Comp', g:'dynamics', r:1, d:'Compressor: turns loud moments down so the level evens out, then lifts everything back up.'},
+  gate:{f:'dyn', set:{dyType:2, dyThr:-40, dyAtk:.001, dyRel:.08, dyGain:0}, l:'Gate', g:'dynamics', r:1.1, d:'Noise gate: silences anything quieter than the threshold, cutting off tails and hiss.'},
+  shaper:{f:'dyn', set:{dyType:3, dyGain:0, dyPunch:.6}, l:'Shaper', g:'dynamics', r:1.2, d:'Transient shaper: makes each attack snappier or softer, and each tail longer or shorter.'},
+  octaver:{f:'pitch', set:{psType:0}, l:'Octave', g:'pitch', r:2, d:'Octaver: adds copies an octave below and an octave above what you play.'},
+  shifter:{f:'pitch', set:{psType:1, psSemi:7, psMix:.5}, l:'Shift', g:'pitch', r:2.1, d:'Pitch shifter: a copy moved by any interval. Under the dry sound it plays a harmony.'},
+  ring:{f:'fx1', set:{e1Type:4, e1Depth:1}, l:'Ring', g:'pitch', r:2.2, d:'Ring modulator: multiplies the sound by a sine. New, unrelated frequencies appear: clangy and bell-like.'},
+  drive:{f:'drv', set:{drvType:0}, l:'Drive', g:'tone', r:3, d:'Overdrive: soft clipping that warms up, then growls, like a tube pushed hard.'},
+  fuzz:{f:'drv', set:{drvType:1, drvAmt:.6, drvLvl:.5}, l:'Fuzz', g:'tone', r:3.05, d:'Fuzz: so much gain that the wave turns almost square. Thick, buzzing, very 1960s.'},
+  dist:{f:'drv', set:{drvType:2, drvAmt:.5}, l:'Dist', g:'tone', r:3.1, d:'Distortion: hard clipping flattens the peaks. Aggressive and bright.'},
+  fold:{f:'drv', set:{drvType:3, drvAmt:.4, drvTone:.8}, l:'Folder', g:'tone', r:3.15, d:'Wavefolder: peaks fold back down instead of clipping, adding bright, shifting harmonics. West Coast style.'},
+  crush:{f:'crush', set:{}, l:'Crush', g:'tone', r:3.2, d:'Bitcrusher: fewer bits and a lower sample rate. Gritty, lo-fi, 8-bit.'},
+  amp:{f:'amp', set:{ampType:2, ampLvl:.5}, l:'Amp', g:'tone', r:3.3, d:'A tube-style preamp that clips softly, into a speaker cabinet. Warm to growling.'},
+  eq:{f:'eq', set:{eqLo:3, eqMid:-2, eqHi:3}, l:'EQ', g:'tone', r:3.4, d:'Boost or cut the bass, mids and treble to balance the tone.'},
+  chorus:{f:'mod', set:{modType:0}, l:'Chorus', g:'motion', r:4, d:'A copy on a wobbling delay drifts against the dry sound: wide and shimmering.'},
+  ensemble:{f:'mod', set:{modType:4, chRate:.4, chDepth:.6, chMix:.6}, l:'Ensemble', g:'motion', r:4.05, d:'Three chorus voices a third of a cycle apart: the lush string-machine sound.'},
+  flanger:{f:'mod', set:{modType:1, chRate:.3, chMix:.6, chFb:.5}, l:'Flanger', g:'motion', r:4.1, d:'A very short sweeping delay carves a comb of notches: the jet-plane swoosh.'},
+  phaser:{f:'mod', set:{modType:2, chRate:.4, chMix:.6}, l:'Phaser', g:'motion', r:4.2, d:'All-pass filters sweep a few wide notches: smooth and liquid.'},
+  vibe:{f:'mod', set:{modType:3, chRate:1.2, chDepth:.7, chMix:.5}, l:'Vibe', g:'motion', r:4.25, d:'A phaser with uneven stages and a lopsided sweep: the throbbing Uni-Vibe.'},
+  vibrato:{f:'mod', set:{modType:5, chRate:5, chDepth:.35, chMix:1}, l:'Vibrato', g:'motion', r:4.3, d:'The pitch wobbles. It is a chorus with the dry sound taken out.'},
+  rotary:{f:'rot', set:{}, l:'Rotary', g:'motion', r:4.35, d:'A rotating speaker: a spinning horn and drum, slow or fast. The classic organ sound.'},
+  trem:{f:'fx1', set:{e1Type:1}, l:'Trem', g:'motion', r:4.4, d:'Tremolo: an LFO pulses the volume up and down.'},
+  slicer:{f:'fx1', set:{e1Type:5, e1Depth:1}, l:'Slicer', g:'motion', r:4.45, d:'A gate locked to the tempo chops the sound into steps: the trance-gate stutter.'},
+  pan:{f:'fx1', set:{e1Type:2, e1Rate:.5, e1Depth:.8}, l:'Pan', g:'motion', r:4.5, d:'Auto-pan: an LFO swings the sound between your left and right ears.'},
+  delay:{f:'delay', set:{dType:0}, l:'Delay', g:'space', r:5, d:'Echoes that repeat and fade. Time spaces them; Feedback sets how many.'},
+  tape:{f:'delay', set:{dType:1, dTime:.38, dFb:.5, dTone:2800, dMix:.35}, l:'Tape', g:'space', r:5.05, d:'Tape echo: repeats that wobble, darken and saturate as they go round the loop.'},
+  reverb:{f:'reverb', set:{rvType:0, rvMix:.3}, l:'Reverb', g:'space', r:5.5, d:'Thousands of blurred reflections put the sound in a hall.'},
+  room:{f:'reverb', set:{rvType:1, rvMix:.3, rvSize:.5, rvPre:.004}, l:'Room', g:'space', r:5.51, d:'A small room: quick, distinct early reflections and a short tail.'},
+  plate:{f:'reverb', set:{rvType:2, rvMix:.3, rvSize:.55, rvPre:.015}, l:'Plate', g:'space', r:5.52, d:'A steel plate set ringing: dense and bright from the first instant. The classic vocal reverb.'},
+  spring:{f:'reverb', set:{rvType:3, rvMix:.35, rvSize:.4, rvDamp:.3}, l:'Spring', g:'space', r:5.53, d:'Sound bounced along metal springs: drippy and boingy, as in a guitar amp.'},
+  shimmer:{f:'reverb', set:{rvType:4, rvMix:.4, rvSize:.7, rvPre:.03}, l:'Shimmer', g:'space', r:5.54, d:'A huge reverb whose tail is pitched up an octave and fed back in, so it rises.'},
+  wide:{f:'wide', set:{}, l:'Wide', g:'master', r:6, d:'Stereo widener: a short Haas delay and more side signal spread the sound; the bass stays mono.'},
+  limiter:{f:'dyn', set:{dyType:1, dyThr:-6, dyRel:.08, dyGain:4}, l:'Limiter', g:'master', r:6.5, d:'A compressor with an infinite ratio: nothing gets past the ceiling. Usually last on the line.'},
 };
-const varOf = (f, P) => f === 'fx1' ? ['trem', 'trem', 'pan', 'wah'][P.e1Type | 0] || 'trem' : f === 'mod' ? ['chorus', 'flanger', 'phaser'][P.modType | 0] || 'chorus' : f;
+const VAR_OF = {fx1:['trem', 'trem', 'pan', 'wah', 'ring', 'slicer'], mod:['chorus', 'flanger', 'phaser', 'vibe', 'ensemble', 'vibrato'], dyn:['comp', 'limiter', 'gate', 'shaper'],
+  drv:['drive', 'fuzz', 'dist', 'fold'], delay:['delay', 'tape'], reverb:['reverb', 'room', 'plate', 'spring', 'shimmer'], pitch:['octaver', 'shifter']};
+const VAR_TY = {fx1:'e1Type', mod:'modType', dyn:'dyType', drv:'drvType', delay:'dType', reverb:'rvType', pitch:'psType'};
+const varOf = (f, P) => VAR_OF[f] ? VAR_OF[f][P[VAR_TY[f]] | 0] || VAR_OF[f][f === 'fx1' ? 1 : 0] : f === 'rot' ? 'rotary' : f;
 // older patches ran the effects in one fixed order; rebuilding their board in that order keeps them sounding exactly the same
-const legacyRank = (f, P) => f === 'fx1' ? ((P.e1Type | 0) === 2 ? 3.5 : 0) : {amp:1, eq:2, mod:3, delay:4, reverb:5}[f];
+const legacyRank = (f, P) => f === 'fx1' ? ((P.e1Type | 0) === 2 ? 3.5 : (P.e1Type | 0) === 5 ? 3.6 : 0)
+  : f === 'dyn' ? ((P.dyType | 0) === 1 ? 6 : 0.5) : {filt:.1, pitch:.6, drv:.8, crush:.9, amp:1, eq:2, mod:3, rot:3.3, delay:4, reverb:5, wide:5.8}[f];
 const fxPick = (src, f) => { const o = {}; FXF[f].keys.forEach(k => o[k] = src && k in src ? src[k] : INIT[k]); return o; };
 let FXID = 1;
 const fxB = (f, P = params) => (P.fxc || []).find(u => u.f === f && u.b) || null;
@@ -1210,8 +1499,11 @@ const uOn = (u, P = params) => !!(u.b ? P[FXF[u.f].pw] : u.on);
 const uVar = (u, P = params) => varOf(u.f, uP(u, P));
 // is this pedal actually changing the sound (switched on, and not set to nothing)?
 const fxAct = (u, P = params) => { if (!uOn(u, P)) return false; const q = uP(u, P);
-  return u.f === 'fx1' ? (q.e1Type | 0) > 0 : u.f === 'amp' ? (q.ampType | 0) > 0 : u.f === 'eq' ? ['eqLo', 'eqMid', 'eqHi'].some(k => Math.abs(q[k]) > 0.05)
-    : u.f === 'mod' ? q.chMix > 0.001 : u.f === 'delay' ? q.dMix > 0.001 : q.rvMix > 0.001; };
+  switch (u.f) {
+    case 'fx1': return (q.e1Type | 0) > 0; case 'amp': return (q.ampType | 0) > 0; case 'eq': return ['eqLo', 'eqMid', 'eqHi'].some(k => Math.abs(q[k]) > 0.05);
+    case 'mod': return q.chMix > 0.001; case 'delay': return q.dMix > 0.001; case 'reverb': return q.rvMix > 0.001; case 'crush': return q.crMix > 0.001;
+    case 'pitch': return (q.psType | 0) === 1 ? q.psMix > 0.001 : true; default: return true;
+  } };
 function fxLoad(P, u){ FXF[u.f].keys.forEach(k => P[k] = u.p[k]); P[FXF[u.f].pw] = u.on ? 1 : 0; }
 // make any params object's board consistent: valid pedals, one bound pedal per family on the line, switches of absent families
 // off, and a pedal plugged in for any family whose switch is on but has none yet (older patches, factory sounds, lesson setups)
@@ -1253,6 +1545,8 @@ const WT_NAMES = ['sine', 'warm', 'organ', 'hollow', 'saw', 'vocal', 'narrow', '
 const ADIV_L = ['1/4', '1/8', '1/16', '1/8T', '1/16T'];
 const LDIV_L = ['1 bar', '1/2', '1/4', '1/8', '1/16', '1/32', '1/4T', '1/8T'];
 const DDIV_L = ['1/4', '1/8 dot', '1/8', '1/8T', '1/16'];
+const RV_T60 = (s, ty) => [0.3 + s * s * 9.7, 0.15 + s * s * 1.6, 0.4 + s * s * 5.6, 0.9 + s * s * 4.5, 1.5 + s * s * 13.5][ty | 0] || 0.3 + s * s * 9.7;
+const INTV = {0:'unison', 3:'min 3rd', 4:'maj 3rd', 5:'4th', 7:'5th', 12:'octave'};
 const DEFS = {
   o1oct:{l:'Octave',min:-2,max:2,step:1,f:v=>sgn(v)+Math.abs(v)},
   o1pw:{l:'Pulse Width',min:.05,max:.95,f:fPct},
@@ -1304,9 +1598,43 @@ const DEFS = {
   dFb:{l:'Feedback',min:0,max:.95,f:fPct},
   dTone:{l:'Tone',min:300,max:16000,c:'log',f:fHz},
   dMix:{l:'Mix',min:0,max:1,f:fPct},
-  rvSize:{l:'Size',min:0,max:1,f:v=>fT(0.3+v*v*9.7)},
+  rvSize:{l:'Size',min:0,max:1,f:v=>fT(RV_T60(v,params.rvType))},
   rvDamp:{l:'Damping',min:0,max:1,f:fPct},
   rvMix:{l:'Mix',min:0,max:1,f:fPct},
+  e1Freq:{l:'Freq',min:20,max:4000,c:'log',f:fHz},
+  e1Div:{l:'Step',min:0,max:4,step:1,f:v=>ADIV_L[v]},
+  e1Duty:{l:'Length',min:.1,max:1,f:fPct},
+  dWow:{l:'Wow',min:0,max:1,f:fPct},
+  rvPre:{l:'Pre-delay',min:0,max:.25,c:'sq',f:v=>v<.0005?'0 ms':fT(v)},
+  dyThr:{l:'Threshold',min:-60,max:0,f:v=>(v<-.05?'−':'')+Math.abs(v).toFixed(v>-9.95?1:0)+' dB'},
+  dyRatio:{l:'Ratio',min:1,max:20,c:'log',f:v=>(v<9.95?v.toFixed(1):Math.round(v))+':1'},
+  dyAtk:{l:'Attack',min:.0001,max:.1,c:'log',f:fT},
+  dyRel:{l:'Release',min:.01,max:2,c:'log',f:fT},
+  dyGain:{l:'Gain',min:0,max:24,f:v=>'+'+v.toFixed(1)+' dB'},
+  dyPunch:{l:'Punch',min:-1,max:1,bip:1,f:v=>sgn(v)+Math.round(Math.abs(v)*100)+'%'},
+  dySus:{l:'Sustain',min:-1,max:1,bip:1,f:v=>sgn(v)+Math.round(Math.abs(v)*100)+'%'},
+  drvAmt:{l:'Drive',min:0,max:1,f:fPct},
+  drvTone:{l:'Tone',min:0,max:1,f:v=>fHz(600*Math.pow(2,v*4.5))},
+  drvBias:{l:'Bias',min:-1,max:1,bip:1,f:v=>sgn(v)+Math.round(Math.abs(v)*100)+'%'},
+  drvLvl:{l:'Level',min:0,max:1,f:fPct},
+  crBits:{l:'Bits',min:2,max:16,step:1,f:v=>v+' bit'},
+  crRate:{l:'Rate',min:200,max:48000,c:'log',f:fHz},
+  crMix:{l:'Mix',min:0,max:1,f:fPct},
+  afCut:{l:'Cutoff',min:40,max:12000,c:'log',f:fHz},
+  afRes:{l:'Resonance',min:0,max:1,f:fPct},
+  afRate:{l:'Rate',min:.05,max:15,c:'log',f:v=>(v<10?v.toFixed(2):v.toFixed(1))+' Hz'},
+  afDepth:{l:'Depth',min:0,max:4,f:v=>'±'+v.toFixed(1)+' oct'},
+  psSemi:{l:'Interval',min:-12,max:12,step:1,bip:1,f:v=>sgn(v)+Math.abs(v)+' st'+(INTV[Math.abs(v)]?' · '+INTV[Math.abs(v)]:'')},
+  psSub:{l:'Oct −1',min:0,max:1,f:fPct},
+  psUp:{l:'Oct +1',min:0,max:1,f:fPct},
+  psDry:{l:'Dry',min:0,max:1,f:fPct},
+  psMix:{l:'Mix',min:0,max:1,f:fPct},
+  rtAccel:{l:'Ramp',min:.2,max:5,c:'log',f:fT},
+  rtDrive:{l:'Drive',min:0,max:1,f:fPct},
+  rtSpread:{l:'Mics',min:0,max:1,f:v=>Math.round(v*180)+'° apart'},
+  wdWidth:{l:'Width',min:0,max:2,f:v=>v<.02?'mono':Math.round(v*100)+'%'},
+  wdHaas:{l:'Haas',min:0,max:.03,f:v=>v<.0002?'off':(v*1000).toFixed(1)+' ms'},
+  wdLow:{l:'Mono Bass',min:20,max:500,c:'log',f:fHz},
   tempo:{l:'Tempo',min:40,max:220,step:1,f:v=>v+' bpm'},
   arpOct:{l:'Octaves',min:1,max:4,step:1,f:v=>v+(v>1?' oct':' oct')},
   arpGate:{l:'Gate',min:.05,max:1,f:fPct},
@@ -1326,8 +1654,15 @@ const SEGS = {
   o1w:{l:'Wave',icons:1,o:[['sine','Sine'],['tri','Tri'],['saw','Saw'],['pulse','Pulse'],['wt','Wavetable'],['vox','Formant']]},
   o2w:{l:'Wave',o:[['sine','Sine'],['tri','Tri'],['saw','Saw'],['pulse','Pulse']]},
   ftype:{l:'Type',o:[[null,'LP24'],[null,'LP12'],[null,'HP'],[null,'BP'],[null,'LP+BP']]},
-  e1Type:{l:'Type',base:1,o:[[null,'Trem'],[null,'Pan'],[null,'Wah']]},
-  modType:{l:'Type',o:[[null,'Chorus'],[null,'Flanger'],[null,'Phaser']]},
+  e1Type:{l:'Type',base:1,o:[[null,'Trem'],[null,'Pan'],[null,'Wah'],[null,'Ring'],[null,'Slicer']]},
+  modType:{l:'Type',o:[[null,'Chorus'],[null,'Flanger'],[null,'Phaser'],[null,'Vibe'],[null,'Ensemble'],[null,'Vibrato']]},
+  dType:{l:'Type',o:[[null,'Digital'],[null,'Tape']]},
+  rvType:{l:'Type',o:[[null,'Hall'],[null,'Room'],[null,'Plate'],[null,'Spring'],[null,'Shimmer']]},
+  dyType:{l:'Type',o:[[null,'Comp'],[null,'Limit'],[null,'Gate'],[null,'Shaper']]},
+  drvType:{l:'Type',o:[[null,'Drive'],[null,'Fuzz'],[null,'Dist'],[null,'Fold']]},
+  afType:{l:'Mode',o:[[null,'LP'],[null,'BP'],[null,'HP']]},
+  psType:{l:'Type',o:[[null,'Octave'],[null,'Shift']]},
+  rtSpd:{l:'Speed',o:[[null,'Slow'],[null,'Fast']]},
   ampType:{l:'Cab',base:1,o:[[null,'Small'],[null,'Combo'],[null,'Clean']]},
   lshape:{l:'Shape',o:[['tri','Tri'],['pulse','Sqr'],['sawdn','Dn'],['saw','Up'],['sh','S&H']]},
   arpMode:{l:'Mode',o:[[null,'Up'],[null,'Down'],[null,'Up/Dn'],[null,'Rnd']]},
@@ -1344,12 +1679,19 @@ const TABS = [
     {id:'shape',l:'Shapes',env:1},
     {id:'route',l:'Routing',rows:[['fenv','mePitch','meFm'],['meShape']]}]},
   {id:'fx',l:'FX',sub:[
-    {id:'fx1',l:'FX1',seg:'e1Type',rows:() => params.e1Type === 3 ? [['e1Sens','e1Depth','e1Q']] : params.e1Type ? [['e1Rate','e1Depth']] : []},
+    {id:'fx1',l:'FX1',seg:'e1Type',rows:() => params.e1Type === 3 ? [['e1Sens','e1Depth','e1Q']] : params.e1Type === 4 ? [['e1Freq','e1Depth']] : params.e1Type === 5 ? [['e1Div','e1Depth','e1Duty']] : params.e1Type ? [['e1Rate','e1Depth']] : []},
     {id:'amp',l:'Amp',seg:'ampType',rows:[['ampDrive','ampTone','ampLvl']]},
     {id:'eq',l:'EQ',rows:[['eqLo','eqMid','eqHi'],['eqFreq']]},
-    {id:'mod',l:'Mod',seg:'modType',rows:() => params.modType ? [['chRate','chDepth','chFb','chMix']] : [['chRate','chDepth','chMix']]},
-    {id:'delay',l:'Delay',rows:() => [[params.dSync ? 'dDiv' : 'dTime','dFb','dTone'],['dMix','dSync','dPing']]},
-    {id:'reverb',l:'Reverb',rows:[['rvSize','rvDamp','rvMix']]}]},
+    {id:'mod',l:'Mod',seg:'modType',rows:() => params.modType === 1 || params.modType === 2 ? [['chRate','chDepth','chFb','chMix']] : [['chRate','chDepth','chMix']]},
+    {id:'delay',l:'Delay',seg:'dType',rows:() => [[params.dSync ? 'dDiv' : 'dTime','dFb','dTone'],['dMix','dSync',params.dType ? 'dWow' : 'dPing']]},
+    {id:'reverb',l:'Reverb',seg:'rvType',rows:[['rvSize','rvDamp','rvMix'],['rvPre']]},
+    {id:'dyn',l:'Dyn',seg:'dyType',rows:() => [[['dyThr','dyRatio','dyGain'],['dyAtk','dyRel']], [['dyThr','dyRel','dyGain']], [['dyThr','dyAtk','dyRel']], [['dyPunch','dySus','dyGain']]][params.dyType | 0] || []},
+    {id:'drv',l:'Drive',seg:'drvType',rows:[['drvAmt','drvTone','drvBias','drvLvl']]},
+    {id:'crush',l:'Crush',rows:[['crBits','crRate','crMix']]},
+    {id:'filt',l:'Filter',seg:'afType',rows:[['afCut','afRes','afRate','afDepth']]},
+    {id:'pitch',l:'Pitch',seg:'psType',rows:() => params.psType ? [['psSemi','psMix']] : [['psSub','psUp','psDry']]},
+    {id:'rot',l:'Rotary',seg:'rtSpd',rows:[['rtAccel','rtDrive','rtSpread']]},
+    {id:'wide',l:'Wide',rows:[['wdWidth','wdHaas','wdLow']]}]},
   {id:'lfo',l:'LFO',seg:'lshape',rows:() => [[params.lsync ? 'ldiv' : 'lrate','lpitch','lcut'],['lpw','lsync']]},
   {id:'arp',l:'Arp',seg:'arpMode',rows:[['arpDiv','arpOct','arpGate'],['tempo']]},
 ];
@@ -1368,6 +1710,8 @@ TABS.forEach(t => {
 Object.assign(TAB_OF, {o1pw:'osc1', o1pos:'osc1', o1vow:'osc1', lrate:'lfo', ldiv:'lfo', fenv:'filter', dTime:'fx', dDiv:'fx', e1Rate:'fx', e1Depth:'fx', e1Sens:'fx', e1Q:'fx', chFb:'fx'});
 Object.assign(SUB_OF, {dTime:'delay', dDiv:'delay', e1Rate:'fx1', e1Depth:'fx1', e1Sens:'fx1', e1Q:'fx1', chFb:'mod'});
 delete SUB_OF.fenv;
+// every effect knob lives on the FX page, under its own pedal, whichever layout is showing
+for (const f in FXF) FXF[f].keys.forEach(k => { TAB_OF[k] = 'fx'; SUB_OF[k] = f; });
 for (const s in PW) { const k = PW[s]; if (FX_SET.has(s)) { TAB_OF[k] = 'fx'; SUB_OF[k] = s; } else TAB_OF[k] = s; }
 // which section's switch governs a control (null if none)
 Object.keys(VAR).forEach(v => { TAB_OF['lib-' + v] = 'fx'; }); TAB_OF.fxadd = 'fx';
@@ -1485,7 +1829,7 @@ function autoEngage(k, old, v){
   setParam(PW[sec], 1);
 }
 function togglePower(sec){ const k = PW[sec]; setParam(k, params[k] ? 0 : 1); hudShow(k); hudHold(); }
-const LAYOUT_KEYS = new Set(['o1w', 'lsync', 'dSync', 'e1Type', 'modType']);
+const LAYOUT_KEYS = new Set(['o1w', 'lsync', 'dSync', 'e1Type', 'modType', 'dType', 'dyType', 'psType']);
 let layoutSig = '';
 function curLayout(){ const t = TABS.find(x => x.id === state.tab); if (!t) return ''; if (t.id === 'fx' && fxLibShown()) return '"lib"'; const sb = t.sub && t.sub.find(x => x.id === state.sub[t.id]); return JSON.stringify(sb ? (sb.env ? 'env' : rowsOf(sb.rows)) : t.rows ? rowsOf(t.rows) : ''); }
 function relayout(){ if (curLayout() !== layoutSig) showTab(state.tab); }
@@ -1639,7 +1983,9 @@ function segEl(k){
   const s = SEGS[k];
   const row = document.createElement('div'); row.className = 'mod-row';
   row.innerHTML = `<span class="lab">${s.l}</span>`;
-  const seg = document.createElement('div'); seg.className = 'seg' + (s.icons ? ' icons' : ''); seg.dataset.hint = k;
+  const dense = s.o.length >= 5 && s.o.some(o => o[1].length > 5);
+  if (dense) row.classList.add('dense');
+  const seg = document.createElement('div'); seg.className = 'seg' + (s.icons ? ' icons' : '') + (dense ? ' dense' : ''); seg.dataset.hint = k;
   const base = s.base || 0;
   s.o.forEach(([ic, lab], i) => {
     const b = document.createElement('button'); b.setAttribute('aria-label', lab);
@@ -1756,7 +2102,7 @@ function pwStateText(sec){
 /* =====================================================================
    FX board: the end of the signal path, as a pedalboard you build yourself
    The line comes in from the Env (yellow), runs through every pedal on the board and out to the speaker. A pedal that is
-   switched on turns the line mint: the signal has been worked on. Below the board sits the library: ten pedals sorted by
+   switched on turns the line mint: the signal has been worked on. Below the board sits the library: 34 pedals in seven groups sorted by
    what they do, numbered in the order players usually chain them. Tap one to plug it in at its usual place, or drag it onto
    the line to put it exactly where you want. On the board: tap a pedal to open its knobs, stomp its footswitch (or hold the
    pedal) to bypass it, drag it along the line to reorder, drag it off the board to unplug it.
@@ -1988,19 +2334,41 @@ function fxDragEnd(e, cancel){
 }
 
 /* ---------- the library ---------- */
-const LIB_ROWS = [[['filter', 1, ['wah']], ['tone', 2, ['amp', 'eq']], ['space', 4, ['delay', 'reverb']]], [['motion', 3, ['chorus', 'flanger', 'phaser', 'trem', 'pan']]]];
-const LIB_HINT = 'Tap to add a pedal where it usually goes (the numbers), or drag it onto the line.';
+// seven groups, numbered in the order players usually chain them; one group's pedals show at a time, so nothing scrolls
+const LIB_GROUPS = [
+  ['filter', 'filter', 'Filters go first: they react best to the raw signal, with all its dynamics.'],
+  ['dynamics', 'dynamics', 'Dynamics: control how loud and how punchy, before anything colours the sound.'],
+  ['pitch', 'pitch', 'Pitch: octaves, harmonies and ring mod track best on a clean, simple signal.'],
+  ['tone', 'drive', 'Drive & tone: clipping, crushing, amps and EQ reshape the harmonics.'],
+  ['motion', 'motion', 'Motion: effects that move the sound in pitch, phase, level or space.'],
+  ['space', 'space', 'Space: echoes and rooms near the end, so they hold the whole finished sound.'],
+  ['master', 'master', 'Master: widen, then catch the peaks. The very end of the line.']];
+const libVars = g => Object.keys(VAR).filter(v => VAR[v].g === g).sort((a, b) => VAR[a].r - VAR[b].r);
+state.libG = store.get('libG', 'tone'); if (!LIB_GROUPS.some(x => x[0] === state.libG)) state.libG = 'tone';
+const LIB_HINT = 'Tap a pedal to add it where it usually goes (the group numbers), or drag it onto the line.';
 const libRO = new ResizeObserver(es => es.forEach(en => { const c = en.target, d = DPR(); c.width = Math.max(1, Math.round(en.contentRect.width * d)); c.height = Math.max(1, Math.round(en.contentRect.height * d)); }));
 function libEl(){
   const w = document.createElement('div'); w.className = 'fxlib in';
-  let h = `<div class="li" id="fxInfo" aria-live="polite"><b>library</b><span>${LIB_HINT}</span></div><div class="lgrid">`, i = 0;
-  LIB_ROWS.forEach(row => {
-    row.forEach(([g, n, vs]) => { h += `<div class="lh" style="grid-column:span ${vs.length}"><i>0${n}</i>${g}</div>`; });
-    row.forEach(([g, n, vs]) => vs.forEach(v => { h += `<button class="lt" data-v="${v}" data-hint="lib-${v}" style="--i:${i++}" aria-label="Add ${VAR[v].l}"><canvas aria-hidden="true"></canvas><span>${VAR[v].l}</span><i class="n"></i></button>`; }));
-  });
-  w.innerHTML = h + '</div>';
+  let h = `<div class="li" id="fxInfo" aria-live="polite"><b>library</b><span>${LIB_HINT}</span></div><div class="lgs" role="tablist" aria-label="Pedal groups">`;
+  LIB_GROUPS.forEach(([g, lab], i) => { h += `<button class="lg" role="tab" data-g="${g}" style="--i:${i}" aria-label="${String(i + 1).padStart(2, '0')} ${lab}"><i>0${i + 1}</i><span>${lab}</span><u></u></button>`; });
+  w.innerHTML = h + '</div><div class="lgrid"></div>';
+  w.querySelectorAll('.lg').forEach(b => b.addEventListener('click', () => {
+    const g = b.dataset.g; if (g === state.libG) return;
+    state.libG = g; store.set('libG', g); bump('libg'); libFill(w, true);
+    fxInfo(null, LIB_GROUPS.find(x => x[0] === g)[2]);
+  }));
+  libFill(w);
+  return w;
+}
+// the tiles of the open group
+function libFill(w, anim){
+  const grid = w.querySelector('.lgrid'); let h = '';
+  libVars(state.libG).forEach((v, i) => { h += `<button class="lt" data-v="${v}" data-hint="lib-${v}" style="--i:${i}" aria-label="Add ${VAR[v].l}"><canvas aria-hidden="true"></canvas><span>${VAR[v].l}</span><i class="n"></i></button>`; });
+  grid.innerHTML = h;
+  if (anim) { grid.classList.remove('sw'); void grid.offsetWidth; grid.classList.add('sw'); }
+  w.querySelectorAll('.lg').forEach(b => { const on = b.dataset.g === state.libG; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); });
   libRO.disconnect(); FXB.tiles = [];
-  w.querySelectorAll('.lt').forEach((el, k) => {
+  grid.querySelectorAll('.lt').forEach((el, k) => {
     const v = el.dataset.v, cv = el.querySelector('canvas');
     FXB.tiles.push({el, cv, v, i:k, P:{...fxPick(INIT, VAR[v].f), ...VAR[v].set}, ic:{wah:.2, wl:.5}});
     libRO.observe(cv);
@@ -2027,7 +2395,7 @@ function libEl(){
     el.addEventListener('contextmenu', e => e.preventDefault());
   });
   fxLibSync(w);
-  return w;
+  applyHints();
 }
 // each tile shows one lamp per copy of that pedal already on the board
 function fxLibSync(root){
@@ -2038,6 +2406,8 @@ function fxLibSync(root){
     el.querySelector('.n').innerHTML = '<u></u>'.repeat(Math.min(3, n));
     el.disabled = false; el.classList.toggle('full', params.fxc.length >= FX_MAX);
   });
+  // a group lights a lamp when one of its pedals is on the board
+  w.querySelectorAll('.lg').forEach(b => b.classList.toggle('has', libVars(b.dataset.g).some(v => count[v])));
 }
 function fxInfo(v, txt){
   const el = $('fxInfo'); if (!el) return;
@@ -2235,7 +2605,7 @@ function drawFxBoard(){
       if (dr) { g.save(); g.globalAlpha = 0.28; g.strokeStyle = g.fillStyle = MINT; g.lineWidth = 1.2 * d; PD_ICON[VAR[dr.v].f](g, bx + 6 * d, by + 4.5 * d, bx + bw - 6 * d, by + 22.5 * d, t, d, dr.ic, dr.P); g.restore(); }
       return;
     }
-    const u = nd.u, ic = c.ic[u.id] || (c.ic[u.id] = {wah:.15, wl:0}); ic.wl = c.wl;
+    const u = nd.u, ic = c.ic[u.id] || (c.ic[u.id] = {wah:.15, wl:0, id:u.id}); ic.wl = c.wl;
     const ap = nd.a, sc = 0.9 + 0.1 * (1 - Math.pow(1 - ap, 3));
     g.save();
     if (ap < 1) { const cx = bx + bw / 2, cy = by + bh / 2; g.translate(cx, cy); g.scale(sc, sc); g.translate(-cx, -cy); }
@@ -2383,6 +2753,192 @@ const PD_ICON = {
     g.stroke(); g.globalAlpha = base;
   },
 };
+// the drive pedal's curves, for the pictures (the engine has its own copy)
+const shpUI = (x, ty) => ty === 0 ? Math.tanh(x) : ty === 1 ? (x > 0 ? 1 - Math.exp(-x) : -0.85 * (1 - Math.exp(1.4 * x))) : ty === 2 ? (x >= 1 ? 1 : x <= -1 ? -1 : 1.5 * (x - x * x * x / 3)) : Math.sin(x * 1.5707963267948966);
+const drvGain = P => [1 + P.drvAmt * 30, 2 + P.drvAmt * 120, 1 + P.drvAmt * 60, 1 + P.drvAmt * 7][P.drvType | 0];
+// a pedal's live meter from the engine (gain reduction, gate opening, rotor speed), or null for library tiles and the drag ghost
+const fxMeter = c => c && c.id && tele.fxm && tele.fxm[c.id] != null ? tele.fxm[c.id] : null;
+const lineFn = (g, X0, X1, n, fy) => { g.beginPath(); for (let i = 0; i <= n; i++) { const u = i / n, x = X0 + u * (X1 - X0), y = fy(u); i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); };
+const PD_NEW = {
+  ring(g, X0, Y0, X1, Y1, t, d, c, P){
+    // a fast tone times a slower carrier: the envelope keeps flipping sign, which is why the original pitch disappears
+    const h = Y1 - Y0, my = (Y0 + Y1) / 2, cyc = 0.6 + 0.35 * Math.log2(Math.max(20, P.e1Freq) / 20);
+    lineFn(g, X0, X1, 72, u => { const car = Math.sin(6.2832 * (u * cyc - t * 0.25)); return my - Math.sin(6.2832 * u * 8) * (1 - P.e1Depth + P.e1Depth * car) * h * 0.46; });
+  },
+  slicer(g, X0, Y0, X1, Y1, t, d, c, P){
+    // eight steps; each opens for Length of its slot, and the playhead walks along at the tempo
+    const N = 8, w = (X1 - X0) / N, h = Y1 - Y0, step = 60 / (params.tempo || 120) * [1, .5, .25, 1 / 3, 1 / 6][P.e1Div | 0], cur = Math.floor(t / step) % N, base = g.globalAlpha;
+    for (let i = 0; i < N; i++) {
+      const x = X0 + i * w, on = Math.max(0.12, P.e1Duty) * w - 1.2 * d, lo = (1 - P.e1Depth) * h;
+      g.globalAlpha = base * (i === cur ? 1 : 0.5);
+      g.beginPath(); g.moveTo(x + 0.6 * d, Y1 - Math.max(lo, 1 * d)); g.lineTo(x + 0.6 * d, Y0 + 1 * d); g.lineTo(x + 0.6 * d + on, Y0 + 1 * d); g.lineTo(x + 0.6 * d + on, Y1 - Math.max(lo, 1 * d)); g.lineTo(x + w, Y1 - Math.max(lo, 1 * d)); g.stroke();
+    }
+    g.globalAlpha = base;
+  },
+  vibe(g, X0, Y0, X1, Y1, t, d, c, P){
+    // four uneven notches, thrown along by a lopsided sweep
+    const h = Y1 - Y0, lamp = Math.pow(0.5 + 0.5 * Math.sin(6.2832 * t * Math.min(P.chRate, 3) * 0.5), 1.8), sh = -0.22 * P.chDepth * lamp;
+    const ns = [0.18, 0.4, 0.62, 0.84].map((u, i) => u + sh * (0.6 + i * 0.25));
+    lineFn(g, X0, X1, 72, u => { let v = 1; ns.forEach((n, i) => { v -= (0.55 + 0.1 * i) * Math.exp(-Math.pow((u - n) / 0.045, 2)); }); return Y1 - Math.max(0.05, v) * h * 0.92 * (1 - 0.15 * P.chDepth * lamp); });
+  },
+  ensemble(g, X0, Y0, X1, Y1, t, d, c, P){
+    // three copies a third of a cycle apart, drifting around the dry wave
+    const h = Y1 - Y0, my = (Y0 + Y1) / 2, base = g.globalAlpha;
+    for (let v = 0; v < 3; v++) {
+      const off = (0.25 + P.chDepth) * 0.5 * Math.sin(6.2832 * (t * Math.min(P.chRate, 3) * 0.5 + v / 3));
+      g.globalAlpha = base * (v ? 0.5 : 1);
+      lineFn(g, X0, X1, 48, u => my - Math.sin(6.2832 * (u * 2.2 - t * 0.25) + off * 2.5) * h * 0.42);
+    }
+    g.globalAlpha = base;
+  },
+  vibrato(g, X0, Y0, X1, Y1, t, d, c, P){
+    // the wave's cycles squeeze and stretch: its pitch going up and down
+    const h = Y1 - Y0, my = (Y0 + Y1) / 2, dep = 0.12 + 0.5 * P.chDepth;
+    lineFn(g, X0, X1, 80, u => my - Math.sin(6.2832 * (u * 3 + dep * 0.35 * Math.sin(6.2832 * (u * 0.9 - t * Math.min(P.chRate, 6) * 0.12)))) * h * 0.44);
+  },
+  tape(g, X0, Y0, X1, Y1, t, d, c, P){
+    // two turning reels with the echoes on the tape between them, each repeat duller and a little wobbly
+    const h = Y1 - Y0, r = Math.min(h * 0.38, (X1 - X0) * 0.14), cy = Y0 + r + 0.5 * d, base = g.globalAlpha;
+    [X0 + r + 0.5 * d, X1 - r - 0.5 * d].forEach((cx, k) => {
+      g.beginPath(); g.arc(cx, cy, r, 0, 6.2832); g.stroke();
+      const a0 = t * (k ? 1.9 : 2.2); g.beginPath();
+      for (let s = 0; s < 3; s++) { const a = a0 + s * 2.094; g.moveTo(cx + Math.cos(a) * r * 0.25, cy + Math.sin(a) * r * 0.25); g.lineTo(cx + Math.cos(a) * r * 0.8, cy + Math.sin(a) * r * 0.8); }
+      g.stroke();
+    });
+    g.beginPath(); g.moveTo(X0 + r, Y1); g.lineTo(X1 - r, Y1); g.stroke();
+    let lvl = 1; const n = 5;
+    for (let k = 0; k < n && lvl > 0.04; k++) {
+      const x = X0 + 2 * r + 2 * d + (k + 0.5) / n * (X1 - X0 - 4 * r - 4 * d) + Math.sin(t * 3.1 + k * 1.7) * P.dWow * 1.3 * d;
+      g.globalAlpha = base * (0.35 + 0.65 * lvl); g.beginPath(); g.moveTo(x, Y1 - 1.5 * d); g.lineTo(x, Y1 - 1.5 * d - lvl * (h * 0.6)); g.stroke();
+      lvl *= Math.max(0.1, P.dFb) * (0.75 + 0.25 * Math.min(1, P.dTone / 6000));
+    }
+    g.globalAlpha = base;
+  },
+  room(g, X0, Y0, X1, Y1, t, d, c, P){
+    // a few clear early reflections, then a short tail
+    const w = X1 - X0, h = Y1 - Y0, base = g.globalAlpha, pre = Math.min(0.2, P.rvPre * 2.5), fr = Math.floor(t * 9);
+    [0.06, 0.11, 0.16, 0.22, 0.29].forEach((u, i) => { g.globalAlpha = base; g.beginPath(); const x = X0 + (pre + u) * w; g.moveTo(x, Y1); g.lineTo(x, Y1 - (0.85 - i * 0.12) * h); g.stroke(); });
+    g.lineWidth = 1 * d;
+    for (let i = 0; i < 14; i++) { const u = pre + 0.32 + i * 0.035, rn = Math.abs(Math.sin((i + 1) * 12.9898 + fr * 78.233) * 43758.5453) % 1, e = Math.exp(-(i + 1) * (0.5 - 0.3 * P.rvSize));
+      if (u > 1) break; g.globalAlpha = base * 0.6; g.beginPath(); g.moveTo(X0 + u * w, Y1); g.lineTo(X0 + u * w, Y1 - e * (0.3 + 0.5 * rn) * h * 0.6); g.stroke(); }
+    g.globalAlpha = base; g.lineWidth = 1.3 * d;
+  },
+  plate(g, X0, Y0, X1, Y1, t, d, c, P){
+    // dense from the first instant: a solid block of reflections that fades smoothly
+    const w = X1 - X0, h = Y1 - Y0, N = 34, kd = 1 + 6 * Math.pow(1 - P.rvSize, 1.4), pre = Math.min(0.2, P.rvPre * 2.5), fr = Math.floor(t * 12), base = g.globalAlpha;
+    g.lineWidth = 0.9 * d;
+    for (let i = 0; i < N; i++) { const u = pre + (1 - pre) * (i + 0.5) / N, env = Math.exp(-kd * (u - pre)), rn = 0.75 + 0.25 * (Math.abs(Math.sin((i + 1) * 12.9898 + fr * 78.233) * 43758.5453) % 1);
+      g.globalAlpha = base * (0.45 + 0.55 * (1 - P.rvDamp * 0.5 * u)); g.beginPath(); g.moveTo(X0 + u * w, Y1); g.lineTo(X0 + u * w, Y1 - env * rn * h * 0.95); g.stroke(); }
+    g.globalAlpha = base; g.lineWidth = 1.3 * d;
+  },
+  spring(g, X0, Y0, X1, Y1, t, d, c, P){
+    // a coil between two anchors, jiggling and settling
+    const w = X1 - X0, h = Y1 - Y0, my = (Y0 + Y1) / 2, ph = (t * 0.9) % 1.6, amp = ph < 1.2 ? Math.exp(-ph * (3.2 - 2 * P.rvSize)) : 0;
+    g.beginPath(); g.moveTo(X0, my - h * 0.35); g.lineTo(X0, my + h * 0.35); g.moveTo(X1, my - h * 0.35); g.lineTo(X1, my + h * 0.35); g.stroke();
+    lineFn(g, X0 + 1.5 * d, X1 - 1.5 * d, 90, u => my + Math.sin(6.2832 * u * 9) * h * 0.24 + Math.sin(6.2832 * (u * 1.5 - t * 3)) * amp * h * 0.22 * Math.sin(Math.PI * u));
+  },
+  shimmer(g, X0, Y0, X1, Y1, t, d, c, P){
+    // a long tail with sparks drifting up out of it: the octave climbing
+    const w = X1 - X0, h = Y1 - Y0, base = g.globalAlpha;
+    g.lineWidth = 1 * d; g.globalAlpha = base * 0.8;
+    lineFn(g, X0, X1, 40, u => Y1 - Math.exp(-1.6 * u * (1.4 - P.rvSize)) * h * 0.55);
+    for (let i = 0; i < 7; i++) { const u = ((i * 0.37 + t * 0.12) % 1), x = X0 + ((i * 0.53 + 0.1) % 1) * w, y = Y1 - h * 0.25 - u * h * 0.75;
+      g.globalAlpha = base * Math.sin(Math.PI * u); g.beginPath(); g.arc(x, y, 1.1 * d, 0, 6.2832); g.fill(); }
+    g.globalAlpha = base; g.lineWidth = 1.3 * d;
+  },
+};
+// little live pictures for the new pedal families; they read the current knob values, so they change as you patch
+Object.assign(PD_ICON, {
+  dyn(g, X0, Y0, X1, Y1, t, d, c, P = params){
+    const ty = P.dyType | 0, w = X1 - X0 - 7 * d, h = Y1 - Y0, m = fxMeter(c), base = g.globalAlpha, XR = X0 + w;
+    if (ty === 3) {
+      // the shaper: the original note (faint) and the reshaped one, attack spiked or softened, tail lifted or cut
+      const env = (u, pk, su) => u < 0.06 ? u / 0.06 * (1 + pk) : (0.55 * Math.pow(2, su * 0.8) + (1 + pk - 0.55 * Math.pow(2, su * 0.8)) * Math.exp(-(u - 0.06) * 22)) * Math.exp(-Math.max(0, u - 0.6) * 9);
+      g.globalAlpha = base * 0.3; lineFn(g, X0, X1, 60, u => Y1 - Math.min(1, env(u, 0, 0) * 0.55) * h);
+      g.globalAlpha = base; lineFn(g, X0, X1, 60, u => Y1 - Math.min(1, env(u, P.dyPunch * 0.8, P.dySus) * 0.55) * h);
+      return;
+    }
+    // the transfer curve: input level across, output level up; the bend sits at the threshold
+    const thrU = (P.dyThr + 60) / 60, slope = ty === 1 ? 0 : 1 / Math.max(1, P.dyRatio);
+    g.globalAlpha = base * 0.3; g.setLineDash([1.5 * d, 2.5 * d]); g.beginPath(); g.moveTo(X0, Y1); g.lineTo(XR, Y0); g.stroke(); g.setLineDash([]); g.globalAlpha = base;
+    g.beginPath();
+    for (let i = 0; i <= 40; i++) { const u = i / 40; let v = ty === 2 ? (u < thrU ? Math.max(0, u - 0.35) * 0.25 : u) : u < thrU ? u : thrU + (u - thrU) * slope;
+      const x = X0 + u * w, y = Y1 - Math.min(1, v) * h; i ? g.lineTo(x, y) : g.moveTo(x, y); }
+    g.stroke();
+    g.beginPath(); g.arc(X0 + thrU * w, Y1 - thrU * h, 1.5 * d, 0, 6.2832); g.fill();
+    // a meter strip on the right: gain reduction falling from the top, or the gate's lamp
+    const v = m != null ? (ty === 2 ? m : Math.min(1, m / 18)) : ty === 2 ? (Math.sin(t * 3) > 0 ? 1 : 0.15) : 0.25 + 0.2 * Math.sin(t * 2.4);
+    const bx = X1 - 2.5 * d;
+    g.globalAlpha = base * 0.3; g.beginPath(); g.moveTo(bx, Y0); g.lineTo(bx, Y1); g.stroke(); g.globalAlpha = base;
+    g.lineWidth = 2.4 * d; g.beginPath();
+    if (ty === 2) { g.moveTo(bx, Y1); g.lineTo(bx, Y1 - Math.max(0.05, v) * h); } else { g.moveTo(bx, Y0); g.lineTo(bx, Y0 + Math.max(0.04, v) * h); }
+    g.stroke(); g.lineWidth = 1.3 * d;
+  },
+  drv(g, X0, Y0, X1, Y1, t, d, c, P = params){
+    // a sine pushed through the curve: rounded by Drive, squared by Fuzz, flattened by Dist, folded by Fold; Bias makes it lopsided
+    const ty = P.drvType | 0, gn = ty === 3 ? drvGain(P) * 0.9 : 0.6 * Math.pow(drvGain(P), 0.55), b = P.drvBias * (ty === 3 ? 0.9 : 0.45), o = shpUI(b, ty), h = Y1 - Y0, my = (Y0 + Y1) / 2;
+    let pk = 0; for (let i = 0; i <= 32; i++) pk = Math.max(pk, Math.abs(shpUI(gn * Math.sin(6.2832 * i / 32) + b, ty) - o));
+    lineFn(g, X0, X1, 72, u => my - (shpUI(gn * Math.sin(6.2832 * (u * 2 - t * 0.4)) + b, ty) - o) / Math.max(0.2, pk) * h * 0.44);
+  },
+  crush(g, X0, Y0, X1, Y1, t, d, c, P = params){
+    // a sine held in steps (the sample rate) and rounded to levels (the bits)
+    // (both exaggerated a little, so the steps show at this size)
+    const h = Y1 - Y0, my = (Y0 + Y1) / 2, q = Math.max(1, Math.round(Math.pow(2, (Math.max(2, Math.round(P.crBits)) - 1) * 0.45))), n = Math.max(4, Math.min(40, Math.round(4 + Math.log2(P.crRate / 200) * 3))), w = X1 - X0;
+    g.globalAlpha *= 0.3; lineFn(g, X0, X1, 48, u => my - Math.sin(6.2832 * (u * 1.5 - t * 0.2)) * h * 0.44); g.globalAlpha /= 0.3;
+    g.beginPath();
+    for (let i = 0; i < n; i++) { const u = i / n, v = Math.round(Math.sin(6.2832 * (u * 1.5 - t * 0.2)) * q) / q, y = my - v * h * 0.44 * P.crMix - Math.sin(6.2832 * (u * 1.5 - t * 0.2)) * h * 0.44 * (1 - P.crMix);
+      i ? g.lineTo(X0 + u * w, y) : g.moveTo(X0, y); g.lineTo(X0 + (i + 1) / n * w, y); }
+    g.stroke();
+  },
+  filt(g, X0, Y0, X1, Y1, t, d, c, P = params){
+    // the filter's curve, its cutoff riding the pedal's own LFO
+    const ty = P.afType | 0, h = Y1 - Y0, uc = Math.log(Math.max(40, Math.min(16000, P.afCut * Math.pow(2, P.afDepth * Math.sin(6.2832 * t * Math.min(P.afRate, 4) * 0.5)))) / 20) / Math.log(1000), pk = P.afRes * 1.1;
+    lineFn(g, X0, X1, 48, u => { const x = (u - uc) / 0.09, lp = x < 0 ? 1 : Math.exp(-x * x * 0.8), hp = x > 0 ? 1 : Math.exp(-x * x * 0.8), bp = Math.exp(-x * x * 0.9), peak = pk * Math.exp(-x * x * 6);
+      const v = ty === 2 ? hp + peak : ty === 1 ? bp * 0.8 + peak : lp + peak; return Y1 - Math.min(1, v / 1.6) * h; });
+  },
+  pitch(g, X0, Y0, X1, Y1, t, d, c, P = params){
+    const h = Y1 - Y0, my = (Y0 + Y1) / 2, base = g.globalAlpha, ph = t * 0.25;
+    if ((P.psType | 0) === 1) {
+      // the dry wave (faint) and its copy at the new interval
+      const r = Math.pow(2, Math.round(P.psSemi) / 12);
+      g.globalAlpha = base * 0.35; lineFn(g, X0, X1, 64, u => my - Math.sin(6.2832 * (u * 2 - ph)) * h * 0.42);
+      g.globalAlpha = base * (0.35 + 0.65 * P.psMix); lineFn(g, X0, X1, 64, u => my - Math.sin(6.2832 * (u * 2 * r - ph * r)) * h * 0.42);
+    } else {
+      // three bands: an octave up, the note, an octave down; each as bright as its level
+      [[2, P.psUp, -0.3], [1, P.psDry, 0], [0.5, P.psSub, 0.3]].forEach(([r, a, oy]) => { g.globalAlpha = base * (0.15 + 0.85 * a);
+        lineFn(g, X0, X1, 64, u => my + oy * h - Math.sin(6.2832 * (u * 2.5 * r - ph * r)) * h * 0.18); });
+    }
+    g.globalAlpha = base;
+  },
+  rot(g, X0, Y0, X1, Y1, t, d, c, P = params){
+    // looking down into the cabinet: the horn spins above, the drum below; the speed comes from the engine when it runs
+    const h = Y1 - Y0, w = X1 - X0, cx = X0 + w * 0.32, cx2 = X0 + w * 0.74, cy = (Y0 + Y1) / 2, R = Math.min(h * 0.48, w * 0.22);
+    const tgt = (P.rtSpd | 0) ? 6.8 : 0.83, m = fxMeter(c), now = t;
+    if (c) { const dt = Math.min(0.1, Math.max(0, now - (c.lt || now))); c.lt = now; c.rs = m != null ? m : (c.rs || tgt) + (tgt - (c.rs || tgt)) * (1 - Math.exp(-dt / Math.max(0.1, P.rtAccel * 0.3)));
+      c.rp = ((c.rp || 0) + c.rs * dt * 0.35) % 1; c.dp = ((c.dp || 0.3) + c.rs * 0.87 * dt * 0.35) % 1; }
+    const a = 6.2832 * (c ? c.rp : t * 0.3), b = 6.2832 * (c ? c.dp : t * 0.26);
+    g.beginPath(); g.arc(cx, cy, R, 0, 6.2832); g.stroke();
+    g.beginPath(); g.moveTo(cx - Math.cos(a) * R * 0.85, cy - Math.sin(a) * R * 0.85); g.lineTo(cx + Math.cos(a) * R * 0.85, cy + Math.sin(a) * R * 0.85); g.stroke();
+    g.beginPath(); g.arc(cx + Math.cos(a) * R * 0.85, cy + Math.sin(a) * R * 0.85, 1.4 * d, 0, 6.2832); g.fill();
+    g.beginPath(); g.arc(cx2, cy, R, 0, 6.2832); g.stroke();
+    g.beginPath(); g.arc(cx2, cy, R * 0.7, b, b + 3.1416); g.stroke();
+  },
+  wide(g, X0, Y0, X1, Y1, t, d, c, P = params){
+    // a stereo scope: mono is a vertical line; the more the two sides differ, the wider the shape opens
+    const h = Y1 - Y0, cx = (X0 + X1) / 2, cy = (Y0 + Y1) / 2, sp = Math.min(1.2, P.wdHaas / 0.012 * 0.6) * Math.min(1, P.wdWidth / 1.4 + 0.2), s = 0.5 * h, wx = Math.min(1.7, P.wdWidth);
+    g.globalAlpha *= 0.3; g.beginPath(); g.moveTo(cx, Y0); g.lineTo(cx, Y1); g.stroke(); g.globalAlpha /= 0.3;
+    g.beginPath();
+    for (let i = 0; i <= 64; i++) { const th = 6.2832 * i / 64 + t * 0.6, L = Math.sin(th), R = Math.sin(th + sp * 1.4), M = (L + R) * 0.5, S = (L - R) * 0.5 * wx; const x = cx + S * s * 1.6, y = cy - M * s * 0.95; i ? g.lineTo(x, y) : g.moveTo(x, y); }
+    g.stroke();
+  },
+});
+// the families that grew new types draw them here; their original types keep their old pictures
+{ const fx1 = PD_ICON.fx1, mod = PD_ICON.mod, dly = PD_ICON.delay, rv = PD_ICON.reverb;
+  PD_ICON.fx1 = (g, X0, Y0, X1, Y1, t, d, c, P = params) => { const ty = P.e1Type | 0; return ty === 4 ? PD_NEW.ring(g, X0, Y0, X1, Y1, t, d, c, P) : ty === 5 ? PD_NEW.slicer(g, X0, Y0, X1, Y1, t, d, c, P) : fx1(g, X0, Y0, X1, Y1, t, d, c, P); };
+  PD_ICON.mod = (g, X0, Y0, X1, Y1, t, d, c, P = params) => { const k = ['', '', '', 'vibe', 'ensemble', 'vibrato'][P.modType | 0]; return k ? PD_NEW[k](g, X0, Y0, X1, Y1, t, d, c, P) : mod(g, X0, Y0, X1, Y1, t, d, c, P); };
+  PD_ICON.delay = (g, X0, Y0, X1, Y1, t, d, c, P = params) => (P.dType | 0) === 1 ? PD_NEW.tape(g, X0, Y0, X1, Y1, t, d, c, P) : dly(g, X0, Y0, X1, Y1, t, d, c, P);
+  PD_ICON.reverb = (g, X0, Y0, X1, Y1, t, d, c, P = params) => { const k = ['', 'room', 'plate', 'spring', 'shimmer'][P.rvType | 0]; return k ? PD_NEW[k](g, X0, Y0, X1, Y1, t, d, c, P) : rv(g, X0, Y0, X1, Y1, t, d, c, P); };
+}
 const rrect = (g, x, y, w, h, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); };
 const MINT = '#7dffd0', FLK_OFF = [1, .12, .85, .05, .5, 0], FLK_ON = [0, .85, .15, 1];
 function pdLit(id, now){
@@ -2672,7 +3228,9 @@ const HUD_G = {o1w:'o1',o1pw:'o1',o1pos:'o1',o1vow:'o1',o1oct:'o1',bl:'o1',mePit
   lshape:'lfo',lrate:'lfo',ldiv:'lfo',lsync:'lfo',lpitch:'lfo',lcut:'lfo',lpw:'lfo',
   chRate:'ch',chDepth:'ch',chMix:'ch', dTime:'dly',dDiv:'dly',dSync:'dly',dFb:'dly',dTone:'dly',dMix:'dly',dPing:'dly',
   rvSize:'rv',rvDamp:'rv',rvMix:'rv', poly:'poly', arpOn:'arp',arpMode:'arp',arpOct:'arp',arpGate:'arp',arpDiv:'arp',tempo:'arp',
-  pwO1:'o1',pwO2:'o2',pwFlt:'flt',pwLfo:'lfo',pwFx1:'fx1',pwAmp:'amp',pwEq:'eq',pwMod:'ch',pwDly:'dly',pwRev:'rv'};
+  pwO1:'o1',pwO2:'o2',pwFlt:'flt',pwLfo:'lfo',pwFx1:'fx1',pwAmp:'amp',pwEq:'eq',pwMod:'ch',pwDly:'dly',pwRev:'rv',
+  e1Freq:'fx1',e1Div:'fx1',e1Duty:'fx1',dType:'dly',dWow:'dly',rvType:'rv',rvPre:'rv',pwDyn:'dyn',pwDrv:'dist',pwCrs:'crs',pwAf:'af',pwPs:'ps',pwRot:'rot',pwWid:'wid'};
+['dyn', 'drv', 'crush', 'filt', 'pitch', 'rot', 'wide'].forEach(f => FXF[f].keys.forEach(k => { HUD_G[k] = {drv:'dist', crush:'crs', filt:'af', pitch:'ps'}[f] || {wide:'wid'}[f] || f; }));
 let DSPV = null;
 const nw = (w, ph, pw) => {
   if (w === 0) return Math.sin(6.2832 * ph);
@@ -2794,6 +3352,19 @@ function drawHud(){
       const curve = fc => { const pts = []; for (let i = 0; i <= 100; i++) { const f = 20 * Math.pow(1000, i / 100), b = f / fc, den = Math.hypot(1 - b * b, k * b); pts.push([X(f), Yd(20 * Math.log10(((1.5 * b + 0.2) / den) * (0.6 + 0.4 * k) + 1e-9))]); } return pts; };
       path(curve(320), dim(col), 1.2, [3 * d, 3 * d]); glow(col, 8); path(curve(320 * Math.pow(2, P.e1Depth * 4.5)), col, 2);
       txt('closed ↔ open: loud notes open the wah', x0, y1 + 3 * d);
+    } else if (t === 4) {
+      // the note's harmonics vanish (faint, what's left of the dry sound) and pairs of sidebands appear at f ± carrier
+      const f0 = Math.max(40, tele.f0 || 220), fc = P.e1Freq, X = f => x0 + Math.log(f / 20) / Math.log(1000) * (x1 - x0);
+      const bar = (f, a, c, w) => { f = Math.abs(f); if (f < 20 || f > 20000 || a < 0.01) return; const x = X(f); glow(c, 6); g.strokeStyle = c; g.lineWidth = w * d; g.beginPath(); g.moveTo(x, y1); g.lineTo(x, y1 - Math.min(1, a) * (y1 - y0)); g.stroke(); };
+      for (let n = 1; n <= 8; n++) { bar(f0 * n, (1 - P.e1Depth) / n, dim(COL.ink), 1.2); bar(f0 * n + fc, P.e1Depth * 0.5 / n * 1.6, col, 2); bar(f0 * n - fc, P.e1Depth * 0.5 / n * 1.6, col, 2); }
+      g.shadowBlur = 0; txt('sidebands at f ± ' + fHz(fc), x0, y1 + 3 * d); txt('20 Hz – 20 kHz', x1, y1 + 3 * d, null, 'right');
+    } else if (t === 5) {
+      // two beats of the gate at the current tempo
+      const beat = 60 / P.tempo, win = 2 * beat, step = beat * [1, .5, .25, 1 / 3, 1 / 6][P.e1Div | 0], pts = [];
+      for (let i = 0; i <= 400; i++) { const tt = i / 400 * win, ph = (tt / step) % 1, v = ph < P.e1Duty ? 1 : 1 - P.e1Depth; pts.push([x0 + i / 400 * (x1 - x0), y1 - v * (y1 - y0) * 0.92]); }
+      for (let b = 0; b <= 2; b++) path([[x0 + b / 2 * (x1 - x0), y0], [x0 + b / 2 * (x1 - x0), y1]], 'rgba(242,245,248,.12)', 1, [2 * d, 3 * d]);
+      glow(col, 8); path(pts, col, 2);
+      txt(`${ADIV_L[P.e1Div | 0]} steps @ ${P.tempo} bpm`, x0, y1 + 3 * d); txt('2 beats shown', x1, y1 + 3 * d, null, 'right');
     } else {
       const pl = [], pr = [];
       for (let i = 0; i <= 200; i++) { const tt = i / 200 * 2, s1 = Math.sin(6.2832 * P.e1Rate * tt), x = x0 + i / 200 * (x1 - x0);
@@ -2830,6 +3401,28 @@ function drawHud(){
       g.shadowBlur = 0; g.fillStyle = col; g.beginPath(); g.arc(X(P.eqFreq), Yd(P.eqMid), 2.4 * d, 0, 6.2832); g.fill();
       txt('+12', x0, y0 - 2 * d); txt('−12 dB', x0, y1 - 9 * d); txt('20 Hz', x0, y1 + 3 * d); txt('20 kHz', x1, y1 + 3 * d, null, 'right');
     }
+  } else if (grp === 'ch' && (P.modType | 0) === 3) {
+    // vibe: four uneven all-pass stages mixed with the dry sound; dashed at rest, solid at the top of the sweep
+    const X = f => x0 + Math.log(f / 20) / Math.log(1000) * (x1 - x0), Yd = v => y0 + (1 - v) * (y1 - y0), mD = 1 - 0.5 * P.chMix, mW = 0.75 * P.chMix;
+    const resp = mm => { const pts = [], as = [3000, 1100, 380, 140].map(f => { const t = Math.tan(Math.PI * Math.min(f * mm, 21000) / 48000); return (t - 1) / (t + 1); });
+      for (let i = 0; i <= 140; i++) { const f = 20 * Math.pow(1000, i / 140), w = 2 * Math.PI * f / 48000; let th = 0;
+        as.forEach(a => { th += Math.atan2(-Math.sin(w), a + Math.cos(w)) - Math.atan2(-a * Math.sin(w), 1 + a * Math.cos(w)); });
+        pts.push([X(f), Yd(Math.min(1, Math.hypot(mD + mW * Math.cos(th), mW * Math.sin(th)) / (mD + mW)))]); } return pts; };
+    path(resp(1), dim(col), 1.1, [3 * d, 3 * d]); glow(col, 8); path(resp(Math.pow(2, -2.4 * P.chDepth)), col, 2);
+    txt('four uneven notches · lopsided sweep', x0, y1 + 3 * d);
+  } else if (grp === 'ch' && (P.modType | 0) === 4) {
+    // ensemble: the three voices' delay wobbles, a third of a cycle apart
+    const cs = [COL.c1, COL.c2, COL.c3];
+    for (let v = 0; v < 3; v++) { const pts = []; for (let i = 0; i <= 200; i++) { const t = i / 200 * 4; pts.push([x0 + i / 200 * (x1 - x0), mid - Math.sin(6.2832 * (P.chRate * t + v / 3)) * P.chDepth * (y1 - y0) * 0.42]); }
+      glow(cs[v], 6); path(pts, P.chMix > 0.01 ? cs[v] : dim(cs[v]), 1.5); }
+    txt('three voices, 120° apart · 4 s', x1, y1 + 3 * d, null, 'right');
+  } else if (grp === 'ch' && (P.modType | 0) === 5) {
+    // vibrato: how far the pitch swings, in cents, over two seconds
+    const A = 0.003 * P.chDepth, dev = 6.2832 * P.chRate * A, cents = 1200 * Math.log2(1 + dev), pts = [];
+    for (let i = 0; i <= 300; i++) { const t = i / 300 * 2; pts.push([x0 + i / 300 * (x1 - x0), mid - Math.cos(6.2832 * P.chRate * t) * Math.min(1, cents / 100) * (y1 - y0) * 0.46]); }
+    path([[x0, mid - (y1 - y0) * 0.46], [x1, mid - (y1 - y0) * 0.46]], 'rgba(242,245,248,.12)', 1, [2 * d, 3 * d]); txt('+100 ct', x0, y0 - 2 * d);
+    glow(col, 8); path(pts, P.chMix > 0.01 ? col : dim(col), 2);
+    txt(`±${cents.toFixed(0)} cents · ${P.chRate.toFixed(2)} Hz`, x0, y1 + 3 * d); txt(P.chMix > 0.98 ? 'pure vibrato' : 'dry mixed in: chorus', x1, y1 + 3 * d, null, 'right');
   } else if (grp === 'ch' && (P.modType | 0) === 2) {
     const X = f => x0 + Math.log(f / 20) / Math.log(1000) * (x1 - x0), Yd = v => y0 + (1 - v) * (y1 - y0);
     const resp = fcen => { const pts = [], t = Math.tan(Math.PI * fcen / 48000), a = (t - 1) / (t + 1);
@@ -2853,16 +3446,111 @@ function drawHud(){
       glow(col, 6); g.strokeStyle = col; g.globalAlpha = Math.max(0.25, a); g.beginPath(); g.moveTo(X(n * T), mid); g.lineTo(X(n * T), up ? mid - a * amp : mid + a * amp); g.stroke(); g.globalAlpha = 1;
       lvl *= P.dFb; n++;
     }
-    txt(P.dPing ? 'dry · echoes L ↑ R ↓' : 'dry · echoes', x0, y1 + 3 * d); txt(fT(win) + ' shown', x1, y1 + 3 * d, null, 'right');
+    txt(P.dType ? `tape · repeats wobble ±${(1200 * Math.log2(1 + 6.2832 * 0.55 * 0.0016 * P.dWow)).toFixed(0)} ct and darken` : P.dPing ? 'dry · echoes L ↑ R ↓' : 'dry · echoes', x0, y1 + 3 * d); txt(fT(win) + ' shown', x1, y1 + 3 * d, null, 'right');
   } else if (grp === 'rv') {
-    const t60 = 0.3 + P.rvSize * P.rvSize * 9.7, win = Math.min(12, t60 * 1.2), X = t => x0 + t / win * (x1 - x0);
-    let seed = 11; const env = t => Math.pow(10, -3 * t / t60), hiEnv = t => Math.pow(10, -3 * t / (t60 * (1 - P.rvDamp * 0.8)));
+    const ty = P.rvType | 0, t60 = RV_T60(P.rvSize, ty), pre = P.rvPre, win = Math.min(15, t60 * 1.2 + pre), X = t => x0 + t / win * (x1 - x0);
+    let seed = 11; const env = t => t < pre ? 0 : Math.pow(10, -3 * (t - pre) / t60), hiEnv = t => Math.pow(10, -3 * Math.max(0, t - pre) / (t60 * (1 - P.rvDamp * 0.8)));
+    if (ty === 1) [4.3, 7.9, 11.6, 15.2, 19.8, 23.9].forEach((ms, i) => { const x = X(pre + ms / 1000); glow(col, 6); g.strokeStyle = col; g.lineWidth = 1.6 * d; g.beginPath(); g.moveTo(x, mid); g.lineTo(x, mid - (0.9 - i * 0.1) * (y1 - y0) * 0.5); g.stroke(); });
     g.shadowBlur = 0;
     for (let i = 0; i < 260; i++) { seed = (seed * 16807) % 2147483647; const t = (i / 260) * win, r = seed / 2147483647, a = env(t) * r * Math.max(0.15, P.rvMix);
       g.strokeStyle = col; g.globalAlpha = 0.25 + 0.6 * hiEnv(t); g.lineWidth = 1 * d; g.beginPath(); g.moveTo(X(t), mid); g.lineTo(X(t), mid - a * (y1 - y0) * 0.9); g.stroke(); }
     g.globalAlpha = 1; const pts = []; for (let i = 0; i <= 100; i++) { const t = i / 100 * win; pts.push([X(t), mid - env(t) * (y1 - y0) * 0.45]); }
     glow(col, 6); path(pts, col, 1.6);
-    txt('decay ' + fT(t60), x0, y1 + 3 * d); txt(fT(win) + ' shown', x1, y1 + 3 * d, null, 'right');
+    txt(SEGS.rvType.o[ty][1].toLowerCase() + ' · decay ' + fT(t60) + (pre > .0005 ? ' · pre ' + fT(pre) : ''), x0, y1 + 3 * d); txt(fT(win) + ' shown', x1, y1 + 3 * d, null, 'right');
+  } else if (grp === 'dyn') {
+    const ty = P.dyType | 0, fb = fxB('dyn'), m = fb && tele.fxm ? tele.fxm[fb.id] : null;
+    if (ty === 3) {
+      // the shaper: one note's level before (dashed) and after
+      const env = (u, pk, su) => u < 0.05 ? u / 0.05 * (1 + pk) : (0.5 * Math.pow(2, su) + (1 + pk - 0.5 * Math.pow(2, su)) * Math.exp(-(u - 0.05) * 18)) * Math.exp(-Math.max(0, u - 0.62) * 8);
+      const pts = (pk, su) => { const a = []; for (let i = 0; i <= 120; i++) { const u = i / 120; a.push([x0 + u * (x1 - x0), y1 - Math.min(1, env(u, pk, su) * 0.5) * (y1 - y0)]); } return a; };
+      path(pts(0, 0), dim(col), 1.2, [3 * d, 3 * d]); glow(col, 8); path(pts(P.dyPunch * 0.8, P.dySus), col, 2);
+      txt('before - - · after ―', x0, y1 + 3 * d); txt('attack · tail', x1, y1 + 3 * d, null, 'right');
+    } else {
+      // input level across, output level up, both in dB; the bend is the threshold
+      const pw = (x1 - x0) * 0.62, X = db => x0 + (db + 60) / 60 * pw, Yo = db => y1 - (Math.max(-60, Math.min(6, db)) + 60) / 66 * (y1 - y0);
+      const slope = ty === 1 ? 0 : 1 / Math.max(1, P.dyRatio), gain = ty === 2 ? 0 : P.dyGain, kn = ty === 1 ? 1 : 6;
+      const out = i => { if (ty === 2) return i < P.dyThr ? -60 : i; const ov = i - P.dyThr; const gr = ov <= -kn / 2 ? 0 : ov >= kn / 2 ? ov * (1 - slope) : (1 - slope) * (ov + kn / 2) * (ov + kn / 2) / (2 * kn); return i - gr + gain; };
+      path([[X(-60), Yo(-60)], [X(0), Yo(0)]], 'rgba(242,245,248,.18)', 1, [3 * d, 3 * d]);
+      const pts = []; for (let i = 0; i <= 120; i++) { const db = -60 + i / 2; pts.push([X(db), Yo(out(db))]); }
+      glow(col, 8); path(pts, col, 2);
+      g.shadowBlur = 0; g.fillStyle = col; g.beginPath(); g.arc(X(P.dyThr), Yo(out(P.dyThr)), 2.4 * d, 0, 6.2832); g.fill();
+      // the meter: gain reduction (or the gate opening), live from the engine
+      const mx = x0 + pw + (x1 - x0 - pw) * 0.55, mw = 9 * d, v = m == null ? 0 : ty === 2 ? m : Math.min(1, m / 24);
+      g.strokeStyle = 'rgba(242,245,248,.25)'; g.lineWidth = 1 * d; g.strokeRect(mx, y0, mw, y1 - y0);
+      glow(col, 8); g.fillStyle = col;
+      if (ty === 2) g.fillRect(mx + 1.5 * d, y1 - v * (y1 - y0), mw - 3 * d, v * (y1 - y0)); else g.fillRect(mx + 1.5 * d, y0, mw - 3 * d, v * (y1 - y0));
+      g.shadowBlur = 0;
+      txt(ty === 2 ? 'open' : 'GR', mx + mw / 2, y0 - 2 * d, null, 'center');
+      txt(ty === 2 ? (m != null && m > 0.5 ? 'gate open' : 'gate closed') : '−' + (m || 0).toFixed(1) + ' dB', mx + mw / 2, y1 + 3 * d, col, 'center');
+      txt('in →  ·  out ↑  (dB)', x0, y1 + 3 * d);
+    }
+  } else if (grp === 'dist') {
+    // the clipping curve, and the harmonics it adds to a sine: odd ones from symmetric clipping, even ones once Bias tips it
+    const ty = P.drvType | 0, gn = [1 + P.drvAmt * 30, 2 + P.drvAmt * 120, 1 + P.drvAmt * 60, 1 + P.drvAmt * 7][ty], b = P.drvBias * (ty === 3 ? 0.9 : 0.45), o = shpUI(b, ty);
+    const cw = (x1 - x0) * 0.42, pts = [];
+    let pk = 0; for (let i = 0; i <= 60; i++) pk = Math.max(pk, Math.abs(shpUI(gn * 0.5 * (i / 30 - 1) + b, ty) - o));
+    for (let i = 0; i <= 80; i++) { const u = i / 80 * 2 - 1; pts.push([x0 + (u + 1) / 2 * cw, mid - (shpUI(gn * 0.5 * u + b, ty) - o) / Math.max(0.1, pk) * (y1 - y0) * 0.46]); }
+    path([[x0, y1], [x0 + cw, y0]], 'rgba(242,245,248,.15)', 1, [3 * d, 3 * d]);
+    glow(col, 8); path(pts, col, 2);
+    const N = 256, H = 10, cyc = []; for (let i = 0; i < N; i++) cyc.push(shpUI(gn * 0.5 * Math.sin(6.2832 * i / N) + b, ty) - o);
+    const hs = []; for (let h = 1; h <= H; h++) { let re = 0, im = 0; for (let i = 0; i < N; i++) { re += cyc[i] * Math.cos(6.2832 * h * i / N); im += cyc[i] * Math.sin(6.2832 * h * i / N); } hs.push(Math.hypot(re, im)); }
+    const top = Math.max(...hs) || 1, hx0 = x0 + cw + 16 * d, bw = (x1 - hx0) / H;
+    hs.forEach((a, i) => { const v = Math.max(0, 1 + 20 * Math.log10(a / top + 1e-9) / 48), c = i % 2 ? COL.c2 : col; glow(c, 5); g.fillStyle = c; g.fillRect(hx0 + i * bw + bw * 0.22, y1 - v * (y1 - y0), bw * 0.56, v * (y1 - y0)); });
+    g.shadowBlur = 0;
+    txt('curve', x0, y1 + 3 * d); txt('harmonics 1–10: odd · even', hx0, y1 + 3 * d); txt('even', x1, y0 - 2 * d, COL.c2, 'right');
+  } else if (grp === 'crs') {
+    // two cycles of a 220 Hz tone, held at the reduced rate and rounded to the bit depth
+    const f = 220, cyc = 2, sps = Math.max(1, P.crRate / f), q = Math.pow(2, Math.max(2, Math.round(P.crBits)) - 1), N = 300, pts = [], src = [];
+    for (let i = 0; i <= N; i++) { const ph = i / N * cyc, held = Math.floor(ph * sps) / sps, v = Math.round(Math.sin(6.2832 * held) * 0.9 * q) / q, x = x0 + i / N * (x1 - x0);
+      src.push([x, mid - Math.sin(6.2832 * ph) * 0.9 * (y1 - y0) * 0.5]); pts.push([x, mid - (v * P.crMix + Math.sin(6.2832 * ph) * 0.9 * (1 - P.crMix)) * (y1 - y0) * 0.5]); }
+    path(src, dim(col), 1.1, [3 * d, 3 * d]); glow(col, 8); path(pts, col, 1.8);
+    txt(`${Math.round(P.crBits)} bit = ${Math.pow(2, Math.round(P.crBits))} levels`, x0, y1 + 3 * d); txt('aliases above ' + fHz(Math.min(SR, P.crRate) / 2), x1, y1 + 3 * d, null, 'right');
+  } else if (grp === 'af') {
+    // the filter's response at both ends of its sweep (dashed) and right now
+    const ty = P.afType | 0, k = 2 - 1.9 * P.afRes, X = f => x0 + Math.log(f / 20) / Math.log(1000) * (x1 - x0), Yd = db => y0 + (18 - Math.max(-36, Math.min(18, db))) / 54 * (y1 - y0);
+    const H_ = (f, fc) => { const b = f / fc, den = Math.hypot(1 - b * b, k * b); return ty === 0 ? 1 / den : ty === 1 ? b * Math.max(k, .35) * 1.4 / den : b * b / den; };
+    const curve = fc => { const a = []; for (let i = 0; i <= 120; i++) { const f = 20 * Math.pow(1000, i / 120); a.push([X(f), Yd(20 * Math.log10(H_(f, fc) * (0.6 + 0.4 * k) + 1e-9))]); } return a; };
+    const lo = Math.max(20, P.afCut / Math.pow(2, P.afDepth)), hi = Math.min(20000, P.afCut * Math.pow(2, P.afDepth)), now = P.afCut * Math.pow(2, P.afDepth * Math.sin(6.2832 * performance.now() / 1000 * P.afRate));
+    if (P.afDepth > 0.05) { path(curve(lo), dim(col), 1.1, [3 * d, 3 * d]); path(curve(hi), dim(col), 1.1, [3 * d, 3 * d]); }
+    glow(col, 8); path(curve(Math.max(20, Math.min(20000, now))), col, 2);
+    txt(`sweeps ${fHz(lo)} – ${fHz(hi)}`, x0, y1 + 3 * d); txt(P.afRate.toFixed(2) + ' Hz', x1, y1 + 3 * d, null, 'right');
+  } else if (grp === 'ps') {
+    // the note's harmonics (faint) and the new copies the pedal adds, on a log frequency axis
+    const f0 = Math.max(40, tele.f0 || 220), X = f => x0 + Math.log(f / 40) / Math.log(200) * (x1 - x0), sh = P.psType | 0;
+    const bar = (f, a, c, w) => { if (f < 40 || f > 8000 || a < 0.01) return; const x = X(f); glow(c, 6); g.strokeStyle = c; g.lineWidth = w * d; g.beginPath(); g.moveTo(x, y1); g.lineTo(x, y1 - a * (y1 - y0)); g.stroke(); };
+    const dry = sh ? 1 - P.psMix : P.psDry;
+    for (let n = 1; n <= 12; n++) bar(f0 * n, dry / n, dim(COL.ink), 1.2);
+    if (sh) { const r = Math.pow(2, Math.round(P.psSemi) / 12); for (let n = 1; n <= 12; n++) bar(f0 * n * r, P.psMix / n, col, 2); }
+    else { for (let n = 1; n <= 12; n++) { bar(f0 * n * 0.5, P.psSub / n, col, 2); bar(f0 * n * 2, P.psUp / n, COL.c1, 2); } }
+    g.shadowBlur = 0;
+    txt(sh ? `× ${Math.pow(2, Math.round(P.psSemi) / 12).toFixed(3)} · ${DEFS.psSemi.f(Math.round(P.psSemi))}` : 'octave down · up', x0, y0 - 2 * d, col);
+    txt('40 Hz', x0, y1 + 3 * d); txt('8 kHz', x1, y1 + 3 * d, null, 'right');
+  } else if (grp === 'rot') {
+    // left: the horn and drum from above, spinning at the engine's speed; right: how each one ramps to the new speed
+    const fb = fxB('rot'), hs = fb && tele.fxm && tele.fxm[fb.id] != null ? tele.fxm[fb.id] : (P.rtSpd ? 6.8 : 0.83), now = performance.now() / 1000;
+    hud.rp = ((hud.rp || 0) + hs * Math.min(0.1, now - (hud.rt || now))) % 1; hud.dp = ((hud.dp || 0) + hs * 0.87 * Math.min(0.1, now - (hud.rt || now))) % 1; hud.rt = now;
+    const R = Math.min((y1 - y0) * 0.42, (x1 - x0) * 0.12), cx = x0 + R + 4 * d, cy = mid, a = 6.2832 * hud.rp, b2 = 6.2832 * hud.dp;
+    g.strokeStyle = 'rgba(242,245,248,.3)'; g.lineWidth = 1 * d; g.beginPath(); g.arc(cx, cy, R, 0, 6.2832); g.stroke(); g.beginPath(); g.arc(cx + 2.4 * R, cy, R, 0, 6.2832); g.stroke();
+    glow(col, 8); g.strokeStyle = col; g.lineWidth = 2 * d; g.beginPath(); g.moveTo(cx - Math.cos(a) * R, cy - Math.sin(a) * R); g.lineTo(cx + Math.cos(a) * R, cy + Math.sin(a) * R); g.stroke();
+    g.beginPath(); g.arc(cx + 2.4 * R, cy, R * 0.75, b2, b2 + 3.1416); g.stroke();
+    txt('horn', cx, y1 + 3 * d, null, 'center'); txt('drum', cx + 2.4 * R, y1 + 3 * d, null, 'center');
+    const rx0 = cx + 3.6 * R + 8 * d, T = Math.max(1, P.rtAccel * 3), sY = v => y1 - Math.log(v / 0.5) / Math.log(16) * (y1 - y0);
+    const ramp = (k0, k1, tau) => { const a2 = []; for (let i = 0; i <= 60; i++) { const tt = i / 60 * T; a2.push([rx0 + i / 60 * (x1 - rx0), sY(k1 + (k0 - k1) * Math.exp(-tt / tau))]); } return a2; };
+    const fast = !!P.rtSpd;
+    path(ramp(fast ? 0.67 : 5.9, fast ? 5.9 : 0.67, Math.max(0.15, P.rtAccel)), dim(col), 1.6); glow(col, 6); path(ramp(fast ? 0.83 : 6.8, fast ? 6.8 : 0.83, Math.max(0.05, P.rtAccel * 0.3)), col, 2);
+    txt(`horn ${hs.toFixed(1)} Hz`, rx0, y0 - 2 * d, col); txt(fT(T) + ' shown', x1, y1 + 3 * d, null, 'right');
+  } else if (grp === 'wid') {
+    // a stereo scope of a 220 Hz tone: up is the mid (what both sides share), across is the side (where they differ)
+    const s = (y1 - y0) * 0.46, cx = x0 + s * 1.3, ph = 6.2832 * 220 * P.wdHaas, pts = [];
+    for (let i = 0; i <= 160; i++) { const th = 6.2832 * i / 160, L = Math.sin(th), R = Math.sin(th - ph), M = (L + R) * 0.5, S = (L - R) * 0.5 * P.wdWidth; pts.push([cx + S * s, mid - M * s]); }
+    path([[cx, y0], [cx, y1]], 'rgba(242,245,248,.15)', 1, [2 * d, 3 * d]); path([[cx - s, mid], [cx + s, mid]], 'rgba(242,245,248,.15)', 1, [2 * d, 3 * d]);
+    glow(col, 8); path(pts, col, 1.8);
+    txt('M', cx + 3 * d, y0 - 2 * d); txt('S', cx + s - 6 * d, mid - 11 * d);
+    const tx = cx + s + 14 * d;
+    txt(P.wdHaas < .0002 ? 'no Haas: mono in,' : `R ${(P.wdHaas * 1000).toFixed(1)} ms late`, tx, y0 + 2 * d);
+    txt(P.wdHaas < .0002 ? 'a vertical line' : 'width ' + DEFS.wdWidth.f(P.wdWidth), tx, y0 + 15 * d);
+    txt('mono < ' + fHz(P.wdLow), tx, y0 + 28 * d);
+    txt('mid ↑ · side ↔', x0, y1 + 3 * d);
   } else if (grp === 'poly') {
     const poly = P.poly && !P.arpOn, nv = poly ? tele.nv : (tele.g ? 1 : 0), bw = (x1 - x0) / 8;
     for (let j = 0; j < 8; j++) {
@@ -4182,6 +4870,148 @@ const LESSONS = [
   {x:"Depth: add Reverb at about 30%. Reverb pushes the sound back in space, while dry sounds feel close.", focus:['rvMix'], goal:S=>S.p.rvMix>=.25,
    more:{h:'Mono compatibility', b:['Phone speakers and club systems are often mono. Wide chorus and some stereo tricks partly cancel when the two channels are summed, so producers keep bass and key parts fairly centred and check their mixes in mono.']}},
   ]},
+{ id:'compress', g:5, t:'Compressor and limiter', s:'Even out the level: threshold, ratio, attack and makeup gain.',
+  setup:{...BASE, o1w:2, cut:2500, res:.2, aA:.002, aD:.25, aS:.35, aR:.3, pwDyn:0, dyType:0, dyThr:-20, dyRatio:4, dyAtk:.01, dyRel:.15, dyGain:0}, hold:null, go:{page:0, tab:'fx', sub:'dyn', mode:'wave', tap:'out'},
+  steps:[
+  {x:"Play a few notes: each starts with a loud spike that falls to a quieter sustain. A Comp pedal is on the line, switched off. Pick Comp on its Type row to switch it on.", focus:['dyType'], goal:S=>!!S.p.pwDyn&&S.p.dyType===0,
+   more:{h:'What a compressor does', b:['A compressor measures the level and, whenever it goes over the Threshold, turns the gain down. Ratio sets how hard: at 4:1, a peak 8 dB over the threshold comes out only 2 dB over.', 'The loud attack gets squashed while the quieter sustain passes untouched, so the note comes out more even.'], m:'out = thr + (in − thr) / ratio      above the threshold'}},
+  {x:"Lower Threshold to about −30 dB and play. The meter next to the curve below the knobs shows the gain reduction: how many dB the compressor is taking off right now.", focus:['dyThr'], goal:(S,E)=>S.p.dyThr<=-28&&S.gates>E.gates},
+  {x:"Raise Ratio to 10:1 or more. Above the threshold the curve goes almost flat: every note now peaks at nearly the same level.", focus:['dyRatio'], goal:S=>S.p.dyRatio>=10},
+  {x:"It all got quieter. Raise Gain by about 10 dB to bring the level back. Now the sustain is louder than before while the peaks stay put: the punchy, held-up sound of compression.", focus:['dyGain'], goal:S=>S.p.dyGain>=9,
+   more:{h:'Makeup gain', b:['A compressor only ever turns things down. Makeup gain adds a fixed boost afterwards, so the quiet parts end up louder than they were while the peaks stay where the compressor holds them.', 'That is how compression makes a part sound louder and more present without its peaks getting any higher.']}},
+  {x:"Attack is how fast it clamps down. Turn it up to about 30 ms: the first bite of each note slips through before the compressor reacts, which keeps the click.", focus:['dyAtk'], goal:S=>S.p.dyAtk>=.025,
+   more:{h:'Attack and release', b:['Attack is how quickly the gain reduction arrives once the level crosses the threshold; Release is how quickly it lets go afterwards.', 'A slow attack lets transients through (punchy); a fast one catches them (smooth). A release that is too short makes the level pump audibly.']}},
+  {x:"Pick Limit. A limiter is a compressor with an infinite ratio and an almost instant attack: nothing gets over the threshold. Engineers put one last on a mix to catch stray peaks.", focus:['dyType'], goal:S=>S.p.dyType===1},
+  {nord:1, x:"Your Nord has a compressor in its effects section, with a Fast mode for a quicker attack."},
+  ]},
+{ id:'gateshape', g:5, t:'Gate and transient shaper', s:'Chop off tails, sharpen attacks, and the gated-reverb trick.',
+  setup:{...BASE, o1w:2, cut:3000, aA:.002, aD:.35, aS:0, aR:.5, pwRev:1, rvType:0, rvMix:.5, rvSize:.85, pwDyn:0, dyType:2, dyThr:-40, dyAtk:.001, dyRel:.08, dyGain:0, dyPunch:0, dySus:0}, hold:null, go:{page:0, tab:'fx', sub:'dyn', mode:'gram', tap:'out'},
+  steps:[
+  {x:"Tap short notes: each rings out into a big reverb. A Gate pedal sits in front of the Reverb, switched off. Pick Gate on its Type row.", focus:['dyType'], goal:S=>!!S.p.pwDyn&&S.p.dyType===2,
+   more:{h:'Noise gate', b:['A gate is the opposite of a compressor: below the Threshold it turns the sound right down; above it, the sound passes untouched. Its first job was silencing hiss and hum between notes.', 'Attack is how fast it opens, Release how fast it closes.']}},
+  {x:"In front of the Reverb it only trims the dry note. Drag the Gate along the line so it sits after the Reverb: now it can chop the tail too.", goal:S=>{const r=S.fx.indexOf('reverb'), q=S.fx.indexOf('gate'); return r>=0&&q>r;}},
+  {x:"Raise Threshold to about −25 dB and tap short notes: a huge reverb that stops dead. That's gated reverb, the big drum sound of the 1980s.", focus:['dyThr'], goal:(S,E)=>S.p.dyThr>=-27&&S.gates>E.gates,
+   more:{h:'Gated reverb', b:['Engineers stumbled on it around 1980: a big room sound on the drums, cut off abruptly by a noise gate. You get the size of a hall without the wash that clutters a mix.', 'Phil Collins\' “In the Air Tonight” made it famous.']}},
+  {x:"Raise Release to about 400 ms: the tail now fades away instead of stopping dead.", focus:['dyRel'], goal:S=>S.p.dyRel>=.35},
+  {x:"Pick Shaper. A transient shaper ignores how loud the sound is and looks at its shape: the attack versus the tail.", focus:['dyType'], goal:S=>S.p.dyType===3,
+   more:{h:'How a transient shaper works', b:['It runs two envelope followers on the same signal, one fast and one slow. On an attack the fast one jumps ahead; the gap between them is the transient, and Punch turns it up or down.', 'A third follower falls slowly after each note. The gap between it and the fast one is the tail, and Sustain turns that up or down.']}},
+  {x:"Turn Punch up and tap notes: the front of each note snaps. Then turn Sustain down: the tails shrink. Two knobs that reshape an envelope after the sound is made.", focus:['dyPunch','dySus'], goal:S=>S.p.dyPunch>=.6&&S.p.dySus<=-.4},
+  ]},
+{ id:'distpedals', g:5, t:'Overdrive, fuzz and distortion', s:'Three ways to clip a wave, and where even harmonics come from.',
+  setup:{...BASE, o1w:0, cut:20000, aS:1, pwDrv:0, drvType:0, drvAmt:.3, drvTone:.6, drvBias:0, drvLvl:.6}, hold:57, go:{page:0, tab:'fx', sub:'drv', mode:'spec', tap:'out', lin:false},
+  steps:[
+  {x:"A pure sine is playing: one spike on the Spectrum. A Drive pedal is on the line, switched off. Pick Drive on its Type row.", focus:['drvType'], goal:S=>!!S.p.pwDrv&&S.p.drvType===0},
+  {x:"Raise Drive. The wave's tops round off, and new spikes appear at 3×, 5× and 7× the pitch: odd harmonics.", focus:['drvAmt'], goal:S=>S.p.drvAmt>=.6,
+   more:{h:'Clipping makes harmonics', b:['Any curve that bends the wave adds new frequencies at whole multiples of the pitch. A curve that is the same at the top and the bottom (symmetric) adds only the odd ones: 3×, 5×, 7×.', 'Overdrive bends gently, like a tube, so its harmonics fall away quickly and it sounds warm. The panel below the knobs draws the curve and the harmonics it makes.']}},
+  {x:"Pick Fuzz, then Dist. Fuzz squares the wave off almost completely; Dist flattens the peaks with hard corners. Watch how far up the spectrum the harmonics reach.", focus:['drvType'], goal:(S,E)=>(S.n.drvType||0)-(E.n.drvType||0)>=2},
+  {x:"Back on Drive, turn Bias to about +60%. The curve tips, the wave clips harder on one side, and even harmonics (2×, 4×, 6×) appear between the odd ones.", focus:['drvType','drvBias'], goal:S=>S.p.drvType===0&&S.p.drvBias>=.5,
+   more:{h:'Even harmonics', b:['Clipping one side harder than the other makes the curve lopsided, and that adds even harmonics. They sit an octave, an octave and a fifth, and two octaves above the note, so they blend in sweetly.', 'Tubes run slightly lopsided, which is part of why they are called musical. Compare the Even and odd harmonics lesson in Filters & drive.']}},
+  {x:"Tone is a lowpass after the clipping. Turn it down to tame the fizz: lots of drive into a dark tone is the classic way to get grit without harshness.", focus:['drvTone'], goal:S=>S.p.drvTone<=.35},
+  {nord:1, x:"Your Nord's amp simulator has a Drive control: a tube-style overdrive like the first type here."},
+  ]},
+{ id:'lofi', g:5, t:'Bitcrusher and wavefolder', s:'Lo-fi grit from fewer bits, and West Coast folding.',
+  setup:{...BASE, o1w:0, cut:20000, aS:1, pwCrs:0, crBits:16, crRate:48000, crMix:1, drvType:3, drvAmt:.2, drvBias:0, drvTone:.8}, hold:57, go:{page:0, tab:'fx', sub:'crush', mode:'wave', tap:'out', zoom:10.2},
+  steps:[
+  {x:"A sine is playing. A Crush pedal is on the line, switched off. Stomp its footswitch (or hold the pedal) to switch it on. At 16 bits and full rate there's no change yet.", focus:['pwCrs'], goal:S=>!!S.p.pwCrs},
+  {x:"Lower Bits to about 4. The wave becomes a staircase: each sample is rounded to one of only 16 levels, and the rounding error is heard as a gritty buzz.", focus:['crBits'], goal:S=>S.p.crBits<=4,
+   more:{h:'Quantization', b:['Each bit doubles the number of levels a sample can take. 16 bits (CD) gives 65,536 levels; 4 bits gives 16. The difference between the true wave and the nearest level is quantization error, heard as noise or buzz.', 'Each bit is worth about 6 dB of dynamic range.'], m:'levels = 2^bits        range ≈ 6.02 · bits dB'}},
+  {x:"Now lower Rate to about 3 kHz and swipe to the Scope's Spectrum. New spikes appear that aren't harmonics of the note: aliasing, frequencies folded back from above half the rate.", go:{mode:'spec', lin:false}, focus:['crRate','pageScope'], goal:S=>S.p.crRate<=3500&&S.page===1,
+   more:{h:'Aliasing on purpose', b:['Holding each sample for longer is like resampling at a lower rate. Anything above half the new rate (its Nyquist frequency) can\'t be represented, so it folds back down as unrelated tones. The Samples & aliasing deep dive shows the same effect from the oscillator\'s side.', 'Early samplers and game consoles ran at low rates with few bits; crushing imitates their crunchy sound.']}},
+  {x:"Back on the Patch page, add a Folder from the library's Drive group.", go:{page:0}, focus:['lib-fold'], goal:S=>S.fx.includes('fold')},
+  {x:"Raise Drive slowly. Instead of flattening, the peaks fold back down, again and again. The sound gets brighter in a sweeping, vocal way rather than just buzzier.", focus:['drvAmt'], goal:S=>S.p.drvType===3&&S.p.drvAmt>=.7,
+   more:{h:'West Coast synthesis', b:['Wavefolding comes from Don Buchla and other West Coast designers. They started with a simple wave and made it complex by folding it, where East Coast synths like the Moog start with a complex wave and filter it down.', 'Each extra fold adds another pair of peaks, so turning up the drive sweeps harmonics in and out.']}},
+  {x:"Turn Bias: the folds go lopsided, adding even harmonics and a hollow, shifting tone.", focus:['drvBias'], goal:(S,E)=>changed(S,E,['drvBias'])},
+  ]},
+{ id:'filterpedal', g:5, t:'Filter pedal', s:'A second, swept filter at the end of the chain.',
+  setup:{...BASE, o1w:2, mix2:.5, o2fine:7, cut:20000, aS:1, pwAf:0, afType:0, afCut:700, afRes:.5, afRate:1, afDepth:2}, hold:45, go:{page:0, tab:'fx', sub:'filt', mode:'spec', tap:'out', lin:false},
+  steps:[
+  {x:"Two bright saws are playing with the synth's own filter wide open. The Filter pedal is a separate resonant filter with its own LFO. Pick LP on its Mode row to switch it on.", focus:['afType'], goal:S=>!!S.p.pwAf&&S.p.afType===0},
+  {x:"The cutoff sweeps up and down by Depth around Cutoff, at Rate. Try a slow, deep sweep, then a fast wobble.", focus:['afRate','afDepth'], goal:(S,E)=>changed(S,E,['afRate'])&&changed(S,E,['afDepth'])},
+  {x:"Raise Resonance to about 85%: the sweep now whistles through the harmonics.", focus:['afRes'], goal:S=>S.p.afRes>=.8},
+  {x:"Try BP and HP. Bandpass keeps a moving slice of the sound; highpass thins it from below.", focus:['afType'], goal:(S,E)=>(S.n.afType||0)-(E.n.afType||0)>=2},
+  {x:"Why a second filter? The synth's filter shapes each voice before the amp. This pedal works on the finished sound, so a chord sweeps as one, and it can sit after a drive pedal to filter the distortion itself.",
+   more:{h:'Before or after the drive', b:['A filter in front of distortion changes what gets clipped; one after it shapes the harmonics the clipping made. Guitarists use both orders, and a wah before a fuzz sounds quite different from one after it.']}},
+  ]},
+{ id:'ringslicer', g:5, t:'Ring mod and slicer', s:'Multiply the sound by a sine, or chop it to the beat.',
+  setup:{...BASE, o1w:0, cut:20000, aS:1, pwFx1:0, e1Freq:440, e1Depth:1, e1Div:2, e1Duty:.5, tempo:120}, hold:57, go:{page:0, tab:'fx', sub:'fx1', mode:'spec', tap:'out', lin:false},
+  steps:[
+  {x:"A pure 220 Hz sine is playing: one spike on the Spectrum. On the FX1 pedal, pick Ring.", focus:['e1Type'], goal:S=>S.p.e1Type===4,
+   more:{h:'Ring modulation', b:['A ring modulator multiplies the sound by a sine wave, the carrier. Multiplying two sines gives their sum and difference frequencies, and the originals disappear.', 'With 220 Hz in and a 440 Hz carrier you get 660 Hz and 220 Hz. Every harmonic of a richer sound gets its own pair, which is why the result rarely sounds in tune.'], m:'sin a · sin b = ½ cos(a − b) − ½ cos(a + b)'}},
+  {x:"Sweep Freq and watch the Spectrum: the two new spikes, at 220 + Freq and Freq − 220, slide in opposite directions.", focus:['e1Freq'], goal:(S,E)=>moved(S.p.e1Freq,E.p.e1Freq,1.5)},
+  {x:"Set Freq below about 30 Hz: the spikes merge and you hear a pulsing tremolo instead. Ring mod and tremolo are the same multiplication at different speeds.", focus:['e1Freq'], goal:S=>S.p.e1Freq<=30},
+  {x:"Now pick Slicer. A gate locked to the tempo chops the sound into 1/16 notes.", focus:['e1Type'], goal:S=>S.p.e1Type===5},
+  {x:"Change Step and Length: short slices stutter, long ones just breathe. The slicer follows the Tempo on the Arp tab, like synced delays and LFOs, so everything locks to one grid.", focus:['e1Div','e1Duty'], goal:(S,E)=>changed(S,E,['e1Div'])&&changed(S,E,['e1Duty'])},
+  {nord:1, x:"Your Nord's Effect 1 slot has a Ring Modulator, next to Tremolo, Pan and the wahs."},
+  ]},
+{ id:'pitchfx', g:5, t:'Octaver and pitch shifter', s:'Copies of the sound at new pitches.',
+  setup:{...BASE, o1w:2, cut:3000, res:.1, aS:1, pwPs:0, psType:0, psSub:.8, psUp:0, psDry:1, psSemi:7, psMix:.5}, hold:45, go:{page:0, tab:'fx', sub:'pitch', mode:'spec', tap:'out', lin:false},
+  steps:[
+  {x:"Pick Octave on the Pitch pedal. A copy an octave below joins the sound: the classic way to thicken a bass line.", focus:['psType'], goal:S=>!!S.p.pwPs&&S.p.psType===0,
+   more:{h:'Shifting pitch with a delay line', b:['A delay whose time keeps changing shifts pitch: while the delay grows the output plays back slower and lower, while it shrinks, faster and higher. That is the Doppler effect.', 'A delay can\'t grow forever, so a shifter uses two read heads that sweep through a short buffer, each fading out as it jumps back. This one sizes that window to whole cycles of the note you play, so the two heads stay in step.']}},
+  {x:"On the Spectrum a new spike appears at half the pitch, with new harmonics between the old ones. Raise Oct +1 too, for an organ-like stack across three octaves.", focus:['psUp'], goal:S=>S.p.psUp>=.5},
+  {x:"Turn Dry down to zero: only the octaves are left, with the note itself gone.", focus:['psDry'], goal:S=>S.p.psDry<=.05},
+  {x:"Pick Shift. Now the copy can be any interval. It's set to +7 semitones, a fifth: a power chord from one key.", focus:['psType'], goal:S=>S.p.psType===1},
+  {x:"Try a few intervals, such as +12, then +4 (a major third). With Mix at 50% you hear both notes; at 100% only the shifted one.", focus:['psSemi','psMix'], goal:(S,E)=>(S.n.psSemi||0)-(E.n.psSemi||0)>=2,
+   more:{h:'Fixed and smart harmonies', b:['A fixed interval is the same on every note, so a major third is only in key on some of them. Vocal harmonizers detect the key and pick the right third for each note; this pedal keeps it simple.', 'The pitch ratio for n semitones is 2^(n/12). A fifth is 1.498, almost exactly the pure 3/2.'], m:'ratio = 2^(n / 12)'}},
+  {x:"Shifting needs a short delay and cross-fades between the heads, so it smears fast attacks. That's why octavers and shifters sound best on simple, sustained parts."},
+  ]},
+{ id:'vibes', g:5, t:'Vibe, ensemble and vibrato', s:'Three more members of the chorus family.',
+  setup:{...BASE, o1w:3, o1pw:.5, mix1:.8, cut:3000, res:.1, aS:.9, aR:.6, pwMod:0, modType:3, chRate:1.2, chDepth:.7, chMix:.5}, hold:57, go:{page:0, tab:'fx', sub:'mod', mode:'spec', tap:'out', lin:false},
+  steps:[
+  {x:"On the Mod pedal, pick Vibe: a throbbing, watery swirl.", focus:['modType'], goal:S=>!!S.p.pwMod&&S.p.modType===3,
+   more:{h:'The Uni-Vibe', b:['Built in the 1960s to imitate a rotating speaker, the Uni-Vibe swept four phase-shift stages, each tuned differently, using a light bulb and four light-dependent resistors. The bulb brightens quickly and dims slowly, so the sweep is lopsided.', 'Jimi Hendrix\'s “Machine Gun” is the famous example. The sweep here has the same lopsided shape.']}},
+  {x:"Raise Depth and Rate: at faster speeds it starts to throb like a rotating speaker.", focus:['chDepth','chRate'], goal:(S,E)=>changed(S,E,['chDepth'])&&changed(S,E,['chRate'])},
+  {x:"Pick Ensemble: three chorus voices a third of a cycle apart, plus a quick shimmer. The lush string-machine sound of the 1970s.", focus:['modType'], goal:S=>S.p.modType===4,
+   more:{h:'String ensembles', b:['String machines like the ARP Solina had a thin, buzzy oscillator sound. An ensemble effect, three modulated delays with LFOs 120° apart plus a faster vibrato, turned it into a whole section of players.', 'Because the three voices never line up, the sound never collapses back to a single copy, as a one-voice chorus does twice per cycle.']}},
+  {x:"Pick Vibrato and set Mix to 100%. With no dry sound, the delay's wobble is heard as pure pitch wobble.", focus:['modType','chMix'], goal:S=>S.p.modType===5&&S.p.chMix>=.95},
+  {x:"Turn Mix down to about 50%: the same wobbling copy, under the dry sound, becomes a chorus. Chorus is vibrato plus the dry signal.", focus:['chMix'], goal:S=>S.p.modType===5&&inR(S.p.chMix,.35,.65)},
+  {nord:1, x:"Your Nord's Effect 2 slot has a Vibe, and its organ section has a Hammond-style vibrato and chorus."},
+  ]},
+{ id:'rotary', g:5, t:'Rotary speaker', s:'A spinning horn and drum: slow chorale, fast tremolo.',
+  setup:{...BASE, o1w:0, mix1:.8, mix2:.5, o2w:0, o2oct:1, o2fine:0, cut:20000, aA:.005, aS:1, aR:.1, poly:1, pwRot:0, rtSpd:0, rtAccel:1.5, rtDrive:.2, rtSpread:.6}, hold:null, go:{page:0, tab:'fx', sub:'rot', mode:'spec', tap:'out', lin:false},
+  steps:[
+  {x:"An organ-ish tone: two sines an octave apart, in poly. Stomp the Rotary pedal's footswitch to switch it on, then play a chord.", focus:['pwRot'], goal:(S,E)=>!!S.p.pwRot&&S.gates>E.gates,
+   more:{h:'The Leslie speaker', b:['A Leslie cabinet splits the sound in two: a horn for the highs and a drum for the lows, both spinning. As the horn swings towards you its pitch rises slightly and it gets louder; as it swings away, the opposite. That is Doppler shift and tremolo at once.', 'The two rotors spin at different speeds, so their wobbles drift in and out of step.']}},
+  {x:"Pick Fast. Listen to the horn get up to speed quickly while the heavy drum takes longer. The panel below the knobs draws both ramps.", focus:['rtSpd'], goal:S=>S.p.rtSpd===1},
+  {x:"Pick Slow again and turn Ramp up to about 4 s: the slow-down now takes much longer. Players flick between the two speeds to build tension and release it.", focus:['rtSpd','rtAccel'], goal:S=>S.p.rtSpd===0&&S.p.rtAccel>=3.5},
+  {x:"Mics sets how far apart the two microphones are around the cabinet. Wide spreads the swirl across the stereo field; at 0° it's a single mic.", focus:['rtSpread'], goal:(S,E)=>changed(S,E,['rtSpread'])},
+  {x:"Drive pushes the cabinet's tube amp: the growl of a rock organ.", focus:['rtDrive'], goal:S=>S.p.rtDrive>=.6},
+  {nord:1, x:"Your Nord has a rotary speaker simulation with Stop, Slow and Fast speeds and its own overdrive. The ramp between speeds is part of the model, just like here."},
+  ]},
+{ id:'tapeecho', g:5, t:'Tape echo', s:'Wow, flutter, and repeats that wear away.',
+  setup:{...BASE, cut:2500, res:.2, aD:.25, aS:0, aR:.2, pwDly:0, dType:0, dMix:.4, dTime:.38, dFb:.55, dTone:4000, dWow:.5, dSync:0, dPing:0}, hold:null, go:{page:0, tab:'fx', sub:'delay', mode:'gram', tap:'out'},
+  steps:[
+  {x:"A short pluck. On the Delay pedal, pick Tape, then tap a few notes.", focus:['dType'], goal:(S,E)=>!!S.p.pwDly&&S.p.dType===1&&S.gates>E.gates,
+   more:{h:'Tape echo machines', b:['Before digital delay, echoes came from a loop of tape: a record head writes the sound, a playback head a little further along reads it back, and part of the output is recorded again for the next repeat.', 'Every pass through the tape and its electronics loses some top end and adds some saturation, so the repeats get darker and softer. The Roland Space Echo and the Echoplex are the classics.']}},
+  {x:"Raise Feedback to about 85%. Unlike the clean delay, the repeats saturate and darken instead of piling up forever.", focus:['dFb'], goal:S=>S.p.dFb>=.8},
+  {x:"Wow is the slow speed drift of a tape motor, with a faster flutter on top. Turn it up: the repeats waver in pitch.", focus:['dWow'], goal:S=>S.p.dWow>=.85},
+  {x:"Hold a note and sweep Time. Changing a tape machine's speed bends the pitch of the echoes as they catch up, and the same happens here.", focus:['dTime'], goal:(S,E)=>moved(S.p.dTime,E.p.dTime,1.5)},
+  {nord:1, x:"Your Nord's delay has an Analog mode for warmer, older-sounding repeats, and a filter in its feedback path to darken them."},
+  ]},
+{ id:'reverbtypes', g:5, t:'Rooms, plates, springs and shimmer', s:'Five reverb types, and pre-delay.',
+  setup:{...BASE, cut:2500, aD:.3, aS:0, aR:.2, pwRev:1, rvType:0, rvMix:.4, rvSize:.6, rvDamp:.5, rvPre:0}, hold:null, go:{page:0, tab:'fx', sub:'reverb', mode:'gram', tap:'out'},
+  steps:[
+  {x:"The Reverb pedal is set to Hall. Tap short notes, then pick Room. The tail gets much shorter, and you can almost hear the first separate reflections off the walls.", focus:['rvType'], goal:(S,E)=>S.p.rvType===1&&S.gates>E.gates,
+   more:{h:'Early reflections', b:['In a small room the first echoes off the nearest walls arrive within about 25 ms, distinct enough to give a sense of the room\'s size and shape. After that they blur into the tail.', 'The Room type adds those first reflections before its short tail. The panel below the knobs draws them as separate spikes.']}},
+  {x:"Pick Plate: dense and bright from the first instant, with no gap. Plates were big steel sheets set ringing by a speaker driver, the vocal sound of the 1960s and 70s.", focus:['rvType'], goal:S=>S.p.rvType===2},
+  {x:"Pick Spring and tap short, sharp notes: a metallic, drippy boing. A coil carries different frequencies at different speeds, so each hit smears into a chirp.", focus:['rvType'], goal:(S,E)=>S.p.rvType===3&&S.gates>E.gates,
+   more:{h:'Dispersion', b:['A spring is dispersive: different frequencies travel along it at different speeds. A click going in comes out as a chirp, and every trip along the coil chirps again.', 'This model sends the sound round two delay loops through chains of all-pass filters, which delay different frequencies by different amounts in the same way.']}},
+  {x:"Pick Shimmer and hold a note. The tail is pitched up an octave and fed back in, so it keeps climbing into a glassy halo.", focus:['rvType'], goal:S=>S.p.rvType===4},
+  {x:"Pre-delay holds the reverb back for a moment. Pick Hall and set about 60 ms: the dry note stays clear in front, and the space opens up behind it.", focus:['rvType','rvPre'], goal:S=>S.p.rvType===0&&S.p.rvPre>=.05,
+   more:{h:'Why pre-delay helps', b:['In a big hall the first reflection arrives tens of milliseconds after the direct sound. That gap tells your ear the space is large, and it also keeps each note\'s attack from being blurred.', 'Engineers often set pre-delay to a note value at the song\'s tempo, so the tail breathes with the music.']}},
+  {nord:1, x:"Your Nord's reverb has six algorithms, from small rooms to big halls, plus a Bright mode. Choosing between them is the same choice as Room versus Hall here."},
+  ]},
+{ id:'widener', g:5, t:'Width and mono', s:'Haas delay, mid/side, and why you check in mono.',
+  setup:{...BASE, o1w:2, mix2:.5, o2fine:7, cut:3000, aS:.9, aR:.5, pwWid:0, wdWidth:1, wdHaas:0, wdLow:150}, hold:45, go:{page:0, tab:'fx', sub:'wide', mode:'wave', tap:'out'},
+  steps:[
+  {x:"The synth voice is mono. Stomp the Wide pedal's footswitch on and raise Width to 200%. Nothing changes: when both sides are identical there's nothing to widen.", focus:['pwWid','wdWidth'], goal:S=>!!S.p.pwWid&&S.p.wdWidth>=1.9,
+   more:{h:'Mid and side', b:['Any stereo signal can be split into mid (what both sides share) and side (where they differ). Width scales the side. A mono source has no side at all, so Width alone can\'t widen it; the panel below the knobs stays a vertical line.'], m:'M = (L + R) / 2        S = (L − R) / 2'}},
+  {x:"Raise Haas to about 15 ms. The right side now arrives a moment late and the sound spreads out: your ears read a tiny delay as direction.", focus:['wdHaas'], goal:S=>S.p.wdHaas>=.012,
+   more:{h:'The Haas effect', b:['If the same sound reaches one ear up to about 30 ms after the other, you don\'t hear an echo: you hear one sound coming from the earlier side, with a sense of width. Helmut Haas measured this in 1949.', 'The catch: added back together for mono, the delayed copy combs the sound and cuts some frequencies.']}},
+  {x:"Turn Width down to 0% (mono) and listen: the sound turns hollow and phasey. That comb filter is what a phone speaker would play. Always check wide sounds in mono.", focus:['wdWidth'], goal:S=>S.p.wdWidth<=.05},
+  {x:"Set Width to about 150% and raise Mono Bass to about 250 Hz. Everything below it stays centred, so the low end stays solid on any system.", focus:['wdWidth','wdLow'], goal:S=>S.p.wdWidth>=1.3&&S.p.wdLow>=200},
+  {x:"Wide and Limiter sit in the library's Master group: a widener, then a limiter to catch the peaks, is a common last pair on a mix."},
+  ]},
 /* ============================ PERFORMANCE ============================ */
 { id:'poly', g:6, t:'Polyphony', s:'Mono vs. poly: one voice, or eight at once.',
   setup:{...BASE, o2w:2, mix1:.8, mix2:.5, o2fine:7, cut:1800, res:.2, kt:.5, aA:.01, aD:.4, aS:.8, aR:.8, poly:0}, hold:null, go:{page:0, tab:'mix', mode:'wave', tap:'filter', zoom:10.5},
@@ -4698,7 +5528,7 @@ const GROUPS = [
   {t:'Envelopes & LFO', c:'c3', s:'Shaping notes over time, modulation, and how it all connects.'},
   {t:'Filters & drive', c:'c2', s:'Filter types and classic filters, tracking, saturation and gain staging.'},
   {t:'Oscillators', c:'c4', s:'Detune, subs, unison, drift, sync, FM, ring mod, additive, wavetables and formants.'},
-  {t:'Effects', c:'c5', s:'The effects chain page by page, delay time scales, stereo and space.'},
+  {t:'Effects', c:'c5', s:'Every pedal: dynamics, drive and lo-fi, pitch, modulation, echoes, reverbs and width.'},
   {t:'Performance', c:'c6', s:'Polyphony, voicing, glide, the arpeggiator, sync, velocity and controllers.'},
   {t:'Sound design craft', c:'ink', s:'A patching routine, analysing sounds, making things bigger, mixing.'},
   {t:'Recipes: basses & leads', c:'c2', s:'Sub, acid, Reese, wobble, sync and supersaw leads, chiptune.'},
@@ -4770,6 +5600,8 @@ function goStep(i){
   const subChange = subFocus && state.sub[SUB_TAB[subFocus]] !== subFocus;
   let fxForce = false;
   if (focus.some(f => f.startsWith('lib-') || f === 'fxadd') && params.fxc.length && !state.fxLib) { state.fxLib = true; fxForce = true; }
+  // a step that points at a library pedal opens the library on that pedal's group
+  { const lh = focus.find(f => f.startsWith('lib-')), lv = lh && VAR[lh.slice(4)]; if (lv && state.libG !== lv.g) { state.libG = lv.g; fxForce = true; } }
   if (subFocus && FX_SET.has(subFocus)) { const b = fxB(subFocus); if (b && (state.fxSel !== b.id || state.fxLib)) { state.fxSel = b.id; state.fxLib = false; fxForce = true; } }
   if (subFocus) state.sub[SUB_TAB[subFocus]] = subFocus;
   if (tabFocus && (tabFocus !== state.tab || subChange || fxForce)) showTab(tabFocus); else { if (state.tab === 'fx') fxBoardChanged(); applyHints(); }
@@ -4877,7 +5709,7 @@ function updMin(){
   const L = coach.L, st = L && !coach.done ? L.steps[coach.i] : null, ready = !!L && (coach.done || (!!st && (!st.goal || coach.met || stepsDone(L.id).has(coach.i))));
   $('coach').classList.toggle('met', !!L && !coach.done && !!st && !!st.goal && coach.met);
   const b = $('minNext'); b.hidden = !($('coach').classList.contains('min') && ready);
-  b.textContent = coach.done ? (nextLesson(L.id) ? 'Next lesson' : 'Lessons') : coach.i === L?.steps.length - 1 ? 'Finish' : 'Next';
+  b.textContent = coach.done ? (L && nextLesson(L.id) ? 'Next lesson' : 'Lessons') : coach.i === L?.steps.length - 1 ? 'Finish' : 'Next';
 }
 function setMin(v){ if (!canMin()) return; state.coachMin = v; coachMode(); }
 $('coachMin').addEventListener('click', () => setMin(!state.coachMin));
