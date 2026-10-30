@@ -795,6 +795,8 @@ class SynthDSP {
     else if (d.t === 'non') this.noteOn(d.n);
     else if (d.t === 'noff') this.noteOff(d.n);
     else if (d.t === 'alloff') this.allOff();
+    // the keyboard's list of notes that should be sounding: anything else still gated is let go
+    else if (d.t === 'keep') { if (!(this.p.arpOn && this.arpN.length)) for (const v of this.V) if (v.gate && !d.notes.includes(v.note)) this.rel(v); }
     else if (d.t === 'kill') this.kill();
     else if (d.t === 'arp') {
       const was = this.arpN.length;
@@ -2667,7 +2669,7 @@ function polyToggle(on){
     else { const n = keep[keep.length - 1]; state.latched = n; synthOn(n); }
   }
   if (on) polyGate();
-  litKeys();
+  litKeys(); settle();
 }
 function press(n){
   if (!Engine.ready) Engine.start();
@@ -2691,25 +2693,56 @@ function press(n){
 }
 function release(n){
   const i = state.held.lastIndexOf(n); if (i >= 0) state.held.splice(i, 1);
-  if (params.arpOn) { if (!state.hold && !state.held.includes(n)) arpNotes.delete(n); arpSync(); return; }
-  if (isPoly()) { if (!state.hold && !state.held.includes(n)) polyOff(n); polyGate(); litKeys(); return; }
-  if (state.held.length) synthOn(state.held[state.held.length - 1]);
+  const wasTop = i >= 0 && i === state.held.length;
+  if (params.arpOn) { if (!state.hold && !state.held.includes(n)) arpNotes.delete(n); arpSync(); settle(); return; }
+  if (isPoly()) { if (!state.hold && !state.held.includes(n)) polyOff(n); polyGate(); litKeys(); settle(); return; }
+  // mono: fall back to the newest key still down, but only if the key let go was the one sounding
+  if (state.held.length) { if (wasTop) { const top = state.held[state.held.length - 1]; if (state.hold) state.latched = top; synthOn(top); } }
   else if (!state.hold) synthOff();
+  litKeys(); settle();
+}
+/* Every finger and computer key that is down is tracked here, so each press is matched by exactly one release.
+   When nothing is physically down any more, settle() makes the engine agree with what should be sounding,
+   so a note can never be left stuck on, whatever order Hold, Poly, Arp and the octave buttons were used in. */
+const ptrNote = new Map(), keyNote = new Map();
+function wanted(){
+  if (isPoly()) return [...new Set([...state.held, ...(state.hold ? polyNotes : [])])];
+  if (state.held.length) return [state.held[state.held.length - 1]];
+  return state.hold && state.latched != null ? [state.latched] : [];
+}
+function settle(){
+  if (ptrNote.size || keyNote.size) return;
+  state.held.length = 0;
+  if (params.arpOn) { if (!state.hold && arpNotes.size) { arpNotes.clear(); arpSync(); } return; }
+  const w = wanted();
+  Engine.post({t:'keep', notes:w});
+  if (!w.length) state.gateOn = false;
   litKeys();
 }
-const ptrNote = new Map();
 const keyAt = (x, y) => { const el = document.elementFromPoint(x, y); const k = el && el.closest && el.closest('.key'); return k && kb.contains(k) ? +k.dataset.n : null; };
-kb.addEventListener('pointerdown', e => { e.preventDefault(); const n = keyAt(e.clientX, e.clientY); if (n == null) return; ptrNote.set(e.pointerId, n); press(n); });
+kb.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  if (ptrNote.has(e.pointerId)) kbUp(e);  // a lost lift for this finger: let go of its old key first
+  const n = keyAt(e.clientX, e.clientY); if (n == null) return;
+  // capture on the keyboard itself, so the lift is always seen here even if the finger leaves the keys
+  // or the octave buttons rebuild the key elements underneath it
+  try { kb.setPointerCapture(e.pointerId); } catch (err) {}
+  ptrNote.set(e.pointerId, n); press(n);
+});
 kb.addEventListener('pointermove', e => {
   if (!ptrNote.has(e.pointerId)) return;
   const n = keyAt(e.clientX, e.clientY), o = ptrNote.get(e.pointerId);
   if (n == null || n === o) return;
+  // with Hold on in Poly or Arp, a tap toggles a note, so sliding is ignored: the finger stays on its first key
+  if ((params.arpOn || isPoly()) && state.hold) return;
   ptrNote.set(e.pointerId, n);
-  if (params.arpOn || isPoly()) { if (state.hold) return; release(o); press(n); return; }
+  if (params.arpOn || isPoly()) { release(o); press(n); return; }
   const i = state.held.lastIndexOf(o); if (i >= 0) state.held.splice(i, 1); state.held.push(n); if (state.hold) state.latched = n; synthOn(n); litKeys();
 });
-const kbUp = e => { if (!ptrNote.has(e.pointerId)) return; const n = ptrNote.get(e.pointerId); ptrNote.delete(e.pointerId); release(n); };
-kb.addEventListener('pointerup', kbUp); kb.addEventListener('pointercancel', kbUp);
+function kbUp(e){ if (!ptrNote.has(e.pointerId)) return; const n = ptrNote.get(e.pointerId); ptrNote.delete(e.pointerId); release(n); }
+// listen on the whole window: a finger or mouse lifted anywhere still releases its key
+['pointerup', 'pointercancel'].forEach(ev => addEventListener(ev, kbUp, true));
+kb.addEventListener('lostpointercapture', kbUp);
 $('octUp').addEventListener('click', () => { state.base = Math.min(84, state.base + 12); buildKeys(); });
 $('octDn').addEventListener('click', () => { state.base = Math.max(24, state.base - 12); buildKeys(); });
 function setHold(n){
@@ -2731,14 +2764,14 @@ function setHold(n){
     else { state.latched = n; synthOn(n); }
   }
   $('holdBtn').classList.toggle('on', state.hold);
-  litKeys();
+  litKeys(); settle();
 }
 $('holdBtn').addEventListener('click', () => setHold(!state.hold));
 // Silence everything and drop Hold. Used whenever you arrive in the app (first load, coming back from the
 // home screen or another app) so nothing is ever left droning on a latched note.
 function allQuiet(){
   state.hold = false; state.latched = null; state.held.length = 0; state.gateOn = false;
-  ptrNote.clear(); arpNotes.clear(); polyNotes.clear();
+  ptrNote.clear(); keyNote.clear(); arpNotes.clear(); polyNotes.clear();
   Engine.post({t:'kill'});
   $('holdBtn').classList.remove('on'); litKeys();
 }
@@ -2748,8 +2781,15 @@ addEventListener('pagehide', allQuiet);
 addEventListener('pageshow', e => { if (e.persisted) awake(); });
 // computer keyboard (desktop)
 const KMAP = 'awsedftgyhujk';
-addEventListener('keydown', e => { if (e.repeat || e.metaKey || e.ctrlKey) return; const i = KMAP.indexOf(e.key); if (i >= 0) press(state.base + i); });
-addEventListener('keyup', e => { const i = KMAP.indexOf(e.key); if (i >= 0) release(state.base + i); });
+// each key remembers the note it started, so changing octave while it is down still releases the right note
+addEventListener('keydown', e => {
+  if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = (e.key || '').toLowerCase(), i = KMAP.indexOf(k); if (i < 0 || keyNote.has(k)) return;
+  keyNote.set(k, state.base + i); press(state.base + i);
+});
+addEventListener('keyup', e => { const k = (e.key || '').toLowerCase(); if (!keyNote.has(k)) return; const n = keyNote.get(k); keyNote.delete(k); release(n); });
+// switching windows swallows keyups, so let go of every computer key
+addEventListener('blur', () => { const ns = [...keyNote.values()]; keyNote.clear(); ns.forEach(release); });
 
 /* =====================================================================
    Lessons
