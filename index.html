@@ -2137,7 +2137,8 @@ function patchCable(g, x1, x2, y, col, k, d, dead, y2 = y){
   if (x2 - x1 < 1) return;
   const c = dead ? '#3b434d' : col, pl = Math.min(2.6 * d, (x2 - x1) / 4), a = x1 + pl, b = x2 - pl, dx = b - a;
   // the cord leaves each plug level, then hangs a little under its own weight
-  const sag = (y2 === y && dx < 10 * d) ? 0 : 1.5 * d + Math.abs(y2 - y) * 0.22 + dx * 0.14;
+  // cords between jacks at different heights hang a little; level runs (like across the FX board) stay nearly taut
+  const sag = y2 === y ? Math.min(1.5 * d, dx * 0.02) : Math.min(4.5 * d, 1.5 * d + Math.abs(y2 - y) * 0.22 + dx * 0.14);
   g.save(); g.lineCap = 'round';
   if (!dead && k > 0.01) { g.shadowColor = hexA(col, 0.7); g.shadowBlur = 4 * d * k; }
   g.strokeStyle = hexA(c, dead ? 0.8 : 0.55 + 0.35 * k);
