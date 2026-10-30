@@ -285,7 +285,7 @@ button:focus-visible,.knob:focus-visible{outline:1px solid var(--c1);outline-off
 .knob.tgt-in .k-tgt{stroke:var(--ok);filter:drop-shadow(0 0 3px var(--ok))}
 
 /* keyboard: outline keys */
-.kbwrap{flex:0 0 auto;display:flex;gap:6px;height:92px}
+.kbwrap{flex:0 0 auto;display:flex;gap:6px;height:92px;margin-bottom:33px} /* 33px ≈ 5.5mm on iPhone (153 CSS px per inch) */
 .kbside{display:flex;flex-direction:column;gap:4px;width:42px;flex:0 0 auto}
 .kbside button{flex:1;border-radius:8px;border:1px solid var(--line2);font-weight:700;font-size:10px;letter-spacing:.12em;color:var(--dim)}
 .kbside .oct{flex:0 0 auto;font-family:var(--f-mono);font-weight:300;font-size:10.5px;color:var(--ink);text-align:center;padding:1px 0}
