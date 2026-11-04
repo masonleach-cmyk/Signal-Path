@@ -285,6 +285,34 @@ button:focus-visible,.knob:focus-visible{outline:1px solid var(--c1);outline-off
 .flk-off .ft.on{animation:flkOff .4s step-end both}
 .flk-on .ft.on{animation:flkOn .23s step-end both}
 .module.in .ft,.module.in .fth{animation:kin .34s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 18ms)}
+/* the envelope editor: a live chart of the whole envelope with a rail of ready shapes beside it, and the chosen section's
+   knobs underneath. The chart takes whatever height the page has; the knob row is always sized as five knobs. */
+.eed{flex:1 1 auto;min-height:96px;display:flex;gap:6px}
+.eed-cv{position:relative;flex:1 1 auto;min-width:0;border-radius:12px;border:1px solid var(--line2);background:radial-gradient(120% 100% at 50% 0%,rgba(242,245,248,.03),transparent 62%),#000;overflow:hidden;touch-action:none;box-shadow:inset 0 0 18px var(--edw)}
+.eed-cv canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:crosshair}
+.eed-x{position:absolute;top:4px;right:5px;height:19px;padding:0 9px;border-radius:10px;border:1px solid var(--line2);background:rgba(0,0,0,.72);font-weight:700;font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);transition:color .2s,border-color .2s,box-shadow .25s,text-shadow .2s}
+.eed-x.on{color:var(--ink);border-color:var(--edc);box-shadow:0 0 10px var(--edg),inset 0 0 6px var(--edw);text-shadow:0 0 6px var(--edc)}
+.eed-x.hint,.eed.hint .eed-cv{animation:pulse 1.5s ease-in-out infinite}
+.eed-rail{flex:0 0 36px;display:flex;flex-direction:column;gap:4px;transition:opacity .25s}
+.eed-rail.off{opacity:.16;pointer-events:none}
+.eed-rail.hint{animation:pulse 1.5s ease-in-out infinite}
+.eed-rail button{flex:1 1 0;min-height:0;border-radius:8px;border:1px solid var(--line2);background:linear-gradient(180deg,#07090b,#000);display:grid;place-items:center;color:#56606c;transition:color .2s,border-color .2s,box-shadow .25s,transform .12s}
+.eed-rail button:active{transform:translateY(1px)}
+.eed-rail svg{width:22px;height:14px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;overflow:visible}
+.eed-rail button.on{color:var(--edc);border-color:var(--edc);box-shadow:0 0 10px var(--edg),inset 0 0 8px var(--edw)}
+.eed-rail button.on svg{filter:drop-shadow(0 0 2.5px currentColor)}
+.pwr-off .eed-rail button.on,.pwr-off .eed-x.on{color:var(--dim);border-color:var(--faint);box-shadow:none;text-shadow:none}
+.pwr-off .eed-cv{box-shadow:none}
+.module.in .eed{animation:kin .34s cubic-bezier(.2,.8,.2,1) both}
+.module.in .eed-rail button{animation:kin .34s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(80ms + var(--i,0) * 24ms)}
+.eed-k{flex:0 0 auto;min-height:78px}
+.kgrid.c5{grid-template-columns:repeat(var(--n,5),minmax(0,calc((100% - 8px) / 5)));justify-content:center}
+.c5 .knob svg{width:44px;height:44px}
+.c5 .k-lab{font-size:9px;letter-spacing:.1em}
+.c5 .k-v{font-size:10px}
+.c5 .tog{min-height:78px}
+.eed-k.in .knob,.eed-k.in .tog{animation:kin .3s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 22ms)}
+@media (max-height:720px){.eed{min-height:84px}}
 /* the type's one-line character, under its name on the parameter display */
 .ph-d{font-family:var(--f-mono);font-weight:300;font-size:10px;line-height:1.3;letter-spacing:.02em;color:var(--dim);overflow-wrap:anywhere}
 .coach.min .ph-d{display:none}
@@ -740,6 +768,9 @@ class SynthDSP {
     this.p = {o1w:2,o1oct:0,o1pw:.5,o1pos:0,o1vow:0,glide:0,bl:1,uniN:1,uniDet:20,poly:0,o2w:2,o2oct:0,o2semi:0,o2fine:7,sync:0,fm:0,ring:0,mix1:.8,mix2:.6,noise:0,vol:.7,
       ftype:0,cut:2400,res:.25,fenv:1.5,kt:.5,drive:.1,fA:.005,fD:.35,fS:.3,fR:.3,aA:.005,aD:.3,aS:.8,aR:.35,mePitch:0,meFm:0,meShape:0,
       fRes:0,fCv:1,aCv:1,aKt:0,legato:0,mA:.001,mD:.4,mS:0,mR:.3,mDl:0,mCv:1,mLoop:0,me2:0,meLfo:0,
+      aAb:.25,aAe:0,aAk:0,aAt:.15,aDb:.5,aDe:0,aDk:0,aDt:.15,aRb:.5,aRe:0,aRk:0,aRt:.15,
+      fAb:.25,fAe:0,fAk:0,fAt:.15,fDb:.5,fDe:0,fDk:0,fDt:.15,fRb:.5,fRe:0,fRk:0,fRt:.15,
+      mAb:.25,mAe:0,mAk:0,mAt:.15,mDb:.5,mDe:0,mDk:0,mDt:.15,mRb:.5,mRe:0,mRk:0,mRt:.15,
       lshape:0,lrate:5,lsync:0,ldiv:3,lpitch:0,lcut:0,lpw:0,
       e1Type:0,e1Rate:4,e1Depth:.5,e1Sens:.5,e1Q:.5,
       modType:0,chRate:.6,chDepth:.5,chFb:.3,chMix:0,
@@ -754,7 +785,7 @@ class SynthDSP {
     this.V = [];
     for (let j = 0; j < this.NV; j++) {
       const uP = new Float64Array(8); for (let i = 0; i < 8; i++) uP[i] = Math.random();
-      this.V.push({p1:0, p2:0, uP, note:57, cur:57, gate:0, ae:0, aSt:0, fe:0, fSt:0, me:0, mSt:0, mDc:0, rs:.25, kaD:0, kaR:0, raD:0, raR:0, s0:0, s1:0, s2:0, s3:0, ic1:0, ic2:0,
+      this.V.push({p1:0, p2:0, uP, note:57, cur:57, gate:0, ae:0, aSt:0, aX:0, aF:0, fe:0, fSt:0, fX:0, fF:0, me:0, mSt:0, mX:0, mF:0, mDc:0, rs:.25, kaD:0, kaR:0, raD:0, raR:0, s0:0, s1:0, s2:0, s3:0, ic1:0, ic2:0,
         lc:Math.log2(2400), fc:2400, g:0.16, dt1:0.005, dt2:0.005, cr:0, age:0, wb:0, wpos:0, fF:new Float64Array(6), cb:new Float32Array(4096), ci:0, cl:0, cD:100, fs:new Float64Array(6), vb:new Float64Array(13)});
     }
     this.lastV = 0; this.lastNote = 57; this.ageC = 0;
@@ -848,6 +879,11 @@ class SynthDSP {
     // straight-line versions of the same stages (full scale in the knob's time), for the Curve knobs
     const r = t => 1 / (Math.max(t, 0.0005) * sr);
     k.raA = r(p.aA); k.raD = r(p.aD); k.raR = r(p.aR); k.rfA = r(p.fA); k.rfD = r(p.fD); k.rfR = r(p.fR); k.rmA = r(p.mA); k.rmD = r(p.mD); k.rmR = r(p.mR);
+    // every stage's shape as a 256-step table, read with linear interpolation (rebuilt only when a knob moves)
+    const tb = q => { const T = this['T' + q] || (this['T' + q] = new Float32Array(258)), dg = SynthDSP.stG;
+      for (let i = 0; i <= 256; i++) T[i] = dg(i / 256, p[q + 'b'], p[q + 'e'], p[q + 'k'], p[q + 't']); T[257] = 1; };
+    for (const e of 'afm') for (const st of 'ADR') tb(e + st);
+    k.sm = 1 - Math.exp(-1 / (0.006 * sr));   // a held envelope follows its Sustain knob over a few ms
     k.gl = p.glide > 0.004 ? c(p.glide, 3) : 1;
     let n = Math.max(1, Math.min(7, p.uniN | 0));
     if (this.polyOn) n = Math.min(n, this.UNI_POLY);
@@ -863,7 +899,7 @@ class SynthDSP {
     const m = p.arpMode | 0;
     this.arpSeq = m === 1 ? up.slice().reverse() : m === 2 ? up.concat(up.slice(1, -1).reverse()) : up;
   }
-  trig(v, n){ v.note = n; v.gate = 1; v.aSt = 1; v.fSt = 1; v.mDc = Math.round(this.p.mDl * this.sr); v.mSt = v.mDc > 0 ? 4 : 1; v.cr = 0; v.age = ++this.ageC; this.trigN++; }
+  trig(v, n){ v.note = n; v.gate = 1; v.aSt = 1; v.aX = 0; v.aF = v.ae; v.fSt = 1; v.fX = 0; v.fF = v.fe; v.mDc = Math.round(this.p.mDl * this.sr); v.mSt = v.mDc > 0 ? 4 : 1; v.mX = 0; v.mF = v.me; v.cr = 0; v.age = ++this.ageC; this.trigN++; }
   // one Hilbert step: s.re and s.im come out a quarter-cycle apart
   hil(s, x){
     const A = this.HA, X = s.x, Y = s.y; let p = x, q = x;
@@ -882,7 +918,7 @@ class SynthDSP {
     const t = i + Math.round(deg), o = Math.floor(t / 7), j = t - o * 7;
     return o * 12 + S[j] - S[i];
   }
-  rel(v){ v.gate = 0; if (v.aSt) v.aSt = 3; if (v.fSt) v.fSt = 3; if (v.mSt) v.mSt = 3; }
+  rel(v){ v.gate = 0; if (v.aSt) { v.aSt = 3; v.aX = 0; v.aF = v.ae; } if (v.fSt) { v.fSt = 3; v.fX = 0; v.fF = v.fe; } if (v.mSt) { v.mSt = 3; v.mX = 0; v.mF = v.me; } }
   release(){ this.rel(this.V[0]); }
   allOff(){ for (const v of this.V) this.rel(v); }
   // hard silence: no release tails, no arp, no echoes left in the FX buffers
@@ -1148,6 +1184,19 @@ class SynthDSP {
     st[i] = 2 * v1 - st[i]; st[i + 1] = 2 * v2 - st[i + 1]; this.sb = v1; return v2; }
   /* the vowel filter: three bandpass formants. The cutoff picks the vowel, dark to bright (u o a e i, 200 Hz to 4 kHz on the
      cutoff), and Resonance narrows the bands. o gets [g×3, k×3, gain×3, F×3, vowel position 0..4]. Static, so the UI shares it. */
+  /* an envelope stage's shape: how far (0 → 1) the level has moved from where the stage began toward its target, x of the way
+     through the stage. Attack, decay and release each have one. Bend bows it (+ a fast start that brakes into the target, like
+     an RC; − a slow start that speeds up), Ease rounds both ends (an S-curve), and Break covers that share of the way in a
+     straight line first, by Break At, before the rest follows the bend: a two-step stage. The analog RC curves are Bend +25% for
+     the attack (it charges toward 1.3 and stops at 1) and +50% for decay and release (k = 3). */
+  static stG(x, b, e, bk, bt){
+    if (x <= 0) return 0; if (x >= 1) return 1;
+    let y0 = 0, u = x;
+    if (bk > 0.005) { const t = Math.max(0.02, Math.min(0.95, bt)); if (x < t) return bk * x / t; y0 = bk; u = (x - t) / (1 - t); }
+    if (e > 0) u += e * (u * u * (3 - 2 * u) - u);
+    const k = 6 * b, g = Math.abs(k) < 1e-4 ? u : (1 - Math.exp(-k * u)) / (1 - Math.exp(-k));
+    return y0 + (1 - y0) * g;
+  }
   static vowel(fc, rs, sr, o){
     const T = SynthDSP.FV, x = Math.max(0, Math.min(4, (Math.log2(Math.max(20, fc)) - 7.6439) / 4.3219 * 4)), i0 = Math.min(3, x | 0), f = x - i0, A = T[i0], B = T[i0 + 1], qs = 0.45 + 1.5 * rs;
     for (let q = 0; q < 3; q++) {
@@ -1187,9 +1236,10 @@ class SynthDSP {
     const bl = p.bl ? 1 : 0, sync = p.sync ? 1 : 0, fm = p.fm, meFm = p.meFm, ring = p.ring ? 1 : 0, uc = this.uCount, uNorm = this.uNorm, uR = this.uR;
     const drv = 1 + p.drive * 4, dcomp = 1 / (1 + p.drive * 1.5);
     const lcBase = Math.log2(Math.max(20, p.cut)), maxF = sr * 0.45, fenv = p.fenv, lcut = p.lcut, kt = p.kt, lpitch = p.lpitch, mePitch = p.mePitch, meShape = p.meShape;
-    // envelope extras: curves (1 = analog RC curves, 0 = straight lines), filter env → resonance, mod env → osc 2 pitch and LFO depth
-    const aCv = p.aCv, aLn = 1 - aCv, fCv = p.fCv, fLn = 1 - fCv, mCv = p.mCv, mLn = 1 - mCv, mS = p.mS, mLoop = p.mLoop ? 1 : 0;
-    const fRes = p.fRes, me2 = p.me2, meLfo = p.meLfo, aKt = p.aKt;
+    // envelope extras: filter env → resonance, mod env → osc 2 pitch and LFO depth
+    const mS = p.mS, mLoop = p.mLoop ? 1 : 0;
+    const fRes = p.fRes, me2 = p.me2, meLfo = p.meLfo, aKt = p.aKt, ksm = k.sm;
+    const TaA = this.TaA, TaD = this.TaD, TaR = this.TaR, TfA = this.TfA, TfD = this.TfD, TfR = this.TfR, TmA = this.TmA, TmD = this.TmD, TmR = this.TmR;
     for (const v of V) {   // key → time: higher notes get a shorter amp decay and release (like a piano string)
       const sc = aKt ? Math.pow(2, (v.note - 60) / 12 * aKt) : 1;
       v.kaD = sc === 1 ? k.aD : 1 - Math.pow(1 - k.aD, sc); v.kaR = sc === 1 ? k.aR : 1 - Math.pow(1 - k.aR, sc); v.raD = k.raD * sc; v.raR = k.raR * sc;
@@ -1254,24 +1304,29 @@ class SynthDSP {
       for (let a = 0; a < act.length; a++) {
         const v = act[a];
         v.cur += (v.note - v.cur) * k.gl;
-        // each stage blends an RC curve (exponential) with a straight line, as set by that envelope's Curve knob
+        // every stage runs on x, 0 → 1 over its time, and places the level that far along its own shape: attack from wherever
+        // the note started (0, or the level a retrigger caught) up to full, decay down to Sustain, release from the level the key
+        // was let go at down to silence. A finished decay holds at Sustain and follows the knob smoothly.
         switch (v.aSt) {
-          case 1: v.ae += aCv * (1.3 - v.ae) * k.aA + aLn * k.raA; if (v.ae >= 1) { v.ae = 1; v.aSt = 2; } break;
-          case 2: { const dv = aS - v.ae; v.ae += aCv * dv * v.kaD + aLn * (dv > 0 ? Math.min(v.raD, dv) : -Math.min(v.raD, -dv)); break; }
-          case 3: v.ae -= aCv * v.ae * v.kaR + aLn * v.raR; if (v.ae < 1e-5) { v.ae = 0; v.aSt = 0; } break;
+          case 1: v.aX += k.raA; if (v.aX >= 1) { v.ae = 1; v.aSt = 2; v.aX = 0; } else { const q = v.aX * 256, j = q | 0; v.ae = v.aF + (1 - v.aF) * (TaA[j] + (TaA[j + 1] - TaA[j]) * (q - j)); } break;
+          case 2: if (v.aX < 1) { v.aX += v.raD; const q = (v.aX < 1 ? v.aX : 1) * 256, j = q | 0; v.ae = 1 - (1 - aS) * (TaD[j] + (TaD[j + 1] - TaD[j]) * (q - j)); }
+            else v.ae += (aS - v.ae) * ksm; break;
+          case 3: v.aX += v.raR; if (v.aX >= 1) { v.ae = 0; v.aSt = 0; } else { const q = v.aX * 256, j = q | 0; v.ae = v.aF * (1 - (TaR[j] + (TaR[j + 1] - TaR[j]) * (q - j))); } break;
         }
         switch (v.fSt) {
-          case 1: v.fe += fCv * (1.3 - v.fe) * k.fA + fLn * k.rfA; if (v.fe >= 1) { v.fe = 1; v.fSt = 2; } break;
-          case 2: { const dv = fS - v.fe; v.fe += fCv * dv * k.fD + fLn * (dv > 0 ? Math.min(k.rfD, dv) : -Math.min(k.rfD, -dv)); break; }
-          case 3: v.fe -= fCv * v.fe * k.fR + fLn * k.rfR; if (v.fe < 1e-5) { v.fe = 0; v.fSt = 0; } break;
+          case 1: v.fX += k.rfA; if (v.fX >= 1) { v.fe = 1; v.fSt = 2; v.fX = 0; } else { const q = v.fX * 256, j = q | 0; v.fe = v.fF + (1 - v.fF) * (TfA[j] + (TfA[j + 1] - TfA[j]) * (q - j)); } break;
+          case 2: if (v.fX < 1) { v.fX += k.rfD; const q = (v.fX < 1 ? v.fX : 1) * 256, j = q | 0; v.fe = 1 - (1 - fS) * (TfD[j] + (TfD[j + 1] - TfD[j]) * (q - j)); }
+            else v.fe += (fS - v.fe) * ksm; break;
+          case 3: v.fX += k.rfR; if (v.fX >= 1) { v.fe = 0; v.fSt = 0; } else { const q = v.fX * 256, j = q | 0; v.fe = v.fF * (1 - (TfR[j] + (TfR[j + 1] - TfR[j]) * (q - j))); } break;
         }
-        // the mod envelope: an optional delay first, and in Loop mode it falls to zero and starts again while the key is held
+        // the mod envelope: an optional delay first, and in Loop mode the decay falls all the way to zero and the attack starts again
         switch (v.mSt) {
-          case 4: if (--v.mDc <= 0) v.mSt = 1; break;
-          case 1: v.me += mCv * (1.3 - v.me) * k.mA + mLn * k.rmA; if (v.me >= 1) { v.me = 1; v.mSt = 2; } break;
-          case 2: { const T = mLoop ? 0 : mS, dv = T - v.me; v.me += mCv * dv * k.mD + mLn * (dv > 0 ? Math.min(k.rmD, dv) : -Math.min(k.rmD, -dv));
-            if (mLoop && v.me <= 0.05) v.mSt = 1; break; }
-          case 3: v.me -= mCv * v.me * k.mR + mLn * k.rmR; if (v.me < 1e-5) { v.me = 0; v.mSt = 0; } break;
+          case 4: if (--v.mDc <= 0) { v.mSt = 1; v.mX = 0; v.mF = v.me; } break;
+          case 1: v.mX += k.rmA; if (v.mX >= 1) { v.me = 1; v.mSt = 2; v.mX = 0; } else { const q = v.mX * 256, j = q | 0; v.me = v.mF + (1 - v.mF) * (TmA[j] + (TmA[j + 1] - TmA[j]) * (q - j)); } break;
+          case 2: { const T = mLoop ? 0 : mS;
+            if (v.mX < 1) { v.mX += k.rmD; const q = (v.mX < 1 ? v.mX : 1) * 256, j = q | 0; v.me = 1 - (1 - T) * (TmD[j] + (TmD[j + 1] - TmD[j]) * (q - j)); if (mLoop && v.mX >= 1) { v.mSt = 1; v.mX = 0; v.mF = v.me; } }
+            else v.me += (T - v.me) * ksm; break; }
+          case 3: v.mX += k.rmR; if (v.mX >= 1) { v.me = 0; v.mSt = 0; } else { const q = v.mX * 256, j = q | 0; v.me = v.mF * (1 - (TmR[j] + (TmR[j + 1] - TmR[j]) * (q - j))); } break;
         }
         const lD = meLfo ? 1 - meLfo + meLfo * v.me : 1;   // mod env → LFO: the LFO's depth follows the envelope (delayed vibrato)
         const shMod = lfoS * lD + meShape * v.me;
@@ -1832,7 +1887,7 @@ class SynthDSP {
     // meters for the pedal pictures: gain reduction, gate opening, shaper gain, rotor speed (peaks held briefly)
     const M = this.fxm; for (const u of FU) if (u.f === 'dyn' || u.f === 'rot' || u.f === 'mb' || u.f === 'pump' || u.f === 'swell' || u.f === 'glitch') { M[u.id] = u.act ? u.mtr : 0; if (u.f === 'dyn' || u.f === 'mb') u.mtr *= 0.6; }
     t.fxm = M;
-    t.a = lv.ae; t.f = lv.fe; t.m = lv.me; t.r = lv.rs; t.l = lfo; t.c = lv.fc; t.g = lv.gate; t.f1 = fl * r1; t.f2 = fl * r2; t.f0 = ft * (useP2 ? r2 : r1); t.n = lv.note; t.nv = nv;
+    t.a = lv.ae; t.f = lv.fe; t.m = lv.me; t.as = lv.aSt; t.ax = lv.aX; t.fs = lv.fSt; t.fx = lv.fX; t.ms = lv.mSt; t.mx = lv.mX; t.r = lv.rs; t.l = lfo; t.c = lv.fc; t.g = lv.gate; t.f1 = fl * r1; t.f2 = fl * r2; t.f0 = ft * (useP2 ? r2 : r1); t.n = lv.note; t.nv = nv;
   }
 }
 
@@ -1855,7 +1910,10 @@ registerProcessor('sp-synth', SPProc);`;
    ===================================================================== */
 const INIT = {o1w:2,o1oct:0,o1pw:.5,o1pos:0,o1vow:0,glide:0,bl:1,uniN:1,uniDet:20,poly:0,o2w:2,o2oct:0,o2semi:0,o2fine:7,sync:0,fm:0,ring:0,mix1:.8,mix2:.6,noise:0,vol:.7,
   ftype:0,cut:2400,res:.25,fenv:1.5,kt:.5,drive:.1,fA:.005,fD:.35,fS:.3,fR:.3,aA:.005,aD:.3,aS:.8,aR:.35,mePitch:0,meFm:0,meShape:0,
-  fRes:0,fCv:1,aCv:1,aKt:0,legato:0,mA:.001,mD:.4,mS:0,mR:.3,mDl:0,mCv:1,mLoop:0,me2:0,meLfo:0,lshape:0,lrate:5,lsync:0,ldiv:3,lpitch:0,lcut:0,lpw:0,
+  fRes:0,fCv:1,aCv:1,aKt:0,legato:0,mA:.001,mD:.4,mS:0,mR:.3,mDl:0,mCv:1,mLoop:0,me2:0,meLfo:0,
+      aAb:.25,aAe:0,aAk:0,aAt:.15,aDb:.5,aDe:0,aDk:0,aDt:.15,aRb:.5,aRe:0,aRk:0,aRt:.15,
+      fAb:.25,fAe:0,fAk:0,fAt:.15,fDb:.5,fDe:0,fDk:0,fDt:.15,fRb:.5,fRe:0,fRk:0,fRt:.15,
+      mAb:.25,mAe:0,mAk:0,mAt:.15,mDb:.5,mDe:0,mDk:0,mDt:.15,mRb:.5,mRe:0,mRk:0,mRt:.15,lshape:0,lrate:5,lsync:0,ldiv:3,lpitch:0,lcut:0,lpw:0,
   e1Type:1,e1Rate:4,e1Depth:.5,e1Sens:.5,e1Q:.5,modType:0,chRate:.6,chDepth:.5,chFb:.3,chMix:.5,ampType:2,ampDrive:.3,ampTone:.5,ampLvl:.7,eqLo:0,eqMid:0,eqFreq:1000,eqHi:0,dTime:.35,dSync:0,dDiv:2,dFb:.4,dTone:4000,dMix:.3,dPing:0,rvSize:.6,rvDamp:.5,rvMix:.25,
   e1Freq:440,e1Div:2,e1Duty:.5,dType:0,dWow:.5,rvType:0,rvPre:0,
   dyType:0,dyThr:-20,dyRatio:4,dyAtk:.01,dyRel:.15,dyGain:6,dyPunch:.5,dySus:0,drvType:0,drvAmt:.5,drvTone:.6,drvBias:0,drvLvl:.6,crBits:6,crRate:8000,crMix:1,
@@ -1908,6 +1966,16 @@ function normPatch(obj){
   // patches from before the mod envelope had its own ADSR: its routes (pitch, FM, shape) rode the filter envelope, so it
   // starts as a copy of that shape and they sound the same
   if (!['mA', 'mD', 'mS', 'mR'].some(k => k in o)) [['fA', 'mA'], ['fD', 'mD'], ['fS', 'mS'], ['fR', 'mR']].forEach(([f, m]) => { if (f in o) o[m] = o[f]; });
+  // patches from before every stage had its own shape: Curve bent all of them, so each stage starts where Curve had it (Curve 100%
+  // is the RC curve: Bend +25% for the attack, +50% for decay and release) with no ease and no break. The first shaped version
+  // had the decay alone, with Break and Break At named Bk and Bt.
+  ['a', 'f', 'm'].forEach(e => {
+    if (e + 'Bk' in o) { if (!(e + 'Dk' in o)) o[e + 'Dk'] = o[e + 'Bk']; delete o[e + 'Bk']; }
+    if (e + 'Bt' in o) { if (!(e + 'Dt' in o)) o[e + 'Dt'] = o[e + 'Bt']; delete o[e + 'Bt']; }
+    if (!(e + 'Cv' in o)) return;
+    const c = o[e + 'Cv'];
+    [['A', 0.25], ['D', 0.5], ['R', 0.5]].forEach(([st, rc]) => { const q = e + st; if (!(q + 'b' in o)) Object.assign(o, {[q + 'b']:c * rc, [q + 'e']:0, [q + 'k']:0, [q + 't']:0.15}); });
+  });
   return o;
 }
 
@@ -2075,6 +2143,10 @@ const fT = v => v < 1 ? (v < 0.01 ? (v * 1000).toFixed(1) : Math.round(v * 1000)
 const fPct = v => Math.round(v * 100) + '%';
 const fOct = v => sgn(v) + Math.abs(v).toFixed(1) + ' oct';
 const fCurve = v => v < .04 ? 'straight' : v > .96 ? 'RC curve' : Math.round(v * 100) + '% curved';
+// a stage's Bend: + starts fast and brakes into the target, − starts slow and speeds up. The analog RC curve sits at +25% for
+// the attack and +50% for decay and release
+const ST_RC = {A:.25, D:.5, R:.5};
+const fBend = (v, rc) => Math.abs(v) < .02 ? 'straight' : Math.abs(v - rc) < .02 ? 'RC curve' : (v > 0 ? 'fast start ' : 'slow start ') + Math.round(Math.abs(v) * 100) + '%';
 const WT_NAMES = ['sine', 'warm', 'organ', 'hollow', 'saw', 'vocal', 'narrow', 'metal'];
 const ADIV_L = ['1/4', '1/8', '1/16', '1/8T', '1/16T'];
 const LDIV_L = ['1 bar', '1/2', '1/4', '1/8', '1/16', '1/32', '1/4T', '1/8T'];
@@ -2110,7 +2182,10 @@ const DEFS = {
   mA:{l:'Attack',min:.001,max:10,c:'log',f:fT}, mD:{l:'Decay',min:.005,max:10,c:'log',f:fT},
   mS:{l:'Sustain',min:0,max:1,f:fPct}, mR:{l:'Release',min:.005,max:10,c:'log',f:fT},
   mDl:{l:'Delay',min:0,max:4,c:'sq',f:v=>v<.003?'off':fT(v)},
-  aCv:{l:'Curve',min:0,max:1,f:fCurve}, fCv:{l:'Curve',min:0,max:1,f:fCurve}, mCv:{l:'Curve',min:0,max:1,f:fCurve},
+  aCv:{l:'A/R Curve',min:0,max:1,f:fCurve}, fCv:{l:'A/R Curve',min:0,max:1,f:fCurve}, mCv:{l:'A/R Curve',min:0,max:1,f:fCurve},
+  ...Object.fromEntries([...'afm'].flatMap(e => [...'ADR'].flatMap(st => { const q = e + st; return [
+    [q + 'b', {l:'Bend', min:-1, max:1, bip:1, f:v => fBend(v, ST_RC[st])}], [q + 'e', {l:'Ease', min:0, max:1, f:v => v < .02 ? 'off' : fPct(v)}],
+    [q + 'k', {l:'Break', min:0, max:.95, f:v => v < .01 ? 'off' : fPct(v) + ' first'}], [q + 't', {l:'Break At', min:.02, max:.9, c:'sq', f:v => fT(v * params[q])}]]; }))),
   aKt:{l:'Key → Time',min:0,max:1,f:v=>v<.01?'off':'−'+Math.round((1-Math.pow(2,-v))*100)+'% / oct'},
   fRes:{l:'→ Res',min:-1,max:1,bip:1,f:v=>sgn(v)+Math.round(Math.abs(v)*100)+'%'},
   me2:{l:'→ Osc 2',min:-36,max:36,bip:1,f:v=>sgn(v)+Math.abs(v).toFixed(Math.abs(v)<10?1:0)+' st'},
@@ -2253,7 +2328,13 @@ const TABS = [
   {id:'mix',l:'Mix',rows:[['mix1','mix2','noise'],['vol','poly']]},
   {id:'filter',l:'Filter',seg:'ftype',rows:[['cut','res','kt'],['drive']]},
   // the amp envelope sits in the signal path (it is the VCA); the filter and mod envelopes sit with the LFO and Arp
-  {id:'env',l:'Amp Env',rows:[['aA','aD','aS','aR'],['aCv','aKt','legato']]},
+  // each envelope page is one live chart; its sections (and the chip in its corner) are the page's sub-pages
+  {id:'env',l:'Amp Env',env:'a',sub:[
+    {id:'a-A',l:'Attack',st:'A',rows:[['aA','aAb','aAe','aAk','aAt']]},
+    {id:'a-D',l:'Decay',st:'D',rows:[['aD','aDb','aDe','aDk','aDt']]},
+    {id:'a-S',l:'Sustain',st:'S',rows:[['aS']]},
+    {id:'a-R',l:'Release',st:'R',rows:[['aR','aRb','aRe','aRk','aRt']]},
+    {id:'a-K',l:'Keys',x:1,rows:[['aKt','legato']]}]},
   {id:'fx',l:'FX',sub:[
     {id:'fx1',l:'FX1',seg:'e1Type',rows:() => params.e1Type === 6 ? [['e1Rate','e1Depth','e1Freq']] : params.e1Type === 3 ? [['e1Sens','e1Depth','e1Q']] : params.e1Type === 4 ? [['e1Freq','e1Depth']] : params.e1Type === 5 ? [['e1Div','e1Depth','e1Duty']] : params.e1Type ? [['e1Rate','e1Depth']] : []},
     {id:'amp',l:'Amp',seg:'ampType',rows:[['ampDrive','ampTone','ampLvl']]},
@@ -2282,10 +2363,19 @@ const TABS = [
     {id:'glitch',l:'Glitch',seg:'gbType',rows:() => [[['gbDiv','gbAmt','gbMix']], [['gbDiv','gbAmt','gbRev','gbMix']], [['gbDiv','gbMix']], [['gbLen','gbEvery','gbMix']],
       [['gbSize','gbFade','gbMix']], [['gbSize','gbDens','gbPitch','gbMix']]][params.gbType | 0] || []}]},
   // the mod section, past the speaker: the filter and mod envelopes only move knobs on the line, like the LFO and Arp
-  {id:'fe',l:'Filter Env',rows:[['fA','fD','fS','fR'],['fenv','fRes','fCv']]},
-  {id:'me',l:'Mod Env',sub:[
-    {id:'mshp',l:'Shape',rows:[['mA','mD','mS','mR'],['mDl','mCv','mLoop']]},
-    {id:'mdst',l:'Routing',rows:[['mePitch','me2','meFm'],['meShape','meLfo']]}]},
+  {id:'fe',l:'Filter Env',env:'f',sub:[
+    {id:'f-A',l:'Attack',st:'A',rows:[['fA','fAb','fAe','fAk','fAt']]},
+    {id:'f-D',l:'Decay',st:'D',rows:[['fD','fDb','fDe','fDk','fDt']]},
+    {id:'f-S',l:'Sustain',st:'S',rows:[['fS']]},
+    {id:'f-R',l:'Release',st:'R',rows:[['fR','fRb','fRe','fRk','fRt']]},
+    {id:'f-M',l:'Amount',x:1,rows:[['fenv','fRes']]}]},
+  {id:'me',l:'Mod Env',env:'m',sub:[
+    {id:'m-L',l:'Delay',st:'L',rows:[['mDl','mLoop']]},
+    {id:'m-A',l:'Attack',st:'A',rows:[['mA','mAb','mAe','mAk','mAt']]},
+    {id:'m-D',l:'Decay',st:'D',rows:[['mD','mDb','mDe','mDk','mDt']]},
+    {id:'m-S',l:'Sustain',st:'S',rows:[['mS']]},
+    {id:'m-R',l:'Release',st:'R',rows:[['mR','mRb','mRe','mRk','mRt']]},
+    {id:'m-X',l:'Routing',x:1,rows:[['mePitch','me2','meFm','meShape','meLfo']]}]},
   {id:'lfo',l:'LFO',seg:'lshape',rows:() => [[params.lsync ? 'ldiv' : 'lrate','lpitch','lcut'],['lpw','lsync']]},
   {id:'arp',l:'Arp',seg:'arpMode',rows:[['arpDiv','arpOct','arpGate'],['tempo']]},
 ];
@@ -2410,6 +2500,7 @@ function setParam(k, v){
   if (controls[k]) controls[k]();
   if (hud.k === k) hudText();
   if (LAYOUT_KEYS.has(k)) relayout();
+  if (/^[afm][ADR]k?$/.test(k)) { refreshDead(); const bt = controls[k.slice(0, 2) + 't']; if (bt) bt(); }
   if (k === 'arpOn' && !old !== !v) arpToggle(!!v);
   if (k === 'poly' && !old !== !v) polyToggle(!!v);
   tgtDirty = true;
@@ -2698,6 +2789,366 @@ function ftTile(cv, t, rs, fcV, me, on, u, d){
   // the tracing head, while the curve draws itself on
   if (u < 1) { g.fillStyle = '#fff'; g.shadowColor = COL.c2; g.shadowBlur = 7 * d; g.beginPath(); g.arc(pts[n][0], pts[n][1], 1.6 * d, 0, 6.2832); g.fill(); g.shadowBlur = 0; }
 }
+/* =====================================================================
+   The envelope editor
+   Every envelope page is one live chart of the whole envelope, always on screen. Tap a section (Delay, A, D, S, R) to pick
+   it: it lights up and its knobs appear underneath. Then shape it with your finger, the way the OP-1 lets you draw:
+   · drag a dot to move a corner: the peak sets Attack, the end of the decay sets Decay and Sustain, the end sets Release
+   · drag the line itself and it bends to pass under your finger (it clicks into place at straight and at the RC curve)
+   · double-tap a line to drop a break point there (two-step), double-tap again to take it out; drag the break dot around
+   · or tap one of the five ready shapes in the rail on the right
+   A dot rides the line while a note plays, so you see exactly where the envelope is. The chip in the corner holds the
+   envelope's other settings (Keys, Amount, Routing).
+   ===================================================================== */
+const ED_OF = {env:'a', fe:'f', me:'m'};
+const ST_NAME = {L:'Delay', A:'Attack', D:'Decay', S:'Sustain', R:'Release'};
+const SH_LIST = ['RC curve', 'Straight', 'Reverse', 'S-curve', 'Two-step'];
+const SH_D = {
+  A:['leaps up, then eases in · analog', 'an even swell', 'creeps in, then blooms', 'eases in and eases out', 'a quick jump, then a slow climb'],
+  D:['fast, then creeps in · analog', 'an even fall · hangs, then drops', 'holds, then speeds up and falls', 'eases out and eases in', 'a quick drop, then a long tail'],
+  R:['falls fast, then fades out · analog', 'an even fade', 'hangs on, then falls away', 'eases out and eases in', 'a quick drop, then a long tail']};
+// the ready shapes for a stage: [Bend, Ease, Break, Break At] (Break At kept as it is when the shape has no break)
+const shVals = (st, i) => [[ST_RC[st], 0, 0], [0, 0, 0], [-.5, 0, 0], [0, 1, 0], [ST_RC[st], 0, st === 'A' ? .6 : .65, st === 'A' ? .12 : .15]][i];
+const SH_K = ['b', 'e', 'k', 't'];
+const shPar = (q, P = params) => SH_K.map(k => P[q + k]);
+// which ready shape a stage's knobs make (-1: one of your own). Two-step is a family: any break counts
+function shMatch(q, P = params){
+  const [b, ez, bk] = shPar(q, P), near = (x, y) => Math.abs(x - y) < .025;
+  if (bk >= .01) return 4;
+  return [0, 1, 2, 3].find(i => { const v = shVals(q[1], i); return near(b, v[0]) && near(ez, v[1]); }) ?? -1;
+}
+const shName = q => { const i = shMatch(q); return i < 0 ? 'your own shape' : SH_LIST[i].toLowerCase(); };
+const edCol = e => COL[{a:'c3', f:'c2', m:'c7'}[e]];
+// stage widths: the log of each time, as in every envelope picture (the mod envelope's delay slot is always wide enough to tap)
+const wvT = t => 0.06 + Math.log10(1 + t * 30) / Math.log10(301) * 0.3, wvTi = w => (Math.pow(10, (w - 0.06) / 0.3 * Math.log10(301)) - 1) / 30;
+const wvL = t => 0.07 + Math.log10(1 + t * 30) / Math.log10(121) * 0.2, wvLi = w => (Math.pow(10, (w - 0.07) / 0.2 * Math.log10(121)) - 1) / 30;
+const edStages = (e, P = params) => (e === 'm' ? [['L', wvL(P.mDl)]] : []).concat([['A', wvT(P[e + 'A'])], ['D', wvT(P[e + 'D'])], ['S', 0.2], ['R', wvT(P[e + 'R'])]]);
+// where a stage starts and where it is headed (Loop: the decay falls to zero, and the release is drawn from the top)
+function edEnds(e, st, P = params){
+  const loop = e === 'm' && !!P.mLoop, S = loop ? 0 : P[e + 'S'];
+  return st === 'A' ? [0, 1] : st === 'D' ? [1, S] : st === 'R' ? [loop ? 1 : S, 0] : [S, S];
+}
+function edLevel(e, st, u, P = params){
+  if (st === 'L') return 0;
+  const [a, b] = edEnds(e, st, P); if (st === 'S') return a;
+  const q = e + st; return a + (b - a) * SynthDSP.stG(u, P[q + 'b'], P[q + 'e'], P[q + 'k'], P[q + 't']);
+}
+// bend a stage so it passes through (x, G): x and G both 0 → 1 within the stage. Inside a break's quick part, the break moves instead
+function edSolve(q, x, Gt, P = params){
+  const ez = P[q + 'e'], k = P[q + 'k'] >= .01 ? P[q + 'k'] : 0, t = Math.max(.02, Math.min(.95, P[q + 't']));
+  if (k && x < t) return {k:Math.max(.01, Math.min(.95, Gt * t / Math.max(.02, x)))};
+  let sg = Gt, u = x; if (k) { sg = (Gt - k) / (1 - k); u = (x - t) / (1 - t); }
+  u = Math.max(.04, Math.min(.96, u)); if (ez > 0) u += ez * (u * u * (3 - 2 * u) - u);
+  sg = Math.max(.001, Math.min(.999, sg));
+  const f = b => { const kk = 6 * b; return Math.abs(kk) < 1e-4 ? u : (1 - Math.exp(-kk * u)) / (1 - Math.exp(-kk)); };
+  if (f(1) <= sg) return {b:1}; if (f(-1) >= sg) return {b:-1};
+  let lo = -1, hi = 1; for (let i = 0; i < 30; i++) { const m = (lo + hi) / 2; if (f(m) < sg) lo = m; else hi = m; }
+  return {b:(lo + hi) / 2};
+}
+const ED = {el:null, cv:null, kh:null, rail:null, xb:null, e:'a', w:0, h:0, wd:null, td:0, lit:{}, drag:null, tap:null, G:null, nodes:[],
+  ph:{a:0, st:0, t0:0}, sel0:0, hintN:store.get('edHint', 0), hintT:0, anim:0, fontUI:''};
+const edRO = new ResizeObserver(es => es.forEach(en => { const c = en.target, d = DPR(); ED.w = c.width = Math.max(1, Math.round(en.contentRect.width * d)); ED.h = c.height = Math.max(1, Math.round(en.contentRect.height * d)); }));
+const edTab = () => TABS.find(x => x.id === state.tab);
+const edSec = () => { const t = edTab(); return t && t.sub ? t.sub.find(x => x.id === state.sub[t.id]) || t.sub[0] : null; };
+const edSt = () => { const sb = edSec(); return sb && sb.st || null; };
+function edEl(t){
+  const e = ED.e = t.env, col = edCol(e), x = t.sub.find(s => s.x);
+  const w = document.createElement('div'); w.className = 'eed'; w.dataset.hint = 'eed-' + e;
+  w.style.setProperty('--edc', col); w.style.setProperty('--edg', hexA(col, .28)); w.style.setProperty('--edw', hexA(col, .08));
+  w.innerHTML = `<div class="eed-cv"><canvas role="img" aria-label="${TAB_SHORT[t.id]} envelope. Tap a section to edit it; drag the dots or the line to shape it."></canvas>`
+    + `<button class="eed-x" data-hint="sub-${x.id}" aria-label="${x.l}">${x.l}</button></div>`
+    + `<div class="eed-rail" data-hint="rail-${e}" role="radiogroup" aria-label="Ready shapes"></div>`;
+  ED.el = w; ED.cv = w.querySelector('canvas'); ED.rail = w.querySelector('.eed-rail'); ED.xb = w.querySelector('.eed-x');
+  ED.wd = null; ED.drag = null; ED.tap = null; ED.lit = {}; ED.sel0 = performance.now();
+  if (!ED.fontUI) ED.fontUI = getComputedStyle(document.body).getPropertyValue('--f-ui') || 'sans-serif';
+  edRO.disconnect(); edRO.observe(ED.cv);
+  ED.xb.addEventListener('click', () => edSel(x.id));
+  SH_LIST.forEach((l, i) => {
+    const b = document.createElement('button'); b.setAttribute('role', 'radio'); b.dataset.i = i; b.style.setProperty('--i', i);
+    b.addEventListener('click', () => { const st = edSt(); if ('ADR'.includes(st || '-')) edShape(ED.e + st, i); });
+    ED.rail.appendChild(b);
+  });
+  edPointer(ED.cv);
+  const kh = ED.kh = document.createElement('div'); kh.className = 'eed-k';
+  const frag = document.createDocumentFragment(); frag.appendChild(w); frag.appendChild(kh);
+  return frag;
+}
+// the knobs of the chosen section, under the chart (every row is sized as five, so the chart never jumps)
+function edRows(){
+  const sb = edSec(), host = ED.kh; if (!sb || !host) return;
+  Object.keys(controls).forEach(k => { if (DEFS[k] || TOGS[k]) delete controls[k]; });
+  host.innerHTML = '';
+  rowsOf(sb.rows).forEach(r => { const g = document.createElement('div'); g.className = 'kgrid c5'; g.style.setProperty('--n', r.length);
+    r.forEach((k, i) => g.appendChild(TOGS[k] ? togEl(k, i) : knobEl(k, i))); host.appendChild(g); });
+  host.classList.remove('in'); void host.offsetWidth; host.classList.add('in');
+  ED.xb.classList.toggle('on', !!sb.x); ED.xb.setAttribute('aria-pressed', !!sb.x);
+  edRail();
+  layoutSig = curLayout(); refreshDead(); paintTargets(); applyHints();
+}
+function edSel(id){
+  const t = edTab(); if (!t || !t.env) return;
+  if (state.sub[t.id] === id) return;
+  state.sub[t.id] = id; bump('sub'); ED.sel0 = performance.now();
+  const sb = edSec();
+  // the first few times a shapeable section is picked, the chart says how to draw it
+  if (sb.st && 'ADR'.includes(sb.st) && ED.hintN < 4) { ED.hintT = performance.now(); ED.hintN++; store.set('edHint', ED.hintN); }
+  try { navigator.vibrate && navigator.vibrate(6); } catch (er) {}
+  edRows();
+}
+// the rail: the five ready shapes, drawn for the chosen stage (rising for the attack, falling for decay and release)
+function edRail(){
+  const st = edSt(), on = !!st && 'ADR'.includes(st), q = ED.e + (on ? st : 'D'), m = on ? shMatch(q) : -1;
+  ED.rail.classList.toggle('off', !on);
+  [...ED.rail.children].forEach((b, i) => {
+    const v = shVals(on ? st : 'D', i), sig = (on ? st : 'D') + i;
+    if (b.dataset.sig !== sig) {
+      const up = st === 'A', pts = [];
+      for (let j = 0; j <= 24; j++) { const x = j / 24, g = SynthDSP.stG(x, v[0], v[1], v[2], v[3] == null ? .15 : v[3]); pts.push(`${(2 + x * 20).toFixed(1)} ${(up ? 13 - g * 11 : 2 + g * 11).toFixed(1)}`); }
+      b.innerHTML = `<svg viewBox="0 0 24 15" aria-hidden="true"><path d="M${pts.join('L')}"/></svg>`;
+      b.dataset.sig = sig; b.setAttribute('aria-label', SH_LIST[i] + (on ? ': ' + SH_D[st][i] : ''));
+    }
+    b.classList.toggle('on', i === m); b.setAttribute('aria-checked', i === m);
+  });
+  ED.rm = m;
+}
+// glide a stage's shape knobs to a ready shape
+function edShape(q, i){
+  const sec = {f:'fe', m:'me'}[q[0]];
+  if (sec && !params[PW[sec]]) setParam(PW[sec], 1);   // shaping a bypassed envelope switches it back on, as the filter types do
+  const to = shVals(q[1], i).slice(), from = shPar(q);
+  if (to.length < 4) to[3] = from[3];
+  const ds = SH_K.map(k => DEFS[q + k]), nf = from.map((v, j) => toN(ds[j], v)), nt = to.map((v, j) => toN(ds[j], v));
+  hudShow(q + 'b'); hud.shp = true; hudText(); hudHold(1100); bump('shape');
+  try { navigator.vibrate && navigator.vibrate(8); } catch (er) {}
+  const t0 = performance.now(), id = ++ED.anim;
+  const step = () => { if (id !== ED.anim) return; const u = Math.min(1, (performance.now() - t0) / 240), ez = 1 - Math.pow(1 - u, 3);
+    SH_K.forEach((k, j) => setParam(q + k, u < 1 ? fromN(ds[j], nf[j] + (nt[j] - nf[j]) * ez) : to[j])); if (u < 1) requestAnimationFrame(step); };
+  step();
+}
+/* ---------- touch ---------- */
+function edPointer(cv){
+  const pt = ev => { const r = cv.getBoundingClientRect(), d = DPR(); return [(ev.clientX - r.left) * d, (ev.clientY - r.top) * d]; };
+  const lvl = y => { const G = ED.G; return Math.max(0, Math.min(1, (G.Y1 - y) / (G.Y1 - G.Y0))); };
+  const segAt = x => { const G = ED.G; if (!G) return null; let s = G.segs.find(s => x >= s.x0 && x < s.x1); if (!s) s = x < G.X0 ? G.segs[0] : G.segs[G.segs.length - 1]; return s; };
+  const secOf = st => edTab().sub.find(s => s.st === st);
+  cv.addEventListener('pointerdown', ev => {
+    if (!ED.G || ED.drag) return; ev.preventDefault();
+    const [x, y] = pt(ev), d = DPR(), now = performance.now(), cur = edSt();
+    try { cv.setPointerCapture(ev.pointerId); } catch (er) {}
+    ED.anim++;   // a finger on the chart stops any shape glide
+    // a dot within reach? the chosen section's dots win ties
+    let best = null, bd = 24 * d;
+    ED.nodes.forEach(n => { const dd = Math.hypot(n.x - x, n.y - y) * (n.st === cur ? 0.7 : 1); if (dd < bd) { bd = dd; best = n; } });
+    if (best) {
+      const sb = secOf(best.st); if (sb) edSel(sb.id);
+      ED.drag = {id:ev.pointerId, kind:best.kind, st:best.st, q:ED.e + best.st, x0:x, y0:y, td:ED.td, moved:false, dx:0, dy:0, key:best.key};
+      hudShow(best.key); return;
+    }
+    const s = segAt(x); if (!s) return;
+    const sb = secOf(s.st); if (sb) edSel(sb.id);
+    ED.drag = {id:ev.pointerId, kind:'line', st:s.st, q:ED.e + s.st, x0:x, y0:y, td:ED.td, moved:false, t:now};
+  });
+  cv.addEventListener('pointermove', ev => {
+    const D = ED.drag; if (!D || ev.pointerId !== D.id || !ED.G) return;
+    const [x, y] = pt(ev), d = DPR(), G = ED.G, e = ED.e, P = params;
+    if (!D.moved && Math.hypot(x - D.x0, y - D.y0) < 4 * d) return;
+    if (!D.moved) { D.moved = true; ED.tap = null; if (D.kind === 'line') hudShow(D.st === 'S' ? e + 'S' : 'ADR'.includes(D.st) ? D.q + 'b' : e + 'S'); }
+    D.fx = x; D.fy = y; D.dx += Math.abs(x - (D.lx ?? x)); D.dy += Math.abs(y - (D.ly ?? y)); D.lx = x; D.ly = y;
+    const seg = G.segs.find(s => s.st === D.st), pw = G.X1 - G.X0, L = lvl(y);
+    const setT = (k, w, inv) => { const df = DEFS[k]; setParam(k, Math.max(df.min, Math.min(df.max, inv(Math.max(.0601, w))))); };
+    if (D.kind === 'time') {
+      const w = (x - seg.x0) / pw * D.td;
+      if (D.st === 'L') setT('mDl', w, wvLi); else setT(D.q, w, wvTi);
+      if (D.st === 'D' && !(e === 'm' && P.mLoop)) setParam(e + 'S', L);
+      if (D.st === 'D') { const k = D.dy > D.dx * 1.4 && !(e === 'm' && P.mLoop) ? e + 'S' : e + 'D'; if (hud.k !== k) hudShow(k); }
+    } else if (D.kind === 'sus') setParam(e + 'S', L);
+    else if (D.kind === 'brk') {
+      const [a, b] = edEnds(e, D.st), u = (x - seg.x0) / Math.max(1, seg.x1 - seg.x0);
+      setParam(D.q + 't', Math.max(.02, Math.min(.9, u)));
+      if (Math.abs(b - a) > .02) setParam(D.q + 'k', Math.max(.01, Math.min(.95, (L - a) / (b - a))));
+    } else if (D.kind === 'line') {
+      if (D.st === 'S') { if (!(e === 'm' && P.mLoop)) setParam(e + 'S', L); return; }
+      if (!'ADR'.includes(D.st)) return;
+      const [a, b] = edEnds(e, D.st); if (Math.abs(b - a) < .02) return;
+      const u = (x - seg.x0) / Math.max(1, seg.x1 - seg.x0), r = edSolve(D.q, Math.max(.02, Math.min(.98, u)), (L - a) / (b - a));
+      if (r.k != null) { setParam(D.q + 'k', r.k); if (hud.k !== D.q + 'k') hudShow(D.q + 'k'); return; }
+      // detents at straight and at the analog curve, with a tick you can feel
+      let bv = r.b; const snapTo = [0, ST_RC[D.st]].find(s => Math.abs(bv - s) < .04);
+      if (snapTo != null) { bv = snapTo; if (D.snap !== snapTo) { D.snap = snapTo; try { navigator.vibrate && navigator.vibrate(7); } catch (er) {} } } else D.snap = null;
+      setParam(D.q + 'b', bv); if (hud.k !== D.q + 'b') hudShow(D.q + 'b');
+    }
+  });
+  const end = ev => {
+    const D = ED.drag; if (!D || ev.pointerId !== D.id) return;
+    ED.drag = null;
+    if (D.moved) { hudHold(); return; }
+    // a double tap on a line drops a break point there, or takes it away
+    const now = performance.now(), T = ED.tap;
+    if (D.kind === 'line' && 'ADR'.includes(D.st)) {
+      if (T && T.st === D.st && now - T.t < 330 && Math.hypot(T.x - D.x0, T.y - D.y0) < 28 * DPR()) { ED.tap = null; edBreak(D.q, D.st, D.x0, D.y0); }
+      else ED.tap = {st:D.st, t:now, x:D.x0, y:D.y0};
+    }
+  };
+  cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
+  cv.addEventListener('contextmenu', ev => ev.preventDefault());
+}
+function edBreak(q, st, x, y){
+  const G = ED.G, seg = G.segs.find(s => s.st === st), e = ED.e;
+  if (params[q + 'k'] >= .01) { setParam(q + 'k', 0); hudShow(q + 'k'); hudHold(); }
+  else {
+    const [a, b] = edEnds(e, st), u = Math.max(.05, Math.min(.9, (x - seg.x0) / Math.max(1, seg.x1 - seg.x0)));
+    const L = Math.max(0, Math.min(1, (G.Y1 - y) / (G.Y1 - G.Y0))), kk = Math.abs(b - a) > .02 ? (L - a) / (b - a) : .5;
+    setParam(q + 't', u); setParam(q + 'k', Math.max(.05, Math.min(.92, kk))); hudShow(q + 'k'); hudHold();
+  }
+  bump('break');
+  try { navigator.vibrate && navigator.vibrate([6, 30, 6]); } catch (er) {}
+}
+/* ---------- drawing ---------- */
+function drawEd(){
+  const cv = ED.cv; if (!cv || !cv.isConnected || ED.w < 2) return;
+  const g = cv.getContext('2d'), W = ED.w, H = ED.h, d = DPR(), now = performance.now(), P = params, e = ED.e, col = edCol(e);
+  const dt = Math.min(0.1, (now - (ED.last || now)) / 1000); ED.last = now;
+  const sec = {f:'fe', m:'me'}[e], on = !sec || !!P[PW[sec]], loop = e === 'm' && !!P.mLoop, cur = edSt(), sb = edSec();
+  const C = on ? col : '#5b6572', ink = on ? '#f2f5f8' : '#8a949f';
+  if (cur && 'ADR'.includes(cur) && shMatch(e + cur) !== ED.rm) edRail();   // the knobs moved onto (or off) a ready shape
+  // stage widths glide to their new sizes; while a dot is held they follow the finger exactly, at the scale the drag began with
+  const tg = edStages(e), a = 1 - Math.exp(-dt / 0.07);
+  if (!ED.wd || ED.wd.length !== tg.length) { ED.wd = tg.map(s => s[1]); ED.td = ED.wd.reduce((p, q) => p + q, 0); }
+  if (ED.drag && ED.drag.kind === 'time') { ED.wd = tg.map(s => s[1]); ED.td = ED.drag.td; }
+  else { ED.wd = ED.wd.map((w, i) => w + (tg[i][1] - w) * a); const T = tg.reduce((p, q) => p + q[1], 0); ED.td += (T - ED.td) * a; }
+  const X0 = 9 * d, X1 = W - 9 * d, Y0 = 21 * d, Y1 = H - 17 * d, pw = X1 - X0, Y = v => Y1 - v * (Y1 - Y0);
+  let cx = 0; const segs = tg.map(([st], i) => { const s = {st, x0:X0 + cx / ED.td * pw}; cx += ED.wd[i]; s.x1 = X0 + cx / ED.td * pw; return s; });
+  ED.G = {X0, X1, Y0, Y1, segs};
+  // each section's light fades in and out as you move between them
+  segs.forEach(s => { const tgt = s.st === cur ? 1 : 0, l = ED.lit[s.st] ?? tgt; ED.lit[s.st] = l + (tgt - l) * (1 - Math.exp(-dt / 0.09)); });
+  g.clearRect(0, 0, W, H); g.lineCap = 'round'; g.lineJoin = 'round';
+  // graticule: full, half and zero, dotted
+  g.strokeStyle = 'rgba(242,245,248,.07)'; g.lineWidth = 1; g.setLineDash([1 * d, 4 * d]);
+  [0, .5, 1].forEach(v => { const yy = Math.round(Y(v)) + .5; g.beginPath(); g.moveTo(X0, yy); g.lineTo(X1, yy); g.stroke(); });
+  g.setLineDash([]);
+  // the curve, stage by stage
+  const pts = segs.map(s => { const n = Math.max(12, Math.round((s.x1 - s.x0) / (1.5 * d))), a2 = [];
+    for (let i = 0; i <= n; i++) { const u = i / n; a2.push([s.x0 + u * (s.x1 - s.x0), Y(edLevel(e, s.st, u))]); } return a2; });
+  // the chosen section: a wash under its line, between dotted edges
+  segs.forEach((s, i) => {
+    const l = ED.lit[s.st]; if (l < 0.01) return;
+    const p = pts[i], wg = g.createLinearGradient(0, Y0, 0, Y1); wg.addColorStop(0, hexA(C, .26 * l)); wg.addColorStop(1, hexA(C, .02 * l));
+    g.beginPath(); g.moveTo(p[0][0], Y1); p.forEach(([px, py]) => g.lineTo(px, py)); g.lineTo(p[p.length - 1][0], Y1); g.closePath(); g.fillStyle = wg; g.fill();
+    g.strokeStyle = hexA(C, .35 * l); g.setLineDash([1 * d, 3 * d]); g.beginPath();
+    [s.x0, s.x1].forEach(xx => { const xr = Math.round(xx) + .5; g.moveTo(xr, Y0 - 4 * d); g.lineTo(xr, Y1); }); g.stroke(); g.setLineDash([]);
+  });
+  // a faint wash under the whole shape
+  { const all = pts.flat(), wg = g.createLinearGradient(0, Y0, 0, Y1); wg.addColorStop(0, hexA(C, .07)); wg.addColorStop(1, hexA(C, 0));
+    g.beginPath(); g.moveTo(all[0][0], Y1); all.forEach(([px, py]) => g.lineTo(px, py)); g.lineTo(all[all.length - 1][0], Y1); g.closePath(); g.fillStyle = wg; g.fill(); }
+  // lines: the rest dim, the chosen one bright and glowing
+  pts.forEach((p, i) => {
+    const l = ED.lit[segs[i].st];
+    g.beginPath(); p.forEach(([px, py], j) => j ? g.lineTo(px, py) : g.moveTo(px, py));
+    if (i > 0) { const q = pts[i - 1][pts[i - 1].length - 1]; if (Math.abs(q[1] - p[0][1]) > 1) { g.save(); g.setLineDash([2 * d, 3 * d]); g.strokeStyle = hexA(C, .35); g.lineWidth = 1 * d; g.beginPath(); g.moveTo(q[0], q[1]); g.lineTo(p[0][0], p[0][1]); g.stroke(); g.restore(); g.beginPath(); p.forEach(([px, py], j) => j ? g.lineTo(px, py) : g.moveTo(px, py)); } }
+    g.strokeStyle = hexA(C, .42 + .58 * l); g.lineWidth = (1.3 + 1.1 * l) * d;
+    if (l > .05) { g.shadowColor = C; g.shadowBlur = 7 * d * l; }
+    g.stroke(); g.shadowBlur = 0;
+  });
+  // loop: the decay runs back into the attack
+  if (loop) { const s = segs.find(z => z.st === 'S'), A = segs.find(z => z.st === 'A'), yb = Y(0) - 7 * d, xm = (s.x0 + s.x1) / 2;
+    g.save(); g.strokeStyle = hexA(C, .55); g.lineWidth = 1.1 * d; g.setLineDash([2 * d, 3 * d]); g.beginPath(); g.moveTo(s.x0 + 3 * d, yb); g.lineTo(s.x1 - 6 * d, yb); g.stroke(); g.setLineDash([]);
+    g.beginPath(); g.arc(xm, yb - 8 * d, 6 * d, Math.PI * 0.15, Math.PI * 1.75); g.stroke();
+    const ax = xm + 6 * d * Math.cos(Math.PI * 1.75), ay = yb - 8 * d + 6 * d * Math.sin(Math.PI * 1.75); g.beginPath(); g.moveTo(ax - 3 * d, ay - 1 * d); g.lineTo(ax, ay); g.lineTo(ax + .5 * d, ay + 3 * d); g.stroke(); g.restore(); void A; }
+  // dots: the corners you can drag, and each stage's break point
+  const nodes = []; const segOf = st => segs.find(z => z.st === st);
+  const sA = segOf('A'), sD = segOf('D'), sS = segOf('S'), sR = segOf('R'), sL = segOf('L');
+  if (sL) nodes.push({kind:'time', st:'L', key:'mDl', x:sL.x1, y:Y(0)});
+  nodes.push({kind:'time', st:'A', key:e + 'A', x:sA.x1, y:Y(1)});
+  nodes.push({kind:'time', st:'D', key:e + 'D', x:sD.x1, y:Y(edLevel(e, 'D', 1))});
+  if (!loop) nodes.push({kind:'sus', st:'S', key:e + 'S', x:sS.x1, y:Y(P[e + 'S'])});
+  nodes.push({kind:'time', st:'R', key:e + 'R', x:sR.x1, y:Y(0)});
+  ['A', 'D', 'R'].forEach(st => { const q = e + st; if (P[q + 'k'] >= .01) { const s = segOf(st), [a2, b2] = edEnds(e, st), u = Math.max(.02, Math.min(.95, P[q + 't']));
+    nodes.push({kind:'brk', st, key:q + 'k', x:s.x0 + u * (s.x1 - s.x0), y:Y(a2 + (b2 - a2) * P[q + 'k'])}); } });
+  ED.nodes = nodes;
+  const Dg = ED.drag;
+  nodes.forEach(n => {
+    const mine = n.st === cur, held = Dg && Dg.moved && Dg.kind === n.kind && Dg.st === n.st, br = n.kind === 'brk';
+    const r = (held ? 4.6 : mine ? 3.4 : 2.6) * d;
+    if (held) { g.fillStyle = hexA(C, .16); g.beginPath(); g.arc(n.x, n.y, 13 * d, 0, 6.2832); g.fill(); }
+    g.beginPath(); if (br) { g.moveTo(n.x, n.y - r * 1.25); g.lineTo(n.x + r * 1.25, n.y); g.lineTo(n.x, n.y + r * 1.25); g.lineTo(n.x - r * 1.25, n.y); g.closePath(); } else g.arc(n.x, n.y, r, 0, 6.2832);
+    g.fillStyle = mine || held ? ink : '#000'; g.strokeStyle = mine || held ? C : hexA(C, .6); g.lineWidth = 1.2 * d;
+    if (mine || held) { g.shadowColor = C; g.shadowBlur = 8 * d; }
+    g.fill(); g.stroke(); g.shadowBlur = 0;
+  });
+  // the bend handle: a small grip in the middle of the chosen line
+  if (cur && 'ADR'.includes(cur) && !(Dg && Dg.moved)) {
+    const s = segOf(cur), q = e + cur, k = P[q + 'k'] >= .01, t = Math.max(.02, Math.min(.95, P[q + 't'])), u = k ? t + (1 - t) * .5 : .5;
+    const hx = s.x0 + u * (s.x1 - s.x0), hy = Y(edLevel(e, cur, u)), pulse = 0.5 + 0.5 * Math.sin(now / 420);
+    if (s.x1 - s.x0 > 22 * d) { g.strokeStyle = hexA(C, .35 + .3 * pulse); g.lineWidth = 1 * d; g.beginPath(); g.arc(hx, hy, (5.5 + pulse) * d, 0, 6.2832); g.stroke();
+      g.fillStyle = C; g.beginPath(); g.arc(hx, hy, 1.6 * d, 0, 6.2832); g.fill(); }
+  }
+  // drawing the line: a crosshair at your finger
+  if (Dg && Dg.moved && Dg.fx != null) {
+    g.save(); g.strokeStyle = 'rgba(242,245,248,.22)'; g.lineWidth = 1; g.setLineDash([2 * d, 3 * d]); g.beginPath();
+    g.moveTo(Dg.fx, Y0 - 4 * d); g.lineTo(Dg.fx, Y1); g.moveTo(X0, Math.max(Y0, Math.min(Y1, Dg.fy))); g.lineTo(X1, Math.max(Y0, Math.min(Y1, Dg.fy))); g.stroke(); g.restore();
+  }
+  // the playhead: a bead that rides the line while a note plays
+  edPlayhead(g, segs, Y, C, d, now);
+  // section names under the chart; the chosen one lit with a bar the width of its section
+  g.textBaseline = 'alphabetic'; g.textAlign = 'center';
+  const hintSet = state.hints;
+  segs.forEach(s => {
+    const l = ED.lit[s.st], xm = (s.x0 + s.x1) / 2, sid = (edTab().sub.find(z => z.st === s.st) || {}).id;
+    const hinted = hintSet.has('sub-' + sid) || [...hintSet].some(h => SUB_OF[h] === sid && sid !== state.sub[state.tab]);
+    const pul = hinted ? 0.5 + 0.5 * Math.sin(now / 240) : 0;
+    g.font = `700 ${8.5 * d}px ${ED.fontUI}`;
+    g.fillStyle = l > .5 ? C : hinted ? hexA(COL.c3, .5 + .5 * pul) : 'rgba(124,135,148,.95)';
+    if (l > .5) { g.shadowColor = C; g.shadowBlur = 6 * d; }
+    spaced(g, s.st === 'L' ? 'DLY' : s.st === 'S' && loop ? 'LOOP' : s.st, xm, H - 5 * d, 1.3 * d); g.shadowBlur = 0;
+    if (l > .02) { g.fillStyle = hexA(C, l); g.fillRect(s.x0 + 3 * d, H - 2.5 * d, Math.max(2 * d, s.x1 - s.x0 - 6 * d), 1.5 * d); }
+    if (hinted && l < .5) { g.fillStyle = hexA(COL.c3, .3 + .5 * pul); g.beginPath(); g.arc(xm, H - 1.5 * d, 1.6 * d, 0, 6.2832); g.fill(); }
+  });
+  // top line: the chosen section's name and settings, or how to draw it the first few times
+  g.textAlign = 'left'; g.textBaseline = 'middle';
+  const ty = 11 * d; let tx = X0;
+  g.font = `700 ${9 * d}px ${ED.fontUI}`; g.fillStyle = C; g.shadowColor = C; g.shadowBlur = on ? 6 * d : 0;
+  const nm = (sb && (sb.st ? ST_NAME[sb.st] : sb.l) || '').toUpperCase(); tx = spaced(g, nm, tx, ty, 1.5 * d, 'left') + 8 * d; g.shadowBlur = 0;
+  g.font = `300 ${9.5 * d}px "IBM Plex Mono", monospace`;
+  const hintOn = now - ED.hintT < 3200 && cur && 'ADR'.includes(cur);
+  let info = '', sub = '';
+  if (hintOn) { sub = 'drag the line · double-tap: break'; }
+  else if (cur === 'L') { info = P.mDl < .003 ? 'off' : fT(P.mDl); sub = P.mLoop ? 'loop on' : ''; }
+  else if (cur === 'S') info = loop ? 'skipped while looping' : fPct(P[e + 'S']);
+  else if (cur && 'ADR'.includes(cur)) { const q = e + cur; info = fT(P[q] * (cur === 'D' || cur === 'R' ? 1 : 1)); sub = shName(q); if (P[q + 'k'] >= .01) sub += ' · break ' + fT(P[q + 't'] * P[q]); }
+  else if (sb && sb.x) sub = e === 'a' ? 'key → time · legato' : e === 'f' ? 'how far it moves the filter' : 'where the envelope goes';
+  if (info) { g.fillStyle = ink; g.fillText(info, tx, ty); tx += g.measureText(info).width + 7 * d; }
+  if (sub) { g.fillStyle = hintOn ? hexA(C, .55 + .35 * Math.sin(now / 300)) : 'rgba(124,135,148,.95)'; const maxW = (ED.xb.offsetLeft - 6) * d - tx; g.fillText(fitText(g, sub, maxW), tx, ty); }
+}
+// letters with a little air between them, as the labels elsewhere in the app; returns where the text ended
+function spaced(g, s, x, y, sp, al){
+  const w = [...s].reduce((p, c) => p + g.measureText(c).width, 0) + sp * (s.length - 1);
+  let cx = al === 'left' ? x : x - w / 2; const ta = g.textAlign; g.textAlign = 'left';
+  for (const c of s) { g.fillText(c, cx, y); cx += g.measureText(c).width + sp; }
+  g.textAlign = ta; return cx - sp;
+}
+const fitText = (g, s, w) => { if (w <= 0) return ''; if (g.measureText(s).width <= w) return s; while (s.length > 1 && g.measureText(s + '…').width > w) s = s.slice(0, -1); return s + '…'; };
+function edPlayhead(g, segs, Y, C, d, now){
+  const e = ED.e, stN = tele[e + 's'], x = tele[e + 'x'], lv = tele[{a:'a', f:'f', m:'m'}[e]] || 0, ph = ED.ph;
+  const live = Engine.ready && stN > 0 && stN != null;
+  if (live && stN !== ph.st) { ph.st = stN; ph.t0 = now; }
+  if (!live) ph.st = 0;
+  ph.a += ((live ? 1 : 0) - ph.a) * 0.2; if (ph.a < 0.02) return;
+  let st, u;
+  if (stN === 4) { st = 'L'; u = Math.min(1, (now - ph.t0) / Math.max(1, params.mDl * 1000)); }
+  else if (stN === 1) { st = 'A'; u = x; }
+  else if (stN === 2) { if (x < 1) { st = 'D'; u = x; } else { st = 'S'; if (!ph.s0 || ph.sx !== ph.t0) { ph.s0 = now; ph.sx = ph.t0; } u = 1 - Math.exp(-(now - ph.s0) / 900); } }
+  else if (stN === 3) { st = 'R'; u = x; }
+  else return;
+  if (stN !== 2) ph.s0 = 0;
+  const s = segs.find(z => z.st === st); if (!s || u == null) return;
+  const px = s.x0 + Math.max(0, Math.min(1, u)) * (s.x1 - s.x0), py = Y(Math.max(0, Math.min(1, lv)));
+  g.save(); g.globalAlpha = ph.a;
+  const gr = g.createLinearGradient(0, py, 0, Y(0)); gr.addColorStop(0, hexA(C, .35)); gr.addColorStop(1, hexA(C, 0));
+  g.strokeStyle = gr; g.lineWidth = 1 * d; g.beginPath(); g.moveTo(px, py); g.lineTo(px, Y(0)); g.stroke();
+  g.fillStyle = hexA(C, .25); g.beginPath(); g.arc(px, py, 7 * d, 0, 6.2832); g.fill();
+  g.fillStyle = '#fff'; g.shadowColor = C; g.shadowBlur = 10 * d; g.beginPath(); g.arc(px, py, 2.6 * d, 0, 6.2832); g.fill();
+  g.restore();
+}
 function togEl(k, idx){
   const t = TOGS[k];
   const b = document.createElement('button'); b.className = 'tog'; b.dataset.hint = k; b.style.setProperty('--i', idx || 0);
@@ -2769,7 +3220,7 @@ function refreshTabs(){
   });
 }
 // knobs on another section's page (Mix's OSC levels, Routing's Env Amt) go dark with their section
-function refreshDead(){ $('module').querySelectorAll('.knob').forEach(el => { const k = el.dataset.hint, s = KEY_SEC[k]; if (s) el.classList.toggle('dead', !params[PW[s]]); else if (k === 'res') el.classList.toggle('dead', (params.ftype | 0) === 9); }); }
+function refreshDead(){ $('module').querySelectorAll('.knob').forEach(el => { const k = el.dataset.hint, s = KEY_SEC[k]; if (s) el.classList.toggle('dead', !params[PW[s]]); else if (k === 'res') el.classList.toggle('dead', (params.ftype | 0) === 9); else if (/^[afm][ADR]t$/.test(k)) el.classList.toggle('dead', params[k.slice(0, 2) + 'k'] < .01); }); }
 // the part of the current page whose lights follow a power switch
 let pwHost = null, pwHostSec = null, pwInfo = null;
 function powerFx(sec, on, quiet){
@@ -3935,24 +4386,29 @@ function wavePic(g, X0, Y0, X1, Y1, w, pw){
   g.stroke();
 }
 // an envelope's settings, for pictures: a = amp, f = filter, m = mod (which also has a delay and a loop mode)
-const envOf = (e, P = params) => ({A:P[e + 'A'], D:P[e + 'D'], S:P[e + 'S'], R:P[e + 'R'], cv:P[e + 'Cv'], dl:e === 'm' ? P.mDl : 0, loop:e === 'm' && !!P.mLoop});
-/* an envelope's outline as points: delay, attack, decay, a held stretch and release, each stage as wide as the log of its time.
-   Curve blends each stage between an RC curve and a straight line, as the engine does. seg[i] = the stage each point is in. */
+const envOf = (e, P = params) => ({A:P[e + 'A'], D:P[e + 'D'], S:P[e + 'S'], R:P[e + 'R'], dl:e === 'm' ? P.mDl : 0, loop:e === 'm' && !!P.mLoop,
+  sh:{A:shPar(e + 'A', P), D:shPar(e + 'D', P), R:shPar(e + 'R', P)}});
+/* an envelope's outline as points: delay, attack, decay, a held stretch and release, each stage as wide as the log of its time
+   and each following its own shape (Bend, Ease, Break), as the engine does. seg[i] = the stage each point is in; brks = the
+   break points, as [stage, x, y]. */
 function envPts(E, X0, Y0, X1, Y1, n = 24){
-  const wv = t => 0.06 + Math.log10(1 + t * 30) / Math.log10(301) * 0.3, cv = E.cv == null ? 1 : E.cv, h = Y1 - Y0, Y = v => Y1 - v * h;
-  const att = u => cv * Math.min(1, 1.3 * (1 - Math.pow(0.3 / 1.3, u))) + (1 - cv) * u;
-  const dec = (u, a, b) => b + (a - b) * (cv * Math.exp(-3 * u) + (1 - cv) * Math.max(0, 1 - u)) - (cv ? 0.05 * cv * (a - b) * u : 0);
-  const rel = (u, a) => a * (cv * Math.exp(-4.6 * u) + (1 - cv) * Math.max(0, 1 - u));
+  const wv = t => 0.06 + Math.log10(1 + t * 30) / Math.log10(301) * 0.3, h = Y1 - Y0, Y = v => Y1 - v * h;
+  const sh = E.sh || {A:[.25, 0, 0, .15], D:[.5, 0, 0, .15], R:[.5, 0, 0, .15]}, G = (st, u) => SynthDSP.stG(u, ...sh[st]);
+  const att = u => G('A', u), dec = (u, a, b) => a - (a - b) * G('D', u), rel = (u, a) => a * (1 - G('R', u));
   const st = [];
   if (E.dl > 0.003) st.push([wv(E.dl) * 0.8, 0, u => 0]);
-  if (E.loop) { const wa = wv(E.A) * 0.7, wd = wv(E.D) * 0.7; for (let c = 0; c < 2; c++) { st.push([wa, 1, u => c ? 0.05 + 0.95 * att(u) : att(u)]); st.push([wd, 2, u => dec(u, 1, 0.05) * (1 + 0.05) - 0.05 * u]); } }
+  if (E.loop) { const wa = wv(E.A) * 0.7, wd = wv(E.D) * 0.7; for (let c = 0; c < 2; c++) { st.push([wa, 1, att]); st.push([wd, 2, u => dec(u, 1, 0)]); } }
   else { st.push([wv(E.A), 1, att]); st.push([wv(E.D), 2, u => dec(u, 1, E.S)]); st.push([0.2, 3, u => E.S]); }
-  const last = E.loop ? 0.05 : E.S;
+  const last = E.loop ? 1 : E.S;
   st.push([wv(E.R), 4, u => rel(u, last)]);
-  const tot = st.reduce((a, b) => a + b[0], 0), sx = (X1 - X0) / tot, pts = [], seg = [];
+  const tot = st.reduce((a, b) => a + b[0], 0), sx = (X1 - X0) / tot, pts = [], seg = [], brks = [];
   let x = X0;
-  st.forEach(([w, k, fn]) => { for (let i = 0; i <= n; i++) { const u = i / n; pts.push([x + u * w * sx, Y(Math.max(0, Math.min(1, fn(u))))]); seg.push(k); } x += w * sx; });
-  return {pts, seg};
+  // shaped stages get twice the points, so a sharp break or a steep bend stays crisp
+  st.forEach(([w, k, fn]) => { const m = k === 0 || k === 3 ? n : n * 2; for (let i = 0; i <= m; i++) { const u = i / m; pts.push([x + u * w * sx, Y(Math.max(0, Math.min(1, fn(u))))]); seg.push(k); }
+    const L = {1:'A', 2:'D', 4:'R'}[k];
+    if (L && sh[L][2] >= .01) { const ub = Math.max(.02, Math.min(.95, sh[L][3])); brks.push([k, x + ub * w * sx, Y(Math.max(0, Math.min(1, fn(ub))))]); }
+    x += w * sx; });
+  return {pts, seg, brks};
 }
 function envPic(g, X0, Y0, X1, Y1, E){
   const {pts} = envPts(E, X0, Y0, X1, Y1, 10);
@@ -4111,7 +4567,7 @@ function cvRoutes(P = params){
 // which probes to mark on the rig: the cyan one, and the white one while it shows; side by side when they share a cable
 const probeShown = () => state.mode === 'wave' || state.mode === 'spec' || state.mode === 'gram';
 const probeChs = () => { const two = railCh2(), same = state.tap === state.tap2; return [two ? [state.tap2, COL.ink, same ? 2.6 : 0] : null, [state.tap, COL.c1, two && same ? -2.6 : 0]].filter(Boolean); };
-state.sub = {fx:'fx1', me:'mshp'};
+state.sub = {fx:'fx1', env:'a-D', fe:'f-D', me:'m-D'};
 function showTab(id){
   state.tab = id; pwInfo = null; pwHost = null; pwHostSec = null;
   if (id !== 'fx') { FXB.el = FXB.cv = FXB.ov = null; FXB.tiles = []; }
@@ -4126,8 +4582,10 @@ function showTab(id){
   if (PW[id]) { pwHost = m; pwHostSec = id; }
   if (t.seg) m.appendChild(t.seg === 'ftype' ? ftPickEl() : segEl(t.seg));
   if (id !== 'filter') FTP.tiles = [];
+  if (!t.env) { ED.cv = null; ED.el = null; ED.kh = null; }
   let fxLib = false;
-  if (t.sub) {
+  if (t.env) { m.appendChild(edEl(t)); edRows(); }
+  else if (t.sub) {
     if (id === 'fx') {
       m.appendChild(fxBoardEl());
       FXB.tiles = [];
@@ -4150,6 +4608,7 @@ function showTab(id){
     }
     const sb = !fxLib && t.sub.find(x => x.id === state.sub[id]);
     if (sb && sb.seg) host.appendChild(segEl(sb.seg));
+    if (sb && sb.dec) host.appendChild(dcPickEl(sb.dec));
     if (sb) {
       const rows = rowsOf(sb.rows);
       rows.forEach(r => grid(r, r.length === 4 ? 'c4' : '', host));
@@ -4179,7 +4638,7 @@ const stripMode = () => !!coach.L && !coach.done && !$('coach').classList.contai
 let freeK = store.get('freeK', null);
 const freeHud = () => !coach.L && !!freeK;
 function hudShow(k){
-  hud.k = k; hud.until = Infinity; hud.mode = stripMode() ? 'strip' : 'big';
+  hud.k = k; hud.shp = false; hud.until = Infinity; hud.mode = stripMode() ? 'strip' : 'big';
   const strip = hud.mode === 'strip';
   hud.el.classList.toggle('on', !strip); $('coach').classList.toggle('hud-on', !strip); $('coach').classList.toggle('reading', strip);
   if (!coach.L) { freeK = k; store.set('freeK', k); }
@@ -4191,9 +4650,12 @@ function hudText(){
   const k = hud.k; if (!k) return;
   const tab = TABS.find(t => t.id === TAB_OF[k]);
   const isPw = !!PW_SEC[k] && k !== 'arpOn', isFx = FX_SET.has(secOf(k));
-  const lab = DEFS[k] ? DEFS[k].l : SEGS[k] ? SEGS[k].l : TOGS[k] ? TOGS[k].l : 'Power';
+  // a tapped decay tile reads as the shape it picked, not as the Bend knob behind it
+  // a shape knob says which stage it bends; a tapped ready shape reads as the shape it picked
+  const shK = /^[afm][ADR][bekt]$/.test(k), dcT = hud.shp && shK && k[2] === 'b';
+  const lab = dcT ? ST_NAME[k[1]] + ' shape' : shK ? ST_NAME[k[1]] + ' ' + DEFS[k].l.toLowerCase() : DEFS[k] ? DEFS[k].l : SEGS[k] ? SEGS[k].l : TOGS[k] ? TOGS[k].l : 'Power';
   const v = params[k];
-  const txt = DEFS[k] ? DEFS[k].f(v) : SEGS[k] ? SEGS[k].o[v - (SEGS[k].base || 0)][1] : v ? 'on' : isPw && isFx ? 'bypassed' : 'off';
+  const txt = dcT ? shName(k.slice(0, 2)) : DEFS[k] ? DEFS[k].f(v) : SEGS[k] ? SEGS[k].o[v - (SEGS[k].base || 0)][1] : v ? 'on' : isPw && isFx ? 'bypassed' : 'off';
   const fb = TAB_OF[k] === 'fx' && FX_SET.has(SUB_OF[k]) ? fxB(SUB_OF[k]) : null;
   const sub = SUB_OF[k] && TAB_OF[k] === 'fx' ? ' · ' + (fb ? fxLabel(fb).toLowerCase() : SUB_OF[k]) : '';
   $('phK').textContent = `${tab ? tab.l : ''}${sub} · ${lab}`;
@@ -4201,7 +4663,9 @@ function hudText(){
   { const ft = params.ftype | 0, vw = ft === 11 && (k === 'cut' || k === 'res' || k === 'kt' || k === 'fenv');
     const vn = ft === 11 ? VOWEL_OF(SynthDSP.vowel(k === 'cut' ? params.cut : liveFc(), params.res, SR, new Float64Array(13))[12]) : '';
     $('phD').textContent = k === 'ftype' ? FT_D[ft] + (ft === 11 ? ` · now "${vn}"` : '') : vw ? `vowel "${vn}"` : '';
-    $('phD').hidden = !(k === 'ftype' || vw); }
+    $('phD').hidden = !(k === 'ftype' || vw);
+    // the decay knobs say which shape they make
+    if (shK) { const q = k.slice(0, 2), m = shMatch(q); $('phD').textContent = ST_NAME[k[1]].toLowerCase() + ' · ' + (m < 0 ? 'your own shape' : SH_LIST[m].toLowerCase() + ': ' + SH_D[k[1]][m]); $('phD').hidden = false; } }
   const off = !isPw && secOff(k), pst = isPw && !isFx ? pwStateText(secOf(k)) : '';
   $('phF').textContent = pst || (off ? (isFx ? 'bypassed' : secOf(k).startsWith('osc') ? 'osc off' : 'off') + (hud.fine ? ' · fine' : '') : 'fine');
   $('phF').hidden = !(hud.fine || off || pst);
@@ -4218,6 +4682,7 @@ const HUD_G = {o1w:'o1',o1pw:'o1',o1pos:'o1',o1vow:'o1',o1oct:'o1',bl:'o1',mePit
   o2w:'o2',o2oct:'o2',o2semi:'o2',o2fine:'o2',fm:'o2',sync:'o2',ring:'o2',
   mix1:'mix',mix2:'mix',noise:'mix',vol:'mix', cut:'flt',res:'flt',ftype:'flt',fenv:'flt',fRes:'flt',pwFenv:'flt',drive:'drive',kt:'kt',
   me2:'me',meLfo:'me',pwMenv:'me',aKt:'akt',legato:'leg',aCv:'env',fCv:'env',mCv:'env',mDl:'env',mLoop:'env',
+  ...Object.fromEntries([...'afm'].flatMap(e => [...'ADR'].flatMap(st => SH_K.map(q => [e + st + q, 'env'])))),
   lshape:'lfo',lrate:'lfo',ldiv:'lfo',lsync:'lfo',lpitch:'lfo',lcut:'lfo',lpw:'lfo',
   chRate:'ch',chDepth:'ch',chMix:'ch', dTime:'dly',dDiv:'dly',dSync:'dly',dFb:'dly',dTone:'dly',dMix:'dly',dPing:'dly',
   rvSize:'rv',rvDamp:'rv',rvMix:'rv', poly:'poly', arpOn:'arp',arpMode:'arp',arpOct:'arp',arpGate:'arp',arpDiv:'arp',tempo:'arp',
@@ -4254,16 +4719,19 @@ function drawHud(){
   g.strokeStyle = 'rgba(242,245,248,.08)'; g.lineWidth = 1; g.beginPath(); g.moveTo(x0, mid); g.lineTo(x1, mid); g.stroke();
   const grp = HUD_G[k] || (/^[fam][ADSR]$/.test(k) ? 'env' : 'mix');
   if (grp === 'env') {
-    // the envelope this knob belongs to, with the stage it sets drawn bright (Curve and Loop light the whole shape)
-    const e = k[0], E = envOf(e), {pts, seg} = envPts(E, x0, y0, x1, y1, 30);
-    const hi = /^[fam][ADSR]$/.test(k) ? {A:1, D:2, S:3, R:4}[k[1]] : k === 'mDl' ? 0 : -1;
+    // the envelope this knob belongs to, with the stage it sets drawn bright (a stage's shape knobs light that stage, with its
+    // break point marked; Loop lights the whole shape)
+    const e = k[0], E = envOf(e), {pts, seg, brks} = envPts(E, x0, y0, x1, y1, 30), dk = /^[fam][ADR][bekt]$/.test(k);
+    const hs = /^[fam][ADSR]$/.test(k) ? [{A:1, D:2, S:3, R:4}[k[1]]] : k === 'mDl' ? [0] : dk ? [{A:1, D:2, R:4}[k[1]]] : [], hi = hs.length ? hs[0] : -1;
     g.beginPath(); pts.forEach(([a, b], i) => i ? g.lineTo(a, b) : g.moveTo(a, b)); g.lineTo(x1, y1); g.lineTo(x0, y1); g.closePath(); g.fillStyle = col + '14'; g.fill();
     glow(col, hi < 0 ? 8 : 3); path(pts, hi < 0 ? col : dim(col), hi < 0 ? 2 : 1.2);
-    if (hi >= 0) { const sp = pts.filter((q, i) => seg[i] === hi); if (sp.length) { glow(col, 8); path(sp, col, 2.2); } }
+    hs.forEach(h => { let run = []; pts.forEach((q, i) => { if (seg[i] === h) run.push(q); else if (run.length) { glow(col, 8); path(run, col, 2.2); run = []; } }); if (run.length) { glow(col, 8); path(run, col, 2.2); } });
+    brks.forEach(([bs, bx, by]) => { if (!(dk && bs === hi) && hi >= 0) return; g.shadowBlur = 0; g.fillStyle = '#fff'; glow(col, 6); g.beginPath(); g.arc(bx, by, (compact ? 1.6 : 2.4) * d, 0, 6.2832); g.fill(); g.shadowBlur = 0; });
     // stage letters under the curve
     const lab = {0:'Dly', 1:'A', 2:'D', 3:'S', 4:'R'}; let i0 = 0;
     for (let i = 1; i <= pts.length; i++) if (i === pts.length || seg[i] !== seg[i0]) { const k2 = seg[i0], xm = (pts[i0][0] + pts[i - 1][0]) / 2; if (!(E.loop && i0 > 0 && seg.indexOf(k2) !== i0)) txt(lab[k2], xm, y1 + 3 * d, k2 === hi ? col : null, 'center'); i0 = i; }
-    if (k === 'mLoop' || k === 'mCv' || k === 'aCv' || k === 'fCv') txt(k === 'mLoop' ? (P.mLoop ? 'loops A → D while the key is held' : 'one shot: A, D, then holds S') : fCurve(P[k]), x1, y0 - 2 * d, col, 'right');
+    if (dk) txt(shName(k.slice(0, 2)), x1, y0 - 2 * d, col, 'right');
+    if (k === 'mLoop' || k === 'mCv' || k === 'aCv' || k === 'fCv') txt(k === 'mLoop' ? (P.mLoop ? 'loops A → D while the key is held' : 'one shot: A, D, then holds S') : fCurve(P[k]) + ' · attack & release', x1, y0 - 2 * d, col, 'right');
   } else if (grp === 'akt') {
     // amp decay and release time across the keyboard: Key → Time shortens them for higher notes
     const ly = t => y1 - (Math.log10(Math.max(0.005, Math.min(10, t))) + 2.3) / 3.3 * (y1 - y0), dp = [], rp = [];
@@ -6201,7 +6669,21 @@ function figEnvRig(){
   s += '<text x="2" y="101" class="fc">audio runs through the line</text><text x="318" y="101" text-anchor="end" class="fc">control steers it</text>';
   return s + '</svg>';
 }
-const FIGS = {modmap:figModmap, fxchain:figChain, flow0:() => figFlow(0), flow1:() => figFlow(1), flow2:() => figFlow(2), flow:() => figFlow(-1), adsr:figADSR, envrig:figEnvRig};
+// the five ready shapes side by side, all in the same time (drawn as decays)
+function figDecay(){
+  let s = '<svg class="fig" viewBox="0 0 320 84" role="img" aria-label="Five stage shapes: RC curve, straight, reverse, S-curve and two-step">';
+  SH_LIST.forEach((l, i) => {
+    const x0 = 4 + i * 64, w = 56, y0 = 8, h = 50, v = shVals('D', i).concat(i < 4 ? [.15] : []), pts = [];
+    for (let j = 0; j <= 40; j++) { const x = j / 40; pts.push(`${(x0 + x * w).toFixed(1)} ${(y0 + SynthDSP.stG(x, v[0], v[1], v[2], v[3]) * h).toFixed(1)}`); }
+    s += `<path d="M${x0} ${y0 + h}H${x0 + w}" stroke="var(--line2)" stroke-dasharray="1 3"/>`
+      + `<path d="M${x0} ${y0 + h}L${pts.join('L')}L${x0 + w} ${y0 + h}Z" fill="var(--c3s)"/>`
+      + `<path d="M${pts.join('L')}" fill="none" stroke="var(--c3)" stroke-width="1.6" filter="url(#lz)"/>`
+      + `<text x="${x0 + w / 2}" y="76" text-anchor="middle" class="ft" fill="var(--ink)" style="font-size:8.5px">${l.replace(' curve', '').toUpperCase()}</text>`;
+    if (v[2]) s += `<circle cx="${x0 + v[3] * w}" cy="${y0 + v[2] * h}" r="2" fill="var(--ink)"/>`;
+  });
+  return s + '</svg>';
+}
+const FIGS = {decay:figDecay, modmap:figModmap, fxchain:figChain, flow0:() => figFlow(0), flow1:() => figFlow(1), flow2:() => figFlow(2), flow:() => figFlow(-1), adsr:figADSR, envrig:figEnvRig};
 
 const BASE = {o1w:2,o1oct:0,o1pw:.5,e1Type:0,modType:0,ampType:0,eqLo:0,eqMid:0,eqHi:0,mePitch:0,meFm:0,meShape:0,mix1:1,mix2:0,noise:0,sync:0,fm:0,ring:0,glide:0,uniN:1,poly:0,arpOn:0,chMix:0,dMix:0,rvMix:0,lsync:0,dSync:0,ftype:0,cut:20000,res:0,fenv:0,kt:0,drive:0,aA:.005,aS:1,aR:.25,lpitch:0,lcut:0,lpw:0,bl:1};
 
@@ -6497,15 +6979,34 @@ const LESSONS = [
    more:{h:'Key → Time', b:['Short strings vibrate faster and lose their energy sooner, so on a piano a top note fades in a second or two while a bass note rings for many. Key → Time copies that: above middle C the amp envelope\'s Decay and Release get shorter, below it they get longer.', 'At 100% each octave up halves the times. Many synths call this envelope key tracking or key follow.'], m:'time = knob time × 2^(−KeyTime × (note − 60) / 12)'}},
   ]},
 { id:'envcurve', g:2, t:'Envelope curves', s:'RC curves or straight lines, and why the ear prefers curves.',
-  setup:{...BASE, o1w:2, mix2:.5, o2w:2, o2fine:6, cut:3000, res:.1, kt:.5, aA:.002, aD:1.5, aS:0, aR:.5, aCv:1}, hold:null, go:{page:0, tab:'env', mode:'env'},
+  setup:{...BASE, o1w:2, mix2:.5, o2w:2, o2fine:6, cut:3000, res:.1, kt:.5, aA:.002, aD:1.5, aS:0, aR:.5, aCv:1}, hold:null, go:{page:0, tab:'env', sub:'a-D', mode:'env'},
   steps:[
-  {x:"A plucked note with a 1.5 s Decay. Play it and watch the cyan line: it drops fast at first, then creeps toward silence. That bend is an RC curve.", goal:(S,E)=>S.gates>E.gates,
+  {x:"A plucked note with a 1.5 s Decay. Play it and watch the line: it drops fast at first, then creeps toward silence. That bend is an RC curve, and the Amp Env's chart draws the same shape.", goal:(S,E)=>S.gates>E.gates,
    more:{h:'RC curves', b:['Analog envelopes charge and discharge a capacitor through a resistor. The voltage races toward its target at first and slows as it gets close, so every stage is an exponential curve.'], m:'v(t) = V_target + (v₀ − V_target) · e^(−t/τ)'}},
-  {x:"On the Amp Env pedal, turn Curve all the way down to straight, then play the same note. The level now falls in a straight line: it seems to hang on, then vanish all at once.", focus:['aCv'], goal:(S,E)=>S.p.aCv<=.1&&S.gates>E.gates,
+  {x:"The chart's Decay section is lit. Tap Straight in the rail beside it (the second shape), then play the same note. The level now falls in a straight line: it seems to hang on, then vanish all at once.", focus:['aDb','rail-a'], goal:(S,E)=>Math.abs(S.p.aDb)<=.05&&S.p.aDe<=.05&&S.p.aDk<.01&&S.gates>E.gates,
    more:{h:'Why curves sound even', b:['You hear loudness in decibels, a log scale. An exponential fade loses the same number of decibels every moment, so it sounds smooth and even. A straight line loses very few decibels at first and a huge number at the end, so it seems to stall and then drop off a cliff.', 'Strings, bells and rooms all fade exponentially, which is why the RC curve sounds natural for loudness.'], m:'RC decay in dB: level(t) = −8.7 · t / τ dB, a straight line'}},
-  {x:"Attacks are a different story. Set Sustain to 100% and Attack to about 1 s, then play at straight and again at RC curve. The RC attack leaps up and eases in; the straight ramp swells in steadily, more like a bow.", setup:{aS:1, aD:.5}, focus:['aA','aCv'], goal:(S,E)=>S.p.aA>=.7&&(S.n.aCv||0)-(E.n.aCv||0)>=2},
-  {x:"Each envelope has its own Curve. On the Filter Env pedal, raise Env Amt to about +3 oct and set its Curve to straight. Cutoff moves in octaves, so a straight envelope sweeps at an even musical speed: a steady “yow” instead of a quick dive.", setup:{cut:350, res:.3, aS:.8, aD:1, aA:.005, aCv:1, fA:.002, fD:1.2, fS:0, fR:.4}, focus:['fenv','fCv'], goal:S=>S.p.fenv>=2.5&&S.p.fCv<=.1},
-  {x:"Rule of thumb: RC curves for loudness, which the ear hears in decibels. Try straight lines for cutoff and pitch sweeps, which are already measured in octaves."},
+  {x:"Attacks are a different story. The chart has moved to the attack: 1 s long, with Sustain full. Play once with the RC curve, then tap Straight and play again. The RC attack leaps up and eases in; the straight ramp swells in steadily, more like a bow.", setup:{aS:1, aD:.5, aA:1, aAb:.25, aAe:0, aAk:0}, focus:['aAb','rail-a'], goal:(S,E)=>Math.abs(S.p.aAb)<=.05&&S.gates>=E.gates+2},
+  {x:"Each envelope has its own chart. The Filter Env is open with Env Amt at +3 oct and its decay picked. Tap Straight. Cutoff moves in octaves, so a straight envelope sweeps at an even musical speed: a steady “yow” instead of a quick dive.", setup:{cut:350, res:.3, aS:.8, aD:1, aA:.005, aAb:.25, aDb:.5, fenv:3, fA:.002, fD:1.2, fS:0, fR:.4, fDb:.5, fDe:0, fDk:0}, focus:['fDb','rail-f'], goal:S=>Math.abs(S.p.fDb)<=.05&&S.p.fDe<=.05&&S.p.fDk<.01},
+  {x:"Rule of thumb: RC curves for loudness, which the ear hears in decibels. Try straight lines for cutoff and pitch sweeps, which are already measured in octaves. The next lesson, Drawing envelopes, bends them much further."},
+  ]},
+{ id:'envdraw', g:2, t:'Drawing envelopes', s:'Shape every stage with your finger: bend, ease and break.',
+  setup:{...BASE, o1w:2, mix2:.5, o2w:2, o2fine:6, cut:3000, res:.1, kt:.5, aA:.002, aD:1.2, aS:0, aR:.4, aCv:1}, hold:null, go:{page:0, tab:'env', sub:'a-D', mode:'env'},
+  steps:[
+  {x:"The Amp Env pedal is one live chart: attack, decay, sustain and release, left to right. Play a note: a bead rides the line, showing where the envelope is right now.", goal:(S,E)=>S.gates>E.gates,
+   more:{h:'One time, many paths', fig:'decay', b:['A stage\'s time says how long it takes, not the path it takes. Every stage here can follow any of these shapes in the same time; only the route from where it starts to where it ends changes.', 'Most analog synths have one fixed shape, the RC curve. Software synths such as Serum and Vital let you bend every stage, and some classics, such as Korg\'s DW-8000, add a break point inside the decay.']}},
+  {x:"Tap a section to pick it: it lights up and its knobs appear underneath. Tap A, then D.", focus:['sub-a-A'], goal:(S,E)=>(S.ui.sub||0)-(E.ui.sub||0)>=2&&S.subs.env==='a-D'},
+  {x:"Drag the dots to move the corners. The top dot is the peak: drag it right for a slower attack. The dot at the end of the decay moves Decay sideways and Sustain up and down.", focus:['eed-a'], goal:(S,E)=>moved(S.p.aA,E.p.aA,.7)||moved(S.p.aD,E.p.aD,.7)||Math.abs(S.p.aS-E.p.aS)>=.2},
+  {x:"Now draw. With D picked, put your finger on the decay line and pull it up toward the top right: the line bends to pass under your finger, holding on before it falls. Pull it down into the corner for a snappy drop.", setup:{aS:0}, focus:['aDb'], goal:(S,E)=>Math.abs(S.p.aDb-E.p.aDb)>=.5,
+   more:{h:'Bend', b:['Under your finger is one knob, Bend. Positive bends start fast and brake into the target; negative bends start slow and accelerate into it. Zero is a straight line; the analog RC curve is +50% (+25% for an attack). The line clicks into place at both.', 'In motion terms the level is a position and Bend sets the velocity profile. The RC curve is a PT1: its speed is proportional to the distance left to go, so it brakes all the way in. A negative bend is its mirror image: it accelerates all the way and arrives at full speed.'], m:'shape(x) = (1 − e^(−k·x)) / (1 − e^(−k)),  k = 6 × Bend'}},
+  {x:"The rail on the right holds five ready shapes. Tap Reverse (the third) and play: the note holds its breath, then lets go.", focus:['rail-a','aDb'], goal:(S,E)=>S.p.aDb<=-.4&&S.gates>E.gates},
+  {x:"Tap S-curve (the fourth). Ease rounds off both ends: the fall starts gently and lands gently, like pulling a fader down by hand.", focus:['rail-a','aDe'], goal:S=>S.p.aDe>=.95,
+   more:{h:'Ease and jerk', b:['Ease blends the shape toward a smoothstep, the S-curve 3x² − 2x³. Its slope is zero at both ends, so the speed never changes suddenly at the start or the end of the stage.', 'It is the same idea as a jerk-limited move on a CNC axis (SOFT rather than BRISK): acceleration ramps in and out instead of switching on and off, so nothing kicks. Ease and Bend combine, so an eased RC curve is gentle at the top and still brakes into the floor.'], m:'ease(x) = 3x² − 2x³'}},
+  {x:"Double-tap the decay line low down, about a quarter of the way along: a break point appears there. The level drops fast to it, then rings on in a long tail, a piano-like tick, then ring. Drag the diamond to move it; double-tap the line again to take it out.", focus:['aDk'], goal:(S,E)=>S.p.aDk>=.05&&S.gates>E.gates,
+   more:{h:'Break and Break At', b:['<b>Break</b> is how much of the way the quick first part covers; <b>Break At</b> is when it hands over, as a time inside the stage. After the break point the rest follows Bend and Ease.', 'Acoustic sounds often decay in two stages like this. A struck piano string loses its first burst of energy quickly, then the vibration that remains rings on for many seconds.']}},
+  {x:"Every stage draws the same way. Tap A and pull its line down toward the bottom right: a slow swell that blooms at the end, like a bowed string. Play it.", setup:{aA:.6, aS:.8, aD:.6}, focus:['aAb'], goal:(S,E)=>S.p.aAb<=-.3&&S.gates>E.gates},
+  {x:"Release too. R is picked: tap Two-step in the rail, then play short notes. Each one drops quickly when you let go, then a quiet tail hangs on, like a room ringing out.", setup:{aR:1.2}, focus:['aRk','rail-a'], goal:(S,E)=>S.p.aRk>=.3&&S.gates>E.gates},
+  {x:"Shapes matter for the filter too. The Filter Env's decay is picked, with Env Amt up. Tap Reverse and play: the filter stays open, then shuts at the end of each note, a slow “bwow” instead of a pluck.", setup:{cut:350, res:.35, fenv:3, fA:.002, fD:.9, fS:0, fR:.3, aS:.9, aD:1, aA:.005, aAb:.25, aDb:.5, aDe:0, aDk:0, aRk:0, fDb:.5, fDe:0, fDk:0}, focus:['fDb','rail-f'], goal:(S,E)=>S.p.fDb<=-.4&&S.gates>E.gates},
+  {x:"Rule of thumb: RC or Two-step for loudness; Straight, Reverse or S-curve for sweeps of cutoff and pitch. Every envelope draws the same way, the Mod Env included."},
   ]},
 { id:'fenvres', g:2, t:'Envelope to resonance', s:'Filter Env → Res: a peak that rings on the attack.',
   setup:{...BASE, o1w:2, mix2:.5, o2w:2, o2fine:7, cut:600, res:.15, kt:.4, fenv:2, fRes:0, fA:.002, fD:.4, fS:.2, fR:.3, aD:.6, aS:.7, aR:.3}, hold:null, go:{page:0, tab:'fe', mode:'bode', low:'phase'},
@@ -6517,38 +7018,38 @@ const LESSONS = [
   {x:"Negative amounts work for the cutoff too. Set Env Amt to about −2 oct and raise Cutoff to about 3 kHz: the filter ducks on the attack and opens back up as the envelope falls, a reversed pluck.", focus:['fenv','cut'], goal:S=>S.p.fenv<=-1.5&&S.p.cut>=2000},
   ]},
 { id:'modenv', g:2, t:'The mod envelope', s:'Its own ADSR, sent to pitch, FM and shape.',
-  setup:{...BASE, o1w:3, o1pw:.5, cut:2500, res:.2, fenv:0, mA:.002, mD:.25, mS:0, mR:.2, aD:.6, aS:.6, aR:.3}, hold:null, go:{page:0, tab:'me', sub:'mshp', mode:'env'},
+  setup:{...BASE, o1w:3, o1pw:.5, cut:2500, res:.2, fenv:0, mA:.002, mD:.25, mS:0, mR:.2, aD:.6, aS:.6, aR:.3}, hold:null, go:{page:0, tab:'me', sub:'m-D', mode:'env'},
   steps:[
-  {x:"The Mod Env is an envelope with no fixed job. Its Shape page sets its ADSR; its Routing page decides where it goes. Open Routing.", focus:['sub-mdst'], goal:S=>S.tab==='me'&&S.subs.me==='mdst',
+  {x:"The Mod Env is an envelope with no fixed job. Its chart sets its shape; the Routing chip in the chart's corner decides where it goes. Tap Routing.", focus:['sub-m-X'], goal:S=>S.tab==='me'&&S.subs.me==='m-X',
    more:{h:'One source, many destinations', b:['Synths call a spare envelope like this a modulation (mod) envelope, or envelope 2 or 3. One shape, set once, can push several destinations, each by its own amount, like one sensor feeding several gains.', 'It is separate from the Filter Env, so the filter and these movements can each keep their own timing.']}},
   {x:"Raise → Pitch to about +12 st and play short notes: each one starts an octave high and drops to the note you played. That's a pitch envelope, the basis of zaps and drum hits.", focus:['mePitch'], goal:S=>S.p.mePitch>=8,
    more:{h:'Why it lands on pitch', b:['The Mod Env\'s Sustain is 0, so once it has decayed the pitch offset is gone and you hear the note you played. Its Decay sets how fast it falls.']}},
   {x:"Set → Pitch back to 0 and raise → Shape to about +60%. The pulse starts narrow, then sweeps back as the envelope falls.", focus:['mePitch','meShape'], goal:S=>Math.abs(S.p.mePitch)<=.5&&S.p.meShape>=.5},
   {x:"Now FM: both oscillators are sines, and you hear only OSC 2. Raise → FM. Each note starts bright and metallic and mellows as the envelope falls, like a struck bell.", setup:{meShape:0, o1w:0, o2w:0, mix1:0, mix2:1}, focus:['meFm'], goal:S=>S.p.meFm>=3,
    more:{h:'The DX7 trick', b:['Acoustic sounds get darker as they fade. Sweeping the FM index with an envelope copies that: lots of sidebands at the attack, fewer as it decays. This was the core of 1980s FM electric pianos and bells.']}},
-  {x:"Open the Shape page and lengthen Decay to about 1 s. Every routed movement stretches at once.", focus:['mD'], goal:S=>S.p.mD>=.8},
+  {x:"Tap D on its chart and lengthen Decay to about 1 s. Every routed movement stretches at once.", focus:['mD'], goal:S=>S.p.mD>=.8},
   {x:"Raise Sustain to about 50% and hold a note. The FM stops halfway down and stays there until you let go, so the held note keeps some shine.", focus:['mS'], goal:S=>S.p.mS>=.4},
   {nord:1, x:"Your Nord's Mod Envelope has Attack, Decay, Sustain and velocity. Check what it is routed to in one of your patches, then recreate one of these sweeps there."},
   ]},
 { id:'syncsweep', g:2, t:'The sync sweep', s:'Mod Env → Osc 2 with Hard Sync: the classic tearing lead.',
-  setup:{...BASE, o1w:2, o2w:2, mix1:0, mix2:1, sync:1, o2oct:0, o2semi:0, o2fine:0, cut:8000, res:.1, me2:0, mA:.002, mD:.6, mS:.1, mR:.3, aD:.6, aS:.9, aR:.3}, hold:null, go:{page:0, tab:'me', sub:'mdst', mode:'wave', tap:'o2'},
+  setup:{...BASE, o1w:2, o2w:2, mix1:0, mix2:1, sync:1, o2oct:0, o2semi:0, o2fine:0, cut:8000, res:.1, me2:0, mA:.002, mD:.6, mS:.1, mR:.3, aD:.6, aS:.9, aR:.3}, hold:null, go:{page:0, tab:'me', sub:'m-X', mode:'wave', tap:'o2'},
   steps:[
   {x:"Osc 2 is hard-synced to Osc 1, and you hear only Osc 2. With both at the same pitch, sync changes nothing yet: a plain saw.", goal:(S,E)=>S.gates>E.gates},
   {x:"On the Mod Env's Routing page, raise → Osc 2 to about +24 st and play. Each note starts with Osc 2 two octaves up and sweeps down: a tearing, vocal zip. That's the sync sweep.", focus:['me2'], goal:S=>S.p.me2>=18,
    more:{h:'Why it sounds like that', b:['Hard sync restarts Osc 2 every time Osc 1 starts a cycle, so the pitch you hear stays Osc 1\'s. Raising Osc 2\'s own pitch packs more of its cycles into each restart, which pushes a strong peak up through the harmonics.', 'Sweep that with an envelope and the peak glides like a filter sweep with a hard, metallic edge. It is the lead sound of the Prophet-5 and countless 1980s records.']}},
   {x:"Compare → Pitch: set → Osc 2 to 0 and → Pitch to about +24 st. Both oscillators now move together, so the synced sound never changes. You only hear a pitch drop.", focus:['me2','mePitch'], goal:S=>Math.abs(S.p.me2)<=1&&S.p.mePitch>=18},
-  {x:"Back to the sweep (→ Osc 2 at +24, → Pitch at 0). On the Shape page, set Decay to about 2 s and Sustain to about 30%. Long notes now sing as the sweep settles.", setup:{me2:24, mePitch:0}, focus:['mD','mS'], goal:S=>S.p.mD>=1.4&&S.p.mS>=.2},
+  {x:"Back to the sweep (→ Osc 2 at +24, → Pitch at 0). On its chart, set Decay to about 2 s and Sustain to about 30%: drag the dot at the end of the decay. Long notes now sing as the sweep settles.", setup:{me2:24, mePitch:0}, focus:['mD','mS'], goal:S=>S.p.mD>=1.4&&S.p.mS>=.2},
   {x:"Polish it with the Filter Env: Env Amt about +2 oct. Brightness and the sync peak now fall together.", setup:{cut:1500, res:.15, fA:.002, fD:1, fS:.3, fR:.3}, focus:['fenv'], goal:S=>S.p.fenv>=1.5},
   ]},
 { id:'envloop', g:2, t:'Looping envelopes', s:'An envelope that cycles: an LFO you can shape.',
-  setup:{...BASE, o1w:4, o1pos:.15, mix2:0, cut:5000, res:.1, aS:1, aR:.3, mA:.15, mD:.35, mS:.5, mR:.3, mLoop:0, meShape:.7}, hold:null, go:{page:0, tab:'me', sub:'mshp', mode:'env'},
+  setup:{...BASE, o1w:4, o1pos:.15, mix2:0, cut:5000, res:.1, aS:1, aR:.3, mA:.15, mD:.35, mS:.5, mR:.3, mLoop:0, meShape:.7}, hold:null, go:{page:0, tab:'me', sub:'m-D', mode:'env'},
   steps:[
   {x:"The Mod Env sweeps the wavetable once per note (→ Shape is up). Hold a note: one sweep, then it settles at the sustain level. The lime line in the screen is the Mod Env.", goal:(S,E)=>S.gates>E.gates},
   {x:"Switch on Loop and hold a note. While the key is down the envelope runs Attack, then Decay back to zero, and starts again: it has become an oscillator.", focus:['mLoop'], goal:(S,E)=>S.p.mLoop&&S.gates>E.gates,
    more:{h:'Cycling envelopes', b:['Buchla\'s modular systems and Make Noise\'s Maths made this famous: feed the end of an envelope back into its own start and it cycles. Sustain is skipped, since a looping envelope never stops to hold.', 'Unlike an LFO it restarts in step with each key you press, and its rise and fall are separate knobs, so the shape can be anything from a slow ramp with a snap back to a quick spike that dies away.']}},
   {x:"Attack and Decay now set the speed and the shape. Make Attack short (about 10 ms) and Decay about 300 ms: a sharp spike that dies away, over and over.", focus:['mA','mD'], goal:S=>S.p.mA<=.03&&inR(S.p.mD,.15,.6)},
   {x:"Swap them: Attack about 300 ms, Decay about 10 ms. Now it ramps up slowly and snaps back, like a sawtooth LFO.", focus:['mA','mD'], goal:S=>S.p.mA>=.15&&S.p.mD<=.03},
-  {x:"Curve shapes each ramp. Turn it down to straight: the sweep moves at an even speed instead of rushing at first.", focus:['mCv'], goal:S=>S.p.mCv<=.1},
+  {x:"Each ramp has its own shape. A is picked: tap Straight in the rail, then tap D and do the same. The sweep now moves at an even speed instead of rushing at first.", focus:['mAb','rail-m'], goal:S=>Math.abs(S.p.mAb)<=.05&&Math.abs(S.p.mDb)<=.05&&S.p.mAe<=.05&&S.p.mDe<=.05&&S.p.mAk<.01&&S.p.mDk<.01},
   {x:"On the Routing page, add → Pitch at about +5 st for a siren. Release still applies: let go and the loop winds down.", focus:['mePitch'], goal:S=>S.p.mePitch>=3},
   ]},
 { id:'lfo', g:2, t:'LFO: movement', s:'A slow oscillator that turns knobs for you.',
@@ -6573,12 +7074,12 @@ const LESSONS = [
   {x:"On the Filter tab, raise Resonance to about 75% so each step rings. Then slow the Rate to taste.", focus:['res'], goal:S=>S.p.res>=.7},
   ]},
 { id:'delayvib', g:2, t:'Delayed vibrato', s:'Mod Env → LFO: vibrato that waits, then blooms.',
-  setup:{...BASE, o1w:2, mix2:.5, o2w:2, o2fine:6, cut:3000, res:.1, kt:.5, aA:.03, aS:.9, aR:.4, lshape:0, lrate:5.5, lpitch:.35, meLfo:0, mDl:0, mA:.8, mD:.5, mS:1, mR:.3}, hold:null, go:{page:0, tab:'me', sub:'mdst', mode:'env'},
+  setup:{...BASE, o1w:2, mix2:.5, o2w:2, o2fine:6, cut:3000, res:.1, kt:.5, aA:.03, aS:.9, aR:.4, lshape:0, lrate:5.5, lpitch:.35, meLfo:0, mDl:0, mA:.8, mD:.5, mS:1, mR:.3}, hold:null, go:{page:0, tab:'me', sub:'m-X', mode:'env'},
   steps:[
   {x:"Hold a long note. The LFO wobbles the pitch from the very first instant, which sounds more like a warped tape than a singer.", goal:(S,E)=>S.gates>E.gates},
   {x:"On the Mod Env's Routing page, raise → LFO to 100%. Now the LFO's depth follows the Mod Env. Hold a note: it starts straight and the vibrato swells in over about a second.", focus:['meLfo'], goal:S=>S.p.meLfo>=.95,
    more:{h:'How players do it', b:['Singers and string players start a long note straight and let the vibrato bloom once the pitch has settled. Vibrato that is there from the first instant sounds mechanical.', 'At 100% the LFO\'s depth is the envelope itself: zero at the start of each note, full once it reaches Sustain. At 50%, half the vibrato is always there and half fades in.'], m:'LFO depth = 1 − amount + amount × mod env'}},
-  {x:"On the Shape page, set Delay to about 0.5 s. The envelope now waits before its attack begins, so every note holds dead straight first.", focus:['mDl'], goal:S=>S.p.mDl>=.35,
+  {x:"Tap DLY on its chart and set Delay to about 0.5 s. The envelope now waits before its attack begins, so every note holds dead straight first.", focus:['mDl'], goal:S=>S.p.mDl>=.35,
    more:{h:'The delay stage', b:['A delay stage turns ADSR into DADSR: a pause between the key going down and the attack starting. Many synths build the same thing into the LFO as a Delay or Fade knob, just for vibrato.']}},
   {x:"Shorten Attack to about 0.2 s. Once the delay is over, the vibrato now kicks in quickly. Delay sets when, Attack sets how fast.", focus:['mA'], goal:S=>S.p.mA<=.3},
   {x:"Play a run of short notes, then hold the last one. The short notes stay clean because none lasts long enough to reach the vibrato; the held note sings.", goal:(S,E)=>S.gates>=E.gates+4},
@@ -6598,7 +7099,7 @@ const LESSONS = [
   {fig:'modmap', x:"Modulation means one signal moving a setting for you. Every synth has sources (things that change) and destinations (things they change), linked by amount knobs.",
    more:{h:'Sources and destinations', fig:'modmap', b:['On this synth the sources are the LFO, the three envelopes (amp, filter and mod) and the keyboard. Destinations include pitch, cutoff, resonance, shape, FM amount, the LFO\'s own depth and loudness.', 'Big modular and software synths let you wire any source to any destination through a mod matrix. Simpler synths, like most hardware, pre-wire the most useful routes.']}},
   {x:"LFO routes: → Pitch, → Cutoff and → Shape. Raise → Cutoff and watch the dashed cutoff line wave on the Env chart.", focus:['lcut'], goal:S=>S.p.lcut>=1},
-  {x:"Each envelope is its own pedal. Filter Env drives cutoff and resonance; the Mod Env's Routing page sends its envelope to pitch, osc 2, FM, shape and the LFO's depth. Open it.", focus:['sub-mdst'], goal:S=>S.tab==='me'&&S.subs.me==='mdst'},
+  {x:"Each envelope is its own pedal. Filter Env drives cutoff and resonance; the Mod Env's Routing page sends its envelope to pitch, osc 2, FM, shape and the LFO's depth. Open it.", focus:['sub-m-X'], goal:S=>S.tab==='me'&&S.subs.me==='m-X'},
   {x:"The Amp Env is the one envelope with no amount knob: it always drives loudness, because it is the amp itself. Every other route is an amount knob you turn up."},
   {x:"The keyboard is a source too: Key Track on the Filter tab sends note number to the cutoff. Raise it to 100%.", focus:['kt'], goal:S=>S.p.kt>=.95},
   {x:"When you hear movement in a sound, ask: which source, which destination, how much? That one question takes apart almost any patch."},
@@ -7458,7 +7959,7 @@ const LESSONS = [
   {nord:1, x:"Your Nord's organ section does this properly, with drawbars, tonewheel models and a real rotary-speaker simulation. Compare the two side by side."},
   ]},
 { id:'keys', g:10, t:'FM electric piano', s:'Bright tines, tremolo and a warm amp.',
-  setup:{...BASE, o1w:0, o2w:0, mix1:0, mix2:1, fm:.5, cut:6000, res:0, fenv:0, fA:.001, fD:.9, fS:0, aA:.002, aD:1.8, aS:0, aR:.4, poly:1}, hold:null, go:{page:0, tab:'me', sub:'mdst', mode:'spec', tap:'out', lin:true},
+  setup:{...BASE, o1w:0, o2w:0, mix1:0, mix2:1, fm:.5, cut:6000, res:0, fenv:0, fA:.001, fD:.9, fS:0, aA:.002, aD:1.8, aS:0, aR:.4, poly:1}, hold:null, go:{page:0, tab:'me', sub:'m-X', mode:'spec', tap:'out', lin:true},
   steps:[
   {x:"Two sines with Poly on. On the Mod Env's Routing page, raise → FM to about 4. Each note starts with a metallic tine, then mellows.", focus:['meFm'], goal:S=>S.p.meFm>=3},
   {x:"Play some chords: the bright attack fades faster than the note itself.", goal:S=>S.nv>=3},
@@ -7484,17 +7985,17 @@ const LESSONS = [
   {x:"Tap keys to change the chord as it plays; tapping a held key again removes it.", goal:(S,E)=>S.gates>=E.gates+2},
   ]},
 { id:'drums', g:10, t:'Synth drums', s:'Kick, snare and hi-hat from scratch.',
-  setup:{...BASE, o1w:0, mix1:1, mix2:0, cut:20000, res:0, fenv:0, fA:.001, fD:.12, fS:0, fR:.1, aA:.001, aD:.35, aS:0, aR:.2}, hold:null, go:{page:0, tab:'me', sub:'mdst', mode:'wave', tap:'out', zoom:12},
+  setup:{...BASE, o1w:0, mix1:1, mix2:0, cut:20000, res:0, fenv:0, fA:.001, fD:.12, fS:0, fR:.1, aA:.001, aD:.35, aS:0, aR:.2}, hold:null, go:{page:0, tab:'me', sub:'m-X', mode:'wave', tap:'out', zoom:12},
   steps:[
   {x:"Kick: a sine with a fast pitch drop. On the Mod Env's Routing page, set → Pitch to about +24 st, then tap a low note (▼ for a lower octave).", focus:['mePitch'], goal:S=>S.p.mePitch>=18,
    more:{h:'Anatomy of a kick', b:['An electronic kick is a sine whose pitch dives from a few hundred hertz to around 50 Hz in tens of milliseconds. The dive is the punch; the low tail is the boom.']}},
-  {x:"On the Mod Env's Shape page, change Decay: short is a tight click, long is a boomy 808-style drop.", focus:['mD'], goal:(S,E)=>changed(S,E,['mD'])},
+  {x:"On the Mod Env's chart, change Decay: short is a tight click, long is a boomy 808-style drop.", focus:['mD'], goal:(S,E)=>changed(S,E,['mD'])},
   {x:"Snare: on the Mix tab, set Noise to about 60% and OSC 1 to about 40%, then shorten Amp Decay to about 150 ms.", setup:{mePitch:8}, focus:['noise','mix1','aD'], goal:S=>S.p.noise>=.5&&S.p.aD<=.2},
   {x:"Hi-hat: OSC 1 to 0 and Noise to 100%. On the Filter tab, pick HP12 with Cutoff around 7 kHz, and set Amp Decay to about 60 ms.", focus:['mix1','ftype','cut'], goal:S=>S.p.mix1<=.02&&S.p.ftype===2&&S.p.cut>=5000},
   {x:"Add a little Reverb for room sound. Classic drum machines built their sounds from parts much like these.", focus:['rvMix'], goal:S=>S.p.rvMix>=.1},
   ]},
 { id:'sfx', g:10, t:'Zaps and risers', s:'Sound effects from pitch and filter sweeps.',
-  setup:{...BASE, o1w:3, o1pw:.3, mix2:0, cut:6000, res:.3, fenv:0, fA:.001, fD:.18, fS:0, aA:.001, aD:.3, aS:0, aR:.1}, hold:null, go:{page:0, tab:'me', sub:'mdst', mode:'gram', tap:'out'},
+  setup:{...BASE, o1w:3, o1pw:.3, mix2:0, cut:6000, res:.3, fenv:0, fA:.001, fD:.18, fS:0, aA:.001, aD:.3, aS:0, aR:.1}, hold:null, go:{page:0, tab:'me', sub:'m-X', mode:'gram', tap:'out'},
   steps:[
   {x:"Laser zap: on the Mod Env's Routing page, set → Pitch to about +24 st and tap high notes. The pitch dives as the envelope falls.", focus:['mePitch'], goal:S=>S.p.mePitch>=18},
   {x:"Flip it to a negative amount, around −24 st, for an upward “bloop”.", focus:['mePitch'], goal:S=>S.p.mePitch<=-18},
@@ -8426,7 +8927,7 @@ function frame(){
   let win = 0;
   if (showBig) { win = drawScreen(screens[0]) || Math.pow(2, state.zoomL2); drawRail(); }
   if (showMini || frameN % 6 === 0) drawScreen(screens[1]);
-  if (showMini) { drawTabs(); if (FXB.cv) { drawFxBoard(); drawLib(); } if (FTP.tiles.length) drawFtPick(); }
+  if (showMini) { drawTabs(); if (FXB.cv) { drawFxBoard(); drawLib(); } if (FTP.tiles.length) drawFtPick(); if (ED.cv) drawEd(); }
   if (FXB.drag) drawGhost();
   if (tgtDirty && frameN % 4 === 0) { computeTargets(); if (hud.k) hudText(); }
   if (hud.k) { if (frameN % 30 === 0) hudResize(); if (coach.L && performance.now() > hud.until) hudHide(); else drawHud(); }
