@@ -618,6 +618,119 @@ button:focus-visible,.knob:focus-visible{outline:1px solid var(--c1);outline-off
 #tapeMsg{color:var(--c6)}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.hint{box-shadow:0 0 0 1px rgba(255,212,71,.85)}.start.mk .sp-mark{filter:none}}
 @media (max-height:640px){.kbwrap{height:78px}.mini{flex-basis:96px}.knob svg{width:48px;height:48px}.ctext{font-size:14px}}
+
+/* =====================================================================
+   Landscape (phone on its side; built for the iPhone 15 Pro Max, 932 x 430). Portrait is untouched: everything here
+   sits behind this one media query. Header across the top; the Patch/Scope pages on the left; the live scope over the
+   coach in a column on the right; a full-width, two-octave keyboard along the bottom. JS moves the mini scope into
+   that right-hand column (and back) when the phone turns.
+   ===================================================================== */
+@media (orientation:landscape) and (max-height:500px){
+  #app{max-width:none;display:grid;column-gap:10px;row-gap:6px;padding-top:6px;
+    grid-template-columns:minmax(0,1fr) 300px;grid-template-rows:32px 96px minmax(0,1fr) 122px;
+    grid-template-areas:"top top" "pager mini" "pager coach" "kb kb"}
+  #app:has(.coach.min){grid-template-rows:32px minmax(96px,1fr) auto 122px}
+  .top{grid-area:top;height:32px}
+  .pager{grid-area:pager}
+  #app>#miniScreen{grid-area:mini;flex:none;min-height:0}
+  .coach{grid-area:coach;min-height:0;overflow:hidden;padding:8px 11px}
+  .coach:not(.min){min-height:0}
+  .kbwrap{grid-area:kb;height:auto;margin-bottom:12px}
+  /* on the Scope page the big screen is the scope, so the coach takes the whole column */
+  #app.pg1>#miniScreen{display:none}
+  #app.pg1 .coach{grid-row:2/4}
+  #app.pg1:has(.coach.min){grid-template-rows:32px 96px minmax(0,1fr) 122px}
+  #app.pg1 .coach.min{align-self:start}
+
+  /* patch page: the rig on top, the open section's controls under it */
+  .page{gap:6px}
+  .tabs{height:62px}
+  .module{padding:5px 4px 4px;gap:4px}
+  /* knobs flow six to a row instead of three, so most sections fit without scrolling */
+  .module>.kgrid,.fxbody>.kgrid{display:contents}
+  .module,.fxbody{flex-direction:row;flex-wrap:wrap;align-content:flex-start}
+  .module>*,.fxbody>*{flex:1 0 100%;min-width:0}
+  .module>.knob,.module>.tog,.fxbody>.knob,.fxbody>.tog{flex:0 0 calc((100% - 5 * 4px) / 6)}
+  .fxbody{gap:3px 4px}
+  .fxhead{min-height:22px}
+  .fxhead .fxn{font-size:15px}
+  .unplug{height:22px}
+  .fxbody .knob svg{width:44px;height:44px}
+  .fxbody .tog{min-height:62px}
+  .knob svg,.c4 .knob svg{width:50px;height:50px}
+  .knob{padding:2px 1px 3px}
+  .k-lab{font-size:9px;letter-spacing:.1em}
+  .k-v{font-size:10px}
+  .tog{min-height:70px}
+  .seg>button{height:27px}
+  .subseg>button{height:25px}
+  .eed{min-height:84px}
+  .eed-k{min-height:70px}
+  .c5 .knob svg{width:40px;height:40px}
+  .c5 .tog{min-height:70px}
+  /* filter picker: all fourteen types on one row */
+  .ftp{grid-template-columns:repeat(14,minmax(0,1fr));column-gap:3px}
+  .ftp .fth{grid-row:1}
+  .ftp .ft{grid-row:2;height:38px}
+  .ft span{font-size:7.5px;letter-spacing:.04em}
+  .ft canvas{top:4px;height:16px}
+  /* FX library: two rows of eight */
+  .fxb{height:56px}
+  .fxlib{gap:4px}
+  .fxlib .li{display:none}
+  .lgrid{grid-template-columns:repeat(8,minmax(0,1fr));grid-auto-rows:38px;min-height:80px;column-gap:4px}
+  .lt{height:38px;padding-bottom:5px}
+  .lt canvas{top:5px;height:14px}
+  .lt span{font-size:7.5px;letter-spacing:.06em}
+  .lg{height:24px}
+
+  /* scope page: controls on top, the screen takes the rest */
+  #pgScope{gap:5px}
+  .sbar .seg>button,#modeSeg>button{height:27px}
+  .chip{height:26px}
+  .prail{height:48px}
+  .big{min-height:0}
+  .sfoot{min-height:28px}
+  .zb{height:26px}
+
+  /* coach + parameter display, sized for the side column */
+  .ctext{font-size:13.5px;line-height:1.38;overflow-y:auto;min-height:0;flex:0 1 auto;overscroll-behavior-y:contain}
+  .coach .cfig{max-width:100%}
+  .cfig{display:none}
+  .phud{flex-direction:column;gap:4px;padding:8px 11px 6px}
+  .ph-l{flex:0 0 auto}
+  .ph-v{font-size:21px}
+  .ph-v.long{font-size:16px}
+  .coach .phud canvas{flex:1 1 auto;width:100%;height:auto;min-height:0}
+  .cbtn{height:28px;padding:0 12px;font-size:10.5px}
+  .lr-l{max-width:54%}
+  .lr-v{font-size:14px}
+
+  /* keyboard: taller and two octaves wide */
+  .kbside{width:46px}
+  .key .kl{bottom:9px}
+
+  /* lessons and learn-more sheets: centred cards that use the height */
+  .sheet{align-items:flex-end}
+  .sheet-card{max-width:620px;max-height:94%;padding-bottom:18px}
+
+  /* patch memory: the sound and the record keys on the left, banks and tracks on the right */
+  .memx{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.3fr);grid-template-rows:auto auto minmax(0,1fr) auto auto;column-gap:14px;row-gap:6px;
+    padding:6px max(14px,env(safe-area-inset-right,0px)) 8px max(14px,env(safe-area-inset-left,0px))}
+  .memx>.mx-top{grid-column:1/3}
+  .memx>.mx-hero{grid-column:1;grid-row:2/4;min-height:0}
+  .memx>.mx-banks{grid-column:2;grid-row:2}
+  .memx>.mx-grid{grid-column:2;grid-row:3/6;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr))}
+  .memx>.mx-keys{grid-column:1;grid-row:4}
+  .memx>.mem-tape{grid-column:1;grid-row:5;padding-top:4px;gap:8px}
+  .memx .mem-tape .tl span:last-child{display:none}
+  .memx .cass{width:36px;height:23px}
+  .memx .mact{min-height:28px}
+  .mx-banks button{height:34px}
+  .mt{min-height:0}
+  .mxk{height:36px}
+  .mx-name{font-size:20px}
+}
 </style>
 </head>
 <body>
@@ -2477,6 +2590,8 @@ const $ = id => document.getElementById(id);
 const state = {page:0, tab:'osc1', mode:'wave', tap:'filter', tap2:'osc', tapIx:3, tap2Ix:2, ghost:true, lin:false, zoomL2:9.5, run:true, low:'phase', bmeas:false,
   hold:false, latched:null, held:[], gateOn:false, gates:0, base:48, lastNote:57, hints:new Set(), nchg:{}, ui:{}};
 const bump = k => { state.ui[k] = (state.ui[k] || 0) + 1; };
+// the phone on its side (a landscape phone, not a tablet or a desktop window)
+const LAND = matchMedia('(orientation:landscape) and (max-height:500px)');
 const store = {
   get(k, d){ try { const v = localStorage.getItem('sp.' + k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
   set(k, v){ try { localStorage.setItem('sp.' + k, JSON.stringify(v)); } catch (e) {} }
@@ -3515,6 +3630,7 @@ function libEl(){
 // the tiles of the open group
 function libFill(w, anim){
   const grid = w.querySelector('.lgrid'); let h = '';
+  freeCanvases(grid);
   libVars(state.libG).forEach((v, i) => { h += `<button class="lt" data-v="${v}" data-hint="lib-${v}" style="--i:${i}" aria-label="Add ${VAR[v].l}"><canvas aria-hidden="true"></canvas><span>${VAR[v].l}</span><i class="n"></i></button>`; });
   grid.innerHTML = h;
   if (anim) { grid.classList.remove('sw'); void grid.offsetWidth; grid.classList.add('sw'); }
@@ -4265,12 +4381,14 @@ Object.assign(PD_ICON, {
     g.globalAlpha = base;
   },
   shep(g, X0, Y0, X1, Y1, t, d, c, P = params){
-    // three lines an octave apart, gliding together; each fades in at one edge and out at the other
-    const h = Y1 - Y0, w = X1 - X0, base = g.globalAlpha, sp = P.sgRate * 6, off = ((t * sp) % 1 + 1) % 1;
+    // three lines an octave apart, gliding together; each fades in at one edge and out at the other.
+    // The fade is drawn in five brightness bands, one stroke each (a stroke per little segment, each with its own glow, froze iPhones)
+    const h = Y1 - Y0, w = X1 - X0, base = g.globalAlpha, sp = P.sgRate * 6, off = ((t * sp) % 1 + 1) % 1, B = 5, S = [[], [], [], [], []];
     for (let v = 0; v < 3; v++) { const q0 = (v / 3 + off) % 1;
-      for (let i = 0; i < 24; i++) { const u0 = i / 24, u1 = (i + 1) / 24, qa = q0 + u0 * 0.33, qb = q0 + u1 * 0.33;
-        const ya = Y1 - (qa % 1) * h, yb = Y1 - (qb % 1) * h; if ((qb % 1) < (qa % 1)) continue;
-        const gq = Math.sin(Math.PI * (qa % 1)); g.globalAlpha = base * gq * gq; g.beginPath(); g.moveTo(X0 + u0 * w, ya); g.lineTo(X0 + u1 * w, yb); g.stroke(); } }
+      for (let i = 0; i < 24; i++) { const u0 = i / 24, u1 = (i + 1) / 24, qa = (q0 + u0 * 0.33) % 1, qb = (q0 + u1 * 0.33) % 1; if (qb < qa) continue;
+        const gq = Math.sin(Math.PI * qa); S[Math.min(B - 1, Math.floor(gq * gq * B))].push(X0 + u0 * w, Y1 - qa * h, X0 + u1 * w, Y1 - qb * h); } }
+    for (let k = 0; k < B; k++) { const s = S[k]; if (!s.length) continue; g.globalAlpha = base * (k + 0.5) / B; g.beginPath();
+      for (let j = 0; j < s.length; j += 4) { g.moveTo(s[j], s[j + 1]); g.lineTo(s[j + 2], s[j + 3]); } g.stroke(); }
     g.globalAlpha = base;
   },
   reso(g, X0, Y0, X1, Y1, t, d, c, P = params){
@@ -4568,6 +4686,9 @@ function cvRoutes(P = params){
 const probeShown = () => state.mode === 'wave' || state.mode === 'spec' || state.mode === 'gram';
 const probeChs = () => { const two = railCh2(), same = state.tap === state.tap2; return [two ? [state.tap2, COL.ink, same ? 2.6 : 0] : null, [state.tap, COL.c1, two && same ? -2.6 : 0]].filter(Boolean); };
 state.sub = {fx:'fx1', env:'a-D', fe:'f-D', me:'m-D'};
+// iPhones cap the memory all canvases may use together, and a canvas dropped from the page keeps its pixels until it's
+// collected; empty them first so rebuilding pages over and over can't run that budget out
+function freeCanvases(root){ if (!root) return; root.querySelectorAll('canvas').forEach(c => { try { libRO.unobserve(c); ftRO.unobserve(c); edRO.unobserve(c); fxRO.unobserve(c); } catch (e) {} c.width = c.height = 0; }); }
 function showTab(id){
   state.tab = id; pwInfo = null; pwHost = null; pwHostSec = null;
   if (id !== 'fx') { FXB.el = FXB.cv = FXB.ov = null; FXB.tiles = []; }
@@ -4575,7 +4696,7 @@ function showTab(id){
   Object.keys(controls).forEach(k => { if (DEFS[k] || SEGS[k] || TOGS[k]) delete controls[k]; });
   const t = TABS.find(x => x.id === id), m = $('module');
   m.style.setProperty('--mc', `var(--${TAB_C[id]})`); $('pgPatch').style.setProperty('--mc', `var(--${TAB_C[id]})`);
-  m.innerHTML = ''; m.classList.remove('in'); void m.offsetWidth; m.classList.add('in');
+  freeCanvases(m); m.innerHTML = ''; m.classList.remove('in'); void m.offsetWidth; m.classList.add('in');
   let idx = 0;
   const grid = (row, cls, into) => { const g = document.createElement('div'); g.className = 'kgrid' + (cls ? ' ' + cls : ''); row.forEach(k => g.appendChild(TOGS[k] ? togEl(k, idx++) : knobEl(k, idx++))); (into || m).appendChild(g); return g; };
   let host = m;
@@ -5129,14 +5250,20 @@ function drawHud(){
     for (let n = 1; n <= 10; n++) { bar(f0 * n, (1 - P.fsMix * 0.7) / n, dim(COL.ink), 1.2); bar(f0 * n + P.fsHz, P.fsMix / n, col, 2); if (P.fsSt) bar(f0 * n - P.fsHz, P.fsMix / n * 0.8, COL.c1, 1.6); }
     g.shadowBlur = 0; txt(`every harmonic ${sgn(P.fsHz)}${DEFS.fsHz.f(Math.abs(P.fsHz))}` + (P.fsSt ? ' · R the other way' : ''), x0, y1 + 3 * d); txt('20 Hz – 20 kHz', x1, y1 + 3 * d, null, 'right');
   } else if (grp === 'x-shep') {
-    // the three voices' pitch over time: each climbs three octaves, fading in at the bottom and out at the top
-    const T = 8, Ys = st => mid - st / 18 * (y1 - y0) * 0.48;
+    // the three voices' pitch over time: each climbs three octaves, fading in at the bottom and out at the top.
+    // Drawn in six brightness bands, one glowing stroke per band: a glow per tiny segment (720 a frame) froze iPhones
+    const T = 8, Ys = st => mid - st / 18 * (y1 - y0) * 0.48, B = 6, S = Array.from({length:B}, () => []);
     for (let v = 0; v < 3; v++) { let prev = null;
       for (let i = 0; i <= 240; i++) { const tt = i / 240 * T, q = (((tt * P.sgRate + v / 3) % 1) + 1) % 1, x = x0 + i / 240 * (x1 - x0), y = Ys(q * 36 - 18), gq = Math.sin(Math.PI * q);
-        if (prev && Math.abs(prev[1] - y) < (y1 - y0) * 0.5) { g.globalAlpha = 0.15 + 0.85 * gq * gq; glow(col, 5 * gq); g.strokeStyle = col; g.lineWidth = 1.8 * d; g.beginPath(); g.moveTo(prev[0], prev[1]); g.lineTo(x, y); g.stroke(); }
+        if (prev && Math.abs(prev[1] - y) < (y1 - y0) * 0.5) S[Math.min(B - 1, Math.floor(gq * gq * B))].push(prev[0], prev[1], x, y);
         prev = [x, y]; } }
-    g.globalAlpha = 1; g.shadowBlur = 0;
-    txt('+18 st', x0, y0 - 2 * d); txt(DEFS.sgRate.f(P.sgRate) + ' · 3 voices an octave apart', x0, y1 + 3 * d); txt('8 s', x1, y1 + 3 * d, null, 'right');
+    g.strokeStyle = col; g.lineWidth = 1.8 * d; g.lineJoin = 'round'; g.lineCap = 'round';
+    for (let k = 0; k < B; k++) { const s = S[k]; if (!s.length) continue; const a = (k + 0.5) / B;
+      g.globalAlpha = 0.15 + 0.85 * a; glow(col, 5 * Math.sqrt(a)); g.beginPath();
+      for (let j = 0; j < s.length; j += 4) { if (j === 0 || s[j] !== s[j - 2] || s[j + 1] !== s[j - 1]) g.moveTo(s[j], s[j + 1]); g.lineTo(s[j + 2], s[j + 3]); }
+      g.stroke(); }
+    g.globalAlpha = 1; g.shadowBlur = 0; g.lineCap = 'butt';
+    txt('+18 st', x0, y0 - 2 * d); txt(DEFS.sgRate.f(P.sgRate) + ' · 3 voices, octaves apart', x0, y1 + 3 * d); txt('8 s', x1, y1 + 3 * d, null, 'right');
   } else if (grp === 'x-reso') {
     // the four strings' pitches and their overtones, on a log frequency axis; Decay sets how long each rings
     const CH = [[0, 4, 7, 12], [0, 3, 7, 12], [0, 5, 7, 12], [0, 7, 12, 19], [0, 4, 7, 11], [0, 3, 7, 10]][P.rsChord | 0], X = f => x0 + Math.log(f / 60) / Math.log(100) * (x1 - x0);
@@ -5214,7 +5341,7 @@ function goPage(i, smooth = true){
 }
 function setPage(i){
   if (state.page === i) return;
-  state.page = i; bump('page');
+  state.page = i; bump('page'); $('app').classList.toggle('pg1', i === 1);
   coachMode();
   [...$('pageSeg').children].forEach((b, j) => b.classList.toggle('on', j === i));
   applyHints();
@@ -6424,12 +6551,14 @@ const nName = n => NAMES[n % 12] + (Math.floor(n / 12) - 1);
 const kb = $('kb');
 function buildKeys(){
   kb.innerHTML = '';
-  const whites = [0, 2, 4, 5, 7, 9, 11, 12], blacks = {1:0, 3:1, 6:3, 8:4, 10:5};
+  // on its side the keyboard runs two octaves (C to C); upright it's one
+  const whites = LAND.matches ? [0, 2, 4, 5, 7, 9, 11, 12, 14, 16, 17, 19, 21, 23, 24] : [0, 2, 4, 5, 7, 9, 11, 12],
+    blacks = LAND.matches ? {1:0, 3:1, 6:3, 8:4, 10:5, 13:7, 15:8, 18:10, 20:11, 22:12} : {1:0, 3:1, 6:3, 8:4, 10:5};
   const ww = 100 / whites.length;
   whites.forEach((s, i) => {
     const k = document.createElement('div'); k.className = 'key w'; k.dataset.n = state.base + s;
     k.style.left = (i * ww) + '%'; k.style.width = `calc(${ww}% + 1px)`;
-    if (s === 0 || s === 12) k.innerHTML = `<span class="kl">${nName(state.base + s)}</span>`;
+    if (s % 12 === 0) k.innerHTML = `<span class="kl">${nName(state.base + s)}</span>`;
     kb.appendChild(k);
   });
   Object.entries(blacks).forEach(([s, wi]) => {
@@ -8830,7 +8959,7 @@ function memRename(id){
     if (ok && v && v !== d.n) { MEM.user[id] = {n:v, p:MEM.user[id] ? MEM.user[id].p : {...fullP(d)}}; store.set('patches', MEM.user); }
     nm.textContent = slotData(id).n; memChip(); mxTracks(); mxInfo(false); };
   inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); done(true); } if (e.key === 'Escape') done(false); });
-  inp.addEventListener('blur', () => done(true));
+  inp.addEventListener('blur', () => { done(true); setTimeout(() => scrollTo(0, 0), 60); });
 }
 function mxBuild(){
   $('memBanks').innerHTML = BANKS.map(B => `<button data-b="${B}" style="--bc:${BANK_C[B]}" role="tab" aria-label="Bank ${B}, ${BANK_NAME[B]}"><b>${B.toLowerCase()}</b><span aria-hidden="true">${'<i></i>'.repeat(8)}</span></button>`).join('');
@@ -8900,12 +9029,54 @@ mxBuild();
 
 
 /* =====================================================================
+   Safety net: keep the phone responsive
+   Canvas glows (shadowBlur) are the costliest thing the app draws on an iPhone. If frames stay slow for a couple of
+   seconds, glows are switched off for a while (Lite) so touches keep getting through; they come back on their own.
+   If the last session died while it was on screen, this one starts in Lite and doesn't reopen the last knob display.
+   ===================================================================== */
+const LITE = {on:false, until:0, slow:0, last:0, crashed:store.get('alive', 0) === 1};
+{ const D = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, 'shadowBlur');
+  if (D && D.set && D.get) Object.defineProperty(CanvasRenderingContext2D.prototype, 'shadowBlur', {configurable:true, enumerable:D.enumerable,
+    get(){ return D.get.call(this); }, set(v){ D.set.call(this, LITE.on ? 0 : v); }}); }
+function liteSet(on, ms){ LITE.on = on; LITE.until = on ? performance.now() + (ms || 30000) : 0; LITE.slow = 0; }
+if (LITE.crashed) liteSet(true, 45000);
+const aliveMark = v => store.set('alive', v);
+aliveMark(document.hidden ? 0 : 1);
+document.addEventListener('visibilitychange', () => { aliveMark(document.hidden ? 0 : 1); LITE.last = 0; });
+addEventListener('pagehide', () => aliveMark(0));
+function liteTick(now){
+  const dt = LITE.last ? now - LITE.last : 16; LITE.last = now;
+  if (document.hidden || dt > 1000) return;           // coming back from the background is not slowness
+  if (LITE.on) { if (now > LITE.until) liteSet(false); return; }
+  LITE.slow = dt > 45 ? LITE.slow + dt : Math.max(0, LITE.slow - dt * 2);
+  if (LITE.slow > 2000) liteSet(true, 30000);
+}
+// a gesture whose element was rebuilt under the finger never hears its own lift; let go of it here so nothing stays locked
+function gestureSweep(e){
+  const id = e.pointerId, cancel = e.type === 'pointercancel';
+  setTimeout(() => {
+    const P = FXB.press;
+    if (P && P.pid === id) { clearTimeout(P.tm); if (P.b) P.b.classList.remove('lpress'); if (P.el) P.el.classList.remove('on'); FXB.press = null; }
+    if (FXB.drag && !FXB.press) { try { fxDragEnd(e, true); } catch (er) { FXB.drag = null; } }
+    if (ED.drag && ED.drag.id === id) ED.drag = null;
+    if (RAIL.drag && RAIL.drag.pid === id) { RAIL.drag = null; RAIL.el.classList.remove('drag'); }
+    if (cancel) {}
+  }, 0);
+}
+['pointerup', 'pointercancel'].forEach(ev => addEventListener(ev, gestureSweep, true));
+// iOS can leave the whole page nudged up after the on-screen keyboard closes (renaming a patch), which shifts every touch
+// off its target; the app never scrolls, so put it back
+addEventListener('scroll', () => { if (scrollX || scrollY) scrollTo(0, 0); }, {passive:true});
+if (window.visualViewport) visualViewport.addEventListener('resize', () => { if (scrollX || scrollY) scrollTo(0, 0); });
+
+/* =====================================================================
    Main loop
    ===================================================================== */
 let frameN = 0, lastNoteTxt = '';
-function frame(){
+function frame(now){
   requestAnimationFrame(frame);
   frameN++;
+  liteTick(now || performance.now());
   const showBig = state.page === 1 && !MX.open, showMini = state.page === 0 && !MX.open;
   if (Engine.ready && state.run && state.mode !== 'env') {
     // channel 5 is the cyan probe, 6 the white (ghost) probe, wherever each is clipped
@@ -9057,13 +9228,28 @@ function preview(){
   Object.assign(tele, d.tele);
 }
 buildTabs(); showTab('osc1'); coachMode(); buildKeys(); setMode('wave'); setTap('filter'); renderCoach();
+// turning the phone: the mini scope moves between the Patch page (upright) and the side column (on its side), the
+// keyboard grows to two octaves, and the pages re-snap to the one you were on
+function orient(){
+  const mini = $('miniScreen'), app = $('app'), pg = $('pgPatch');
+  if (LAND.matches) { if (mini.parentElement !== app) app.insertBefore(mini, $('coach')); }
+  else if (mini.parentElement !== pg) pg.insertBefore(mini, pg.firstChild);
+  buildKeys();
+  requestAnimationFrame(() => {
+    pager.scrollTo({left: state.page * (pager.clientWidth + 16), behavior:'auto'});
+    hudResize();
+    if (MEM.open) { const r = document.querySelector('.kbwrap').getBoundingClientRect(); $('mem').style.setProperty('--mxb', Math.max(0, app.getBoundingClientRect().bottom - r.top + 6) + 'px'); }
+  });
+}
+if (LAND.addEventListener) LAND.addEventListener('change', orient); else LAND.addListener(orient);
+orient();
 // pick up where you left off: the last sound you were playing, and which memory slot it came from
 { const w = store.get('work', null);
   if (w && w.p) { applyPatch({...INIT, ...normPatch(w.p)}); MEM.cur = w.cur && /^[A-H][1-8]$/.test(w.cur) ? w.cur : null; const d = MEM.cur && slotData(MEM.cur); MEM.ref = d ? fullP(d) : null; if (MEM.cur && !d) MEM.cur = null; }
   else { MEM.cur = 'A1'; MEM.ref = {...params}; } }
 { const pr = store.get('probe', null); if (pr) { setTap(pr.a); setTap2(pr.b); } }
 allQuiet(); preview(); memChip();
-if (freeK && (DEFS[freeK] || SEGS[freeK] || TOGS[freeK] || PW_SEC[freeK])) requestAnimationFrame(() => hudShow(freeK));
+if (freeK && !LITE.crashed && (DEFS[freeK] || SEGS[freeK] || TOGS[freeK] || PW_SEC[freeK])) requestAnimationFrame(() => hudShow(freeK));
 requestAnimationFrame(frame);
 Intro.play();
 async function begin(){
