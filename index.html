@@ -264,6 +264,31 @@ button:focus-visible,.knob:focus-visible{outline:1px solid var(--c1);outline-off
 .seg.wrap>button{height:26px}
 .seg.dense>button{font-size:9.5px;letter-spacing:.05em}
 .mod-row.dense .lab{min-width:40px}
+/* the filter picker: fourteen filters in four families. Every tile draws its own response curve, live (they all follow
+   Resonance; the Vowel tile follows Cutoff too). Tap one to hear it, or slide a finger across the row to audition them in turn. */
+.ftp{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));column-gap:5px;row-gap:3px;padding:0 0 2px;border-radius:10px;touch-action:none;-webkit-user-select:none;user-select:none}
+.fth{display:flex;align-items:center;gap:6px;min-width:0;padding:3px 1px 0;font-weight:700;font-size:8px;line-height:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);white-space:nowrap;transition:color .25s,text-shadow .25s}
+.fth::after{content:"";flex:1;min-width:6px;height:1px;background:linear-gradient(90deg,var(--line2),transparent);transition:background .25s}
+.fth.on{color:var(--c2);text-shadow:0 0 6px rgba(255,82,214,.45)}
+.fth.on::after{background:linear-gradient(90deg,rgba(255,82,214,.4),transparent)}
+.ft{position:relative;height:46px;min-width:0;border-radius:9px;border:1px solid var(--line2);background:linear-gradient(180deg,#07090b,#000);display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:0 1px 6px;transition:border-color .22s,box-shadow .3s,background .22s,transform .12s}
+.ft canvas{position:absolute;left:4px;top:5px;width:calc(100% - 8px);height:21px;display:block;pointer-events:none}
+.ft span{font-weight:700;font-size:8.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);white-space:nowrap;pointer-events:none;transition:color .22s,text-shadow .22s}
+.ft.on{border-color:var(--c2);background:linear-gradient(180deg,rgba(255,82,214,.08),rgba(255,82,214,.02));box-shadow:0 0 14px rgba(255,82,214,.2),inset 0 0 10px rgba(255,82,214,.06)}
+.ft.on span{color:var(--ink);text-shadow:0 0 6px rgba(255,82,214,.75)}
+.ft.press{transform:translateY(1px)}
+.ftp.hint{animation:pulse 1.5s ease-in-out infinite}
+.pwr-off .ft.on{border-color:var(--faint);background:none;box-shadow:none}
+.pwr-off .ft.on span{color:var(--dim);text-shadow:none}
+.pwr-off .fth.on{color:var(--dim);text-shadow:none}
+.pwr-off .fth.on::after{background:linear-gradient(90deg,var(--line2),transparent)}
+.flk-off .ft.on{animation:flkOff .4s step-end both}
+.flk-on .ft.on{animation:flkOn .23s step-end both}
+.module.in .ft,.module.in .fth{animation:kin .34s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 18ms)}
+/* the type's one-line character, under its name on the parameter display */
+.ph-d{font-family:var(--f-mono);font-weight:300;font-size:10px;line-height:1.3;letter-spacing:.02em;color:var(--dim);overflow-wrap:anywhere}
+.coach.min .ph-d{display:none}
+@media (max-height:720px){.ft{height:40px;padding-bottom:5px}.ft canvas{top:4px;height:18px}.fth{padding-top:1px}}
 /* a pedal under your finger while you drag it */
 #fxGhost{position:fixed;left:0;top:0;z-index:60;pointer-events:none;will-change:transform;transform-origin:50% 40%}
 #fxGhost.gone{opacity:0;transition:opacity .18s}
@@ -614,7 +639,7 @@ button:focus-visible,.knob:focus-visible{outline:1px solid var(--c1);outline-off
   </main>
 
   <section class="coach hud" id="coach" aria-live="polite">
-    <div class="phud" id="phud" aria-hidden="true"><div class="ph-l"><span class="ph-k" id="phK"></span><span class="ph-v" id="phV"></span><span class="ph-f" id="phF" hidden>fine</span></div><canvas id="phC"></canvas></div>
+    <div class="phud" id="phud" aria-hidden="true"><div class="ph-l"><span class="ph-k" id="phK"></span><span class="ph-v" id="phV"></span><span class="ph-d" id="phD" hidden></span><span class="ph-f" id="phF" hidden>fine</span></div><canvas id="phC"></canvas></div>
     <div class="coach-top">
       <button class="crumb lab" id="crumb"><span id="crumbT">Free play</span><b class="n" id="crumbN"></b></button>
       <span class="nordtag" id="nordTag" hidden>On your Nord</span>
@@ -708,6 +733,8 @@ button:focus-visible,.knob:focus-visible{outline:1px solid var(--c1);outline-off
    probes, each clipped onto whichever point of the signal path the player chose.
    ===================================================================== */
 class SynthDSP {
+  // the vowel filter's formants, dark to bright: u, o, a, e, i (F1, F2, F3 in Hz, then their levels)
+  static FV = [[325, 700, 2530, 1, .35, .08], [450, 800, 2830, 1, .6, .1], [800, 1150, 2900, 1, .5, .25], [400, 1600, 2700, 1, .35, .25], [270, 2300, 3000, 1, .25, .2]];
   constructor(sr){
     this.sr = sr;
     this.p = {o1w:2,o1oct:0,o1pw:.5,o1pos:0,o1vow:0,glide:0,bl:1,uniN:1,uniDet:20,poly:0,o2w:2,o2oct:0,o2semi:0,o2fine:7,sync:0,fm:0,ring:0,mix1:.8,mix2:.6,noise:0,vol:.7,
@@ -728,7 +755,7 @@ class SynthDSP {
     for (let j = 0; j < this.NV; j++) {
       const uP = new Float64Array(8); for (let i = 0; i < 8; i++) uP[i] = Math.random();
       this.V.push({p1:0, p2:0, uP, note:57, cur:57, gate:0, ae:0, aSt:0, fe:0, fSt:0, me:0, mSt:0, mDc:0, rs:.25, kaD:0, kaR:0, raD:0, raR:0, s0:0, s1:0, s2:0, s3:0, ic1:0, ic2:0,
-        lc:Math.log2(2400), fc:2400, g:0.16, dt1:0.005, dt2:0.005, cr:0, age:0, wb:0, wpos:0, fF:new Float64Array(6), cb:new Float32Array(4096), ci:0, cl:0, cD:100});
+        lc:Math.log2(2400), fc:2400, g:0.16, dt1:0.005, dt2:0.005, cr:0, age:0, wb:0, wpos:0, fF:new Float64Array(6), cb:new Float32Array(4096), ci:0, cl:0, cD:100, fs:new Float64Array(6), vb:new Float64Array(13)});
     }
     this.lastV = 0; this.lastNote = 57; this.ageC = 0;
     this.lp = 0; this.sh = 0;
@@ -1116,6 +1143,19 @@ class SynthDSP {
     }
   }
   prAt(s){ s = String(s || ''); if (s.slice(0, 3) === 'fx:') return {k:6, id:+s.slice(3)}; return {k:{o1:1, o2:2, osc:3, filter:4, vca:5}[s] || 7, id:0}; }
+  // one zero-delay state-variable filter step on st[i], st[i + 1]: returns the lowpass, leaves the bandpass in this.sb
+  svf(st, i, g, k, x){ const a1 = 1 / (1 + g * (g + k)), a2 = g * a1, a3 = g * a2, v3 = x - st[i + 1], v1 = a1 * st[i] + a2 * v3, v2 = st[i + 1] + a2 * st[i] + a3 * v3;
+    st[i] = 2 * v1 - st[i]; st[i + 1] = 2 * v2 - st[i + 1]; this.sb = v1; return v2; }
+  /* the vowel filter: three bandpass formants. The cutoff picks the vowel, dark to bright (u o a e i, 200 Hz to 4 kHz on the
+     cutoff), and Resonance narrows the bands. o gets [g×3, k×3, gain×3, F×3, vowel position 0..4]. Static, so the UI shares it. */
+  static vowel(fc, rs, sr, o){
+    const T = SynthDSP.FV, x = Math.max(0, Math.min(4, (Math.log2(Math.max(20, fc)) - 7.6439) / 4.3219 * 4)), i0 = Math.min(3, x | 0), f = x - i0, A = T[i0], B = T[i0 + 1], qs = 0.45 + 1.5 * rs;
+    for (let q = 0; q < 3; q++) {
+      const F = A[q] + (B[q] - A[q]) * f, a = (A[q + 3] + (B[q + 3] - A[q + 3]) * f) * [1, 1.5, 2.5][q];
+      o[q] = Math.tan(Math.PI * Math.min(F, sr * 0.45) / sr); o[q + 3] = Math.max(0.02, [90, 110, 160][q] / F / qs); o[q + 6] = a; o[q + 9] = F;
+    }
+    o[12] = x; return o;
+  }
   rnd(){ let x = this.rng; x ^= x << 13; x ^= x >>> 17; x ^= x << 5; this.rng = x >>> 0; return this.rng / 2147483648 - 1; }
   blep(t, dt){
     if (t < dt) { t /= dt; return t + t - t * t - 1; }
@@ -1244,7 +1284,7 @@ class SynthDSP {
           { const r = res + fRes * v.fe; v.rs = r < 0 ? 0 : r > 1 ? 1 : r; }
           v.lc += (tgt - v.lc) * 0.0776;
           let fc = Math.pow(2, v.lc); if (fc > maxF) fc = maxF; else if (fc < 16) fc = 16;
-          v.fc = fc; v.g = Math.tan(Math.PI * fc / sr); if (ftype === 6) v.cD = Math.min(4000, Math.max(2, sr / fc));
+          v.fc = fc; v.g = Math.tan(Math.PI * fc / sr); if (ftype === 6) v.cD = Math.min(4000, Math.max(2, sr / fc)); else if (ftype === 12) v.cD = Math.min(4000, Math.max(2, sr / fc / 2)); else if (ftype === 11) SynthDSP.vowel(fc, v.rs, sr, v.vb);
           if (isWT || isFm) {
             let sp = shBase + shMod; sp = sp < 0 ? 0 : sp > 1 ? 1 : sp;
             if (isWT) { v.wpos = sp; let b = Math.floor(Math.log2(v.dt1 * sr / 27.5)); v.wb = b < 0 ? 0 : b > 9 ? 9 : b; }
@@ -1276,30 +1316,74 @@ class SynthDSP {
         const mix = (v1 * mix1 + v2 * mix2 + (noise > 0 ? this.rnd() * noise : 0)) * 0.6;
         const g = v.g, rs = v.rs, kk = rs * 4.15, kq = 2 - 1.9 * rs;
         const x = mix * drv + this.rnd() * 1e-4; let y;
-        if (!fOn) { y = mix; v.s0 = v.s1 = v.s2 = v.s3 = v.ic1 = v.ic2 = 0; }
-        else if (ftype === 6) {
-          // comb: the sound plus a copy delayed by one period of the cutoff, fed back. Peaks at every multiple of the cutoff
-          const cb = v.cb, rd = v.ci - v.cD + 4096, i0 = rd | 0, fr = rd - i0, a0 = cb[i0 & 4095], a1 = cb[(i0 + 1) & 4095], fb = 0.3 + 0.67 * rs;
+        if (!fOn) { y = mix; v.s0 = v.s1 = v.s2 = v.s3 = v.ic1 = v.ic2 = 0; v.fs.fill(0); }
+        else if (ftype === 6 || ftype === 12) {
+          // comb: the sound plus a copy delayed by one period of the cutoff, fed back. Peaks at every multiple of the cutoff.
+          // Comb−: half the delay and the feedback inverted, so only the odd multiples survive: hollow, like a clarinet
+          const cb = v.cb, rd = v.ci - v.cD + 4096, i0 = rd | 0, fr = rd - i0, a0 = cb[i0 & 4095], a1 = cb[(i0 + 1) & 4095], fa = 0.3 + 0.67 * rs, fb = ftype === 12 ? -fa : fa;
           v.cl += (a0 + (a1 - a0) * fr - v.cl) * 0.55;
           const w = Math.tanh(x) + fb * v.cl; cb[v.ci] = w; v.ci = (v.ci + 1) & 4095;
-          y = Math.tanh(w * (1 - fb) * 1.6) / 0.9;
+          y = Math.tanh(w * (1 - fa) * 1.6) / 0.9;
         }
-        else if (ftype === 0) {
-          const G = g / (1 + g), b = 1 - G, G4 = G * G * G * G;
-          const S = G * G * G * b * v.s0 + G * G * b * v.s1 + G * b * v.s2 + b * v.s3;
-          let y4 = (G4 * x + S) / (1 + kk * G4);
-          const u = Math.tanh(x - kk * y4);
-          let t = (u - v.s0) * G; const y1 = t + v.s0; v.s0 = y1 + t;
-          t = (y1 - v.s1) * G; const y2 = t + v.s1; v.s1 = y2 + t;
-          t = (y2 - v.s2) * G; const y3 = t + v.s2; v.s2 = y3 + t;
-          t = (y3 - v.s3) * G; y4 = t + v.s3; v.s3 = y4 + t;
-          y = y4 * (1 + kk * 0.45);
+        else if (ftype === 0 || ftype === 8) {
+          // ladder: one-pole stages in a feedback loop. LP24 has four; LP18 has three, and its loop gain stops just short of
+          // the 8 that three poles need to self-oscillate, so it squelches but never whistles (TB-303 flavour)
+          const G = g / (1 + g), b = 1 - G;
+          if (ftype === 0) {
+            const G4 = G * G * G * G;
+            const S = G * G * G * b * v.s0 + G * G * b * v.s1 + G * b * v.s2 + b * v.s3;
+            let y4 = (G4 * x + S) / (1 + kk * G4);
+            const u = Math.tanh(x - kk * y4);
+            let t = (u - v.s0) * G; const y1 = t + v.s0; v.s0 = y1 + t;
+            t = (y1 - v.s1) * G; const y2 = t + v.s1; v.s1 = y2 + t;
+            t = (y2 - v.s2) * G; const y3 = t + v.s2; v.s2 = y3 + t;
+            t = (y3 - v.s3) * G; y4 = t + v.s3; v.s3 = y4 + t;
+            y = y4 * (1 + kk * 0.45);
+          } else {
+            const k3 = rs * 7.6, G3 = G * G * G, S = G * G * b * v.s0 + G * b * v.s1 + b * v.s2;
+            let y3 = (G3 * x + S) / (1 + k3 * G3);
+            const u = Math.tanh(x - k3 * y3);
+            let t = (u - v.s0) * G; const y1 = t + v.s0; v.s0 = y1 + t;
+            t = (y1 - v.s1) * G; const y2 = t + v.s1; v.s1 = y2 + t;
+            t = (y2 - v.s2) * G; y3 = t + v.s2; v.s2 = y3 + t;
+            y = y3 * (1 + k3 * 0.45);
+          }
+        }
+        else if (ftype === 9) {
+          // LP6: a single RC stage. One pole can't resonate, so Resonance does nothing here
+          const G = g / (1 + g), t = (Math.tanh(x) - v.s0) * G, y1 = t + v.s0; v.s0 = y1 + t;
+          y = Math.tanh(y1 * 0.7) / 0.7;
+        }
+        else if (ftype === 11) {
+          // vowel: three formant bandpasses side by side, each normalised to unity at its peak
+          const vb = v.vb, st = v.fs, v0 = Math.tanh(x);
+          this.svf(st, 0, vb[0], vb[3], v0); let acc = vb[6] * vb[3] * this.sb;
+          this.svf(st, 2, vb[1], vb[4], v0); acc += vb[7] * vb[4] * this.sb;
+          this.svf(st, 4, vb[2], vb[5], v0); acc += vb[8] * vb[5] * this.sb;
+          y = Math.tanh(acc * 2.4 * 0.7) / 0.7;
+        }
+        else if (ftype === 7 || ftype === 13) {
+          // two state-variable stages in series. HP24: a Butterworth-like pair of highpasses, the second one resonant.
+          // Phaser: two all-passes at the cutoff mixed back with the dry sound, which cancels in two notches around it
+          const st = v.fs, v0 = Math.tanh(x);
+          if (ftype === 7) {
+            const kA = 1.848, kB = 0.765 - 0.7 * rs;
+            let lp = this.svf(st, 0, g, kA, v0); const h1 = v0 - kA * this.sb - lp;
+            lp = this.svf(st, 2, g, kB, h1); y = h1 - kB * this.sb - lp;
+            y = Math.tanh(y * 0.7 / (1 + rs)) / 0.7;
+          } else {
+            const kP = 2 - 1.85 * rs;
+            this.svf(st, 0, g, kP, v0); const a1 = v0 - 2 * kP * this.sb;
+            this.svf(st, 2, g, kP, a1); const a2 = a1 - 2 * kP * this.sb;
+            y = Math.tanh(0.5 * (v0 + a2) * 0.7) / 0.7;
+          }
         } else {
           const a1 = 1 / (1 + g * (g + kq)), a2 = g * a1, a3 = g * a2;
           const v0 = Math.tanh(x), v3 = v0 - v.ic2;
           const vv1 = a1 * v.ic1 + a2 * v3, vv2 = v.ic2 + a2 * v.ic1 + a3 * v3;
           v.ic1 = 2 * vv1 - v.ic1; v.ic2 = 2 * vv2 - v.ic2;
-          y = ftype === 1 ? vv2 : ftype === 2 ? v0 - kq * vv1 - vv2 : ftype === 3 ? vv1 * Math.max(kq, 0.6) : ftype === 5 ? v0 - kq * vv1 : vv2 + 0.8 * vv1 * Math.max(kq, 0.6);
+          // Peak: the dry sound plus a boosted band (Resonance raises and narrows it), like one band of an EQ
+          y = ftype === 1 ? vv2 : ftype === 2 ? v0 - kq * vv1 - vv2 : ftype === 3 ? vv1 * Math.max(kq, 0.6) : ftype === 5 ? v0 - kq * vv1 : ftype === 10 ? v0 + (0.5 + 3.5 * rs) * kq * vv1 : vv2 + 0.8 * vv1 * Math.max(kq, 0.6);
           y = Math.tanh(y * 0.7 / (1 + rs)) / 0.7;
         }
         if (fOn) y *= dcomp;
@@ -2142,7 +2226,7 @@ const IC = {
 const SEGS = {
   o1w:{l:'Wave',icons:1,o:[['sine','Sine'],['tri','Tri'],['saw','Saw'],['pulse','Pulse'],['wt','Wavetable'],['vox','Formant']]},
   o2w:{l:'Wave',o:[['sine','Sine'],['tri','Tri'],['saw','Saw'],['pulse','Pulse']]},
-  ftype:{l:'Type',o:[[null,'LP24'],[null,'LP12'],[null,'HP'],[null,'BP'],[null,'LP+BP'],[null,'Notch'],[null,'Comb']]},
+  ftype:{l:'Type',o:['LP24', 'LP12', 'HP12', 'BP', 'LP+BP', 'Notch', 'Comb+', 'HP24', 'LP18', 'LP6', 'Peak', 'Vowel', 'Comb−', 'Phaser'].map(n => [null, n])},
   e1Type:{l:'Type',base:1,o:[[null,'Trem'],[null,'Pan'],[null,'Wah'],[null,'Ring'],[null,'Slicer'],[null,'H-Trem']]},
   modType:{l:'Type',o:[[null,'Chorus'],[null,'Flanger'],[null,'Phaser'],[null,'Vibe'],[null,'Ensemble'],[null,'Vibrato'],[null,'Juno'],[null,'Dim'],[null,'Barber']]},
   dType:{l:'Type',o:[[null,'Digital'],[null,'Tape'],[null,'Slap'],[null,'BBD'],[null,'Diffuse']]},
@@ -2517,6 +2601,103 @@ function segEl(k){
   controls[k]();
   return row;
 }
+/* ---------- the filter picker ----------
+   Fourteen filters in four families, two rows of seven, so every type is one tap away and nothing scrolls. Each tile draws
+   its type's real response (the same model the Bode view uses), all at one cutoff and the current Resonance, so the shapes
+   compare at a glance and turning Resonance moves them all. The Vowel tile follows Cutoff, since Cutoff picks its vowel.
+   Tap a tile to hear it; keep your finger down and slide across the row to audition one after another. */
+const FT_FAM = [['lp', 'low-pass', [0, 8, 1, 9, 4]], ['hp', 'high-pass', [2, 7]], ['band', 'band', [3, 10, 11]], ['notch', 'notch & comb', [5, 13, 6, 12]]];
+// each type's character in a line, for the parameter display
+const FT_D = {0:'moog ladder · 4 poles · round and fat', 8:'3 poles · 303 squelch · never whistles', 1:'state-variable · 2 poles · brighter', 9:'one RC pole · gentle · no resonance',
+  4:'lowpass with a vocal band on top', 2:'2 poles · thins out the lows', 7:'4 poles · a steep low cut', 3:'only a band survives · telephone',
+  10:'boosts one band, keeps the rest', 11:'three formants · cutoff picks the vowel', 5:'cuts one band, keeps the rest', 13:'two notches · sweep it with the lfo',
+  6:'a peak on every harmonic · metallic', 12:'odd harmonics only · hollow, woody'};
+const FTP = {tiles:[], tr:{i:-1, t0:0}};
+const ftRO = new ResizeObserver(es => es.forEach(en => { const c = en.target, d = DPR(); c.width = Math.max(1, Math.round(en.contentRect.width * d)); c.height = Math.max(1, Math.round(en.contentRect.height * d)); }));
+function ftPickEl(){
+  const w = document.createElement('div'); w.className = 'ftp'; w.dataset.hint = 'ftype';
+  w.setAttribute('role', 'radiogroup'); w.setAttribute('aria-label', 'Filter type');
+  let h = '', i = 0;
+  const heads = fs => fs.forEach(f => { h += `<span class="fth" data-f="${f[0]}" style="grid-column:span ${f[2].length};--i:${i++}" aria-hidden="true">${f[1]}</span>`; });
+  const tiles = fs => fs.forEach(f => f[2].forEach(t => { h += `<button class="ft" role="radio" data-t="${t}" data-f="${f[0]}" style="--i:${i++}" aria-label="${FT_NAME[t]}, ${f[1]}: ${FT_D[t]}"><canvas aria-hidden="true"></canvas><span>${FT_NAME[t]}</span></button>`; }));
+  heads(FT_FAM.slice(0, 2)); tiles(FT_FAM.slice(0, 2)); heads(FT_FAM.slice(2)); tiles(FT_FAM.slice(2));
+  w.innerHTML = h;
+  ftRO.disconnect(); FTP.tiles = [];
+  w.querySelectorAll('.ft').forEach(el => { const cv = el.querySelector('canvas'); FTP.tiles.push({el, cv, t:+el.dataset.t, sig:''}); ftRO.observe(cv); });
+  // a tap picks at once (no waiting for the finger to lift); sliding on picks whichever tile is under it
+  const at = e => { const el = document.elementFromPoint(e.clientX, e.clientY); return el && el.closest ? el.closest('.ft') : null; };
+  let pid = null, cur = null;
+  const press = el => { if (cur) cur.classList.remove('press'); cur = el; if (el) { el.classList.add('press'); ftPick(+el.dataset.t); } };
+  w.addEventListener('pointerdown', e => { const el = at(e); if (!el || pid !== null) return; e.preventDefault(); pid = e.pointerId; try { w.setPointerCapture(pid); } catch (er) {} press(el); });
+  w.addEventListener('pointermove', e => { if (e.pointerId !== pid) return; const el = at(e); if (el && el !== cur && w.contains(el)) press(el); });
+  const up = e => { if (e.pointerId !== pid) return; pid = null; if (cur) cur.classList.remove('press'); cur = null; };
+  w.addEventListener('pointerup', up); w.addEventListener('pointercancel', up);
+  w.addEventListener('click', e => { if (e.detail !== 0) return; const el = e.target.closest('.ft'); if (el) ftPick(+el.dataset.t); });
+  w.addEventListener('keydown', e => {
+    // arrow keys step through the types in picker order
+    const order = FT_FAM.flatMap(f => f[2]), ix = order.indexOf(params.ftype | 0), dir = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
+    if (!dir) return; e.preventDefault(); const t = order[(ix + dir + order.length) % order.length]; ftPick(t); const b = w.querySelector(`.ft[data-t="${t}"]`); if (b) b.focus();
+  });
+  w.addEventListener('contextmenu', e => e.preventDefault());
+  controls.ftype = () => ftSync(w);
+  ftSync(w, true);
+  return w;
+}
+function ftPick(t){
+  if (!params.pwFlt) setParam('pwFlt', 1);   // picking a type switches a bypassed filter back on, as the pedals' types do
+  if ((params.ftype | 0) !== t) setParam('ftype', t);
+  hudShow('ftype'); hudHold();
+}
+function ftSync(w, first){
+  const t = params.ftype | 0, fam = FT_FAM.find(f => f[2].includes(t));
+  w.querySelectorAll('.ft').forEach(el => { const on = +el.dataset.t === t; el.classList.toggle('on', on); el.setAttribute('aria-checked', on); });
+  w.querySelectorAll('.fth').forEach(el => el.classList.toggle('on', !!fam && el.dataset.f === fam[0]));
+  // the chosen tile's curve traces itself on: when you pick it, and once as the page opens
+  if (first) FTP.tr = {i:t, t0:performance.now() + 220};
+  else if (FTP.tr.i !== t) FTP.tr = {i:t, t0:performance.now()};
+  if (!first) refreshDead();
+}
+const FT_TRACE = 420;
+function drawFtPick(){
+  const P = params, d = DPR(), now = performance.now(), sel = P.ftype | 0, on = P.pwFlt !== 0;
+  // the chosen tile is live: it follows the resonance (and, for Vowel, the cutoff) as the envelopes and LFO move them
+  const liveR = Engine.ready && tele.r != null ? tele.r : P.res, liveC = Engine.ready && tele.c ? tele.c : P.cut;
+  FTP.tiles.forEach(tl => {
+    const cv = tl.cv; if (!cv.isConnected || cv.width < 2) return;
+    const me = tl.t === sel, lv = me && on, rs = lv ? liveR : P.res, fcV = tl.t === 11 ? (lv ? liveC : P.cut) : 0;
+    const tr = me && FTP.tr.i === sel && now - FTP.tr.t0 < FT_TRACE;
+    const sig = `${cv.width}x${cv.height}|${rs.toFixed(3)}|${Math.round(fcV)}|${me}|${on}`;
+    if (!tr && sig === tl.sig) return;
+    tl.sig = tr ? '' : sig;
+    ftTile(cv, tl.t, rs, fcV, me, on, tr ? Math.max(0, (now - FTP.tr.t0) / FT_TRACE) : 1, d);
+  });
+}
+// one tile's picture: the response from a decade below the cutoff to a decade above (Vowel: 110 Hz to 5 kHz), 0 dB dotted
+function ftTile(cv, t, rs, fcV, me, on, u, d){
+  const g = cv.getContext('2d'), W = cv.width, H = cv.height, comb = t === 6 || t === 12, vow = t === 11;
+  g.clearRect(0, 0, W, H); g.lineCap = 'round'; g.lineJoin = 'round';
+  const fc = vow ? Math.max(20, fcV) : 1000, f0 = vow ? 110 : comb ? fc / 3 : fc / 12, f1 = vow ? 5000 : comb ? fc * 6.2 : fc * 12;
+  const M = fModel({ftype:t, res:rs, drive:0, pwFlt:1}, fc, rs), TOP = 14, BOT = -40, pad = 1.5 * d;
+  const Y = db => pad + (TOP - Math.max(BOT - 4, Math.min(TOP + 3, db))) / (TOP - BOT) * (H - 2 * pad);
+  const N = Math.max(24, Math.round(W / (comb ? 1 : 1.6))), pts = [];
+  for (let i = 0; i <= N; i++) { const f = f0 * Math.pow(f1 / f0, i / N), [re, im] = fResp(M, f); pts.push([i / N * W, Y(10 * Math.log10(re * re + im * im + 1e-30))]); }
+  g.strokeStyle = 'rgba(242,245,248,.1)'; g.lineWidth = 1; g.setLineDash([1 * d, 3 * d]);
+  g.beginPath(); g.moveTo(0, Math.round(Y(0)) + .5); g.lineTo(W, Math.round(Y(0)) + .5); g.stroke(); g.setLineDash([]);
+  if (!vow) { const xc = Math.round(Math.log(fc / f0) / Math.log(f1 / f0) * W) + .5; g.beginPath(); g.moveTo(xc, H - 3.5 * d); g.lineTo(xc, H); g.stroke(); }
+  const n = Math.max(0, Math.min(N, Math.round(u * N))), lit = me && on;
+  if (n < 1) return;
+  if (me) {
+    // a soft wash under the chosen curve
+    const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, lit ? 'rgba(255,82,214,.26)' : 'rgba(124,135,148,.14)'); gr.addColorStop(1, 'rgba(255,82,214,0)');
+    g.beginPath(); g.moveTo(pts[0][0], H); for (let i = 0; i <= n; i++) g.lineTo(pts[i][0], pts[i][1]); g.lineTo(pts[n][0], H); g.closePath(); g.fillStyle = gr; g.fill();
+  }
+  g.beginPath(); for (let i = 0; i <= n; i++) i ? g.lineTo(pts[i][0], pts[i][1]) : g.moveTo(pts[i][0], pts[i][1]);
+  g.strokeStyle = lit ? COL.c2 : me ? '#a3acb6' : on ? 'rgba(255,82,214,.5)' : 'rgba(124,135,148,.4)'; g.lineWidth = (me ? 1.35 : 1.1) * d;
+  if (lit) { g.shadowColor = COL.c2; g.shadowBlur = 5 * d; }
+  g.stroke(); g.shadowBlur = 0;
+  // the tracing head, while the curve draws itself on
+  if (u < 1) { g.fillStyle = '#fff'; g.shadowColor = COL.c2; g.shadowBlur = 7 * d; g.beginPath(); g.arc(pts[n][0], pts[n][1], 1.6 * d, 0, 6.2832); g.fill(); g.shadowBlur = 0; }
+}
 function togEl(k, idx){
   const t = TOGS[k];
   const b = document.createElement('button'); b.className = 'tog'; b.dataset.hint = k; b.style.setProperty('--i', idx || 0);
@@ -2588,7 +2769,7 @@ function refreshTabs(){
   });
 }
 // knobs on another section's page (Mix's OSC levels, Routing's Env Amt) go dark with their section
-function refreshDead(){ $('module').querySelectorAll('.knob').forEach(el => { const s = KEY_SEC[el.dataset.hint]; if (s) el.classList.toggle('dead', !params[PW[s]]); }); }
+function refreshDead(){ $('module').querySelectorAll('.knob').forEach(el => { const k = el.dataset.hint, s = KEY_SEC[k]; if (s) el.classList.toggle('dead', !params[PW[s]]); else if (k === 'res') el.classList.toggle('dead', (params.ftype | 0) === 9); }); }
 // the part of the current page whose lights follow a power switch
 let pwHost = null, pwHostSec = null, pwInfo = null;
 function powerFx(sec, on, quiet){
@@ -3788,14 +3969,12 @@ const TAB_ICON = {
     g.globalAlpha = base; g.lineWidth = 1.3 * d;
   },
   filter(g, X0, Y0, X1, Y1){
-    const P = params, ft = P.ftype | 0, uc = Math.log(Math.max(20, P.cut) / 20) / Math.log(1000), h = Y1 - Y0, pk = P.res * 1.1;
+    // the filter's real response at the Cutoff knob, 20 Hz to 20 kHz, −30 to +12 dB
+    const P = params, ft = P.ftype | 0, M = fModel({ftype:ft, res:P.res, drive:0, pwFlt:1}, P.cut), h = Y1 - Y0, NI = ft === 6 || ft === 12 ? 110 : 44;
     g.beginPath();
-    const NI = ft === 6 ? 90 : 40;
     for (let i = 0; i <= NI; i++) {
-      const u = i / NI, x = (u - uc) / 0.09, lp = x < 0 ? 1 : Math.exp(-x * x * (ft === 0 ? 1.4 : 0.6)), hp = x > 0 ? 1 : Math.exp(-x * x * 0.8), bp = Math.exp(-x * x * 0.9), peak = pk * Math.exp(-x * x * 6);
-      const cm = Math.pow(0.5 + 0.5 * Math.cos(6.2832 * Math.pow(1000, u - uc)), 1 + P.res * 3);
-      const v = ft === 2 ? hp + peak : ft === 3 ? bp * 0.8 + peak : ft === 4 ? lp * 0.75 + bp * 0.45 + peak : ft === 5 ? 1.1 - Math.exp(-x * x * (2.5 + P.res * 12)) * 1.05 : ft === 6 ? 0.2 + cm * 1.1 : lp + peak;
-      const px = X0 + u * (X1 - X0), py = Y1 - Math.min(1, v / 1.6) * h; i ? g.lineTo(px, py) : g.moveTo(px, py);
+      const u = i / NI, [re, im] = fResp(M, 20 * Math.pow(1000, u)), v = Math.max(0, Math.min(1, (10 * Math.log10(re * re + im * im + 1e-30) + 30) / 42));
+      const px = X0 + u * (X1 - X0), py = Y1 - v * h; i ? g.lineTo(px, py) : g.moveTo(px, py);
     }
     g.stroke();
   },
@@ -3945,7 +4124,8 @@ function showTab(id){
   const grid = (row, cls, into) => { const g = document.createElement('div'); g.className = 'kgrid' + (cls ? ' ' + cls : ''); row.forEach(k => g.appendChild(TOGS[k] ? togEl(k, idx++) : knobEl(k, idx++))); (into || m).appendChild(g); return g; };
   let host = m;
   if (PW[id]) { pwHost = m; pwHostSec = id; }
-  if (t.seg) m.appendChild(segEl(t.seg));
+  if (t.seg) m.appendChild(t.seg === 'ftype' ? ftPickEl() : segEl(t.seg));
+  if (id !== 'filter') FTP.tiles = [];
   let fxLib = false;
   if (t.sub) {
     if (id === 'fx') {
@@ -4018,6 +4198,10 @@ function hudText(){
   const sub = SUB_OF[k] && TAB_OF[k] === 'fx' ? ' · ' + (fb ? fxLabel(fb).toLowerCase() : SUB_OF[k]) : '';
   $('phK').textContent = `${tab ? tab.l : ''}${sub} · ${lab}`;
   $('phV').textContent = txt; $('phV').classList.toggle('long', txt.length > (isPw ? 6 : 9));
+  { const ft = params.ftype | 0, vw = ft === 11 && (k === 'cut' || k === 'res' || k === 'kt' || k === 'fenv');
+    const vn = ft === 11 ? VOWEL_OF(SynthDSP.vowel(k === 'cut' ? params.cut : liveFc(), params.res, SR, new Float64Array(13))[12]) : '';
+    $('phD').textContent = k === 'ftype' ? FT_D[ft] + (ft === 11 ? ` · now "${vn}"` : '') : vw ? `vowel "${vn}"` : '';
+    $('phD').hidden = !(k === 'ftype' || vw); }
   const off = !isPw && secOff(k), pst = isPw && !isFx ? pwStateText(secOf(k)) : '';
   $('phF').textContent = pst || (off ? (isFx ? 'bypassed' : secOf(k).startsWith('osc') ? 'osc off' : 'off') + (hud.fine ? ' · fine' : '') : 'fine');
   $('phF').hidden = !(hud.fine || off || pst);
@@ -4110,23 +4294,30 @@ function drawHud(){
       path([[x0, ly(Math.max(20, P.cut / 8))], [x1, ly(Math.min(20000, P.cut * 8))]], 'rgba(242,245,248,.18)', 1, [3 * d, 3 * d]);
       glow(col, 8); path(pts, col, 2); txt('C1   keys →   C7', (x0 + x1) / 2, y1 + 3 * d, null, 'center'); txt('cutoff', x0, y0 - 2 * d);
     } else {
-      const ft = P.ftype | 0;
-      const H_ = (f, fc, res = P.res) => { const b = f / fc, kq = 2 - 1.9 * res, kl = res * 4.15;
-        if (ft === 0) { const r2 = 1 - b * b, i2 = 2 * b; return (1 + 0.45 * kl) / Math.hypot(r2 * r2 - i2 * i2 + kl, 2 * r2 * i2); }
-        if (ft === 6) { const fb = 0.3 + 0.67 * res, ph = 6.2832 * b, dm = 1 / Math.sqrt(1 + Math.pow(f / 9000, 2)); return 1.6 * (1 - fb) / Math.hypot(1 - fb * dm * Math.cos(ph), fb * dm * Math.sin(ph)) / 0.9; }
-        const den = Math.hypot(1 - b * b, kq * b) * (1 + res);
-        return ft === 1 ? 1 / den : ft === 2 ? b * b / den : ft === 3 ? b * Math.max(kq, .6) / den : ft === 5 ? Math.abs(1 - b * b) / den : Math.hypot(1, 0.8 * b * Math.max(kq, .6)) / den; };
+      // the filter's real response (the Bode view's model, without Drive). When the type changes, the old curve flows into the new
+      const ft = P.ftype | 0, NC = ft === 6 || ft === 12 ? 300 : 140, mdl = (fc, rs) => fModel({...P, pwFlt:1, drive:0}, fc, rs);
       const X = f => x0 + Math.log(f / 20) / Math.log(1000) * (x1 - x0);
       const Yd = db => y0 + (24 - Math.max(-54, Math.min(24, db))) / 78 * (y1 - y0);
-      const NC = ft === 6 ? 300 : 120, curve = (fc, rs) => { const pts = []; for (let i = 0; i <= NC; i++) { const f = 20 * Math.pow(1000, i / NC); pts.push([X(f), Yd(20 * Math.log10(H_(f, fc, rs) + 1e-9))]); } return pts; };
+      const dbs = (fc, rs) => { const M = mdl(fc, rs), o = new Float32Array(NC + 1); for (let i = 0; i <= NC; i++) { const [re, im] = fResp(M, 20 * Math.pow(1000, i / NC)); o[i] = Math.max(-60, Math.min(30, 10 * Math.log10(re * re + im * im + 1e-30))); } return o; };
+      const pOf = a => Array.from(a, (db, i) => [x0 + i / NC * (x1 - x0), Yd(db)]);
       g.strokeStyle = 'rgba(242,245,248,.1)'; g.beginPath(); g.moveTo(x0, Yd(0)); g.lineTo(x1, Yd(0)); g.stroke();
       // where the filter envelope takes it at its peak (dashed): the cutoff moved by Env Amt, the resonance by → Res
       const feOn = !!P.pwFenv && (Math.abs(P.fenv) > 0.05 || Math.abs(P.fRes) > 0.02);
-      if (feOn) { const fp = Math.min(20000, Math.max(20, P.cut * Math.pow(2, P.pwFenv ? P.fenv : 0))), rp = Math.max(0, Math.min(1, P.res + P.fRes)); path(curve(fp, rp), dim(k === 'fenv' || k === 'fRes' || k === 'pwFenv' ? COL.c2 : col), 1.1, [3 * d, 3 * d]); txt('env peak', X(fp), y0 - 2 * d, dim(col), 'center'); }
-      const pts = curve(P.cut);
+      if (feOn) { const fp = Math.min(20000, Math.max(20, P.cut * Math.pow(2, P.pwFenv ? P.fenv : 0))), rp = Math.max(0, Math.min(1, P.res + P.fRes)); path(pOf(dbs(fp, rp)), dim(k === 'fenv' || k === 'fRes' || k === 'pwFenv' ? COL.c2 : col), 1.1, [3 * d, 3 * d]); txt('env peak', X(fp), y0 - 2 * d, dim(col), 'center'); }
+      let cur = dbs(P.cut);
+      const tNow = performance.now(), mo = hud.ftM;
+      if (hud.ftLast != null && hud.ftLast !== ft && hud.ftPrev) hud.ftM = {from:hud.ftPrev, t0:tNow};
+      hud.ftLast = ft;
+      if (hud.ftM) {
+        const e = Math.min(1, (tNow - hud.ftM.t0) / 260), q = 1 - Math.pow(1 - e, 3), A = hud.ftM.from, r = (A.length - 1) / NC;
+        if (e >= 1) hud.ftM = null;
+        else cur = cur.map((v, i) => { const j = i * r, j0 = Math.floor(j), fr = j - j0, a = A[j0] + ((A[Math.min(A.length - 1, j0 + 1)] || A[j0]) - A[j0]) * fr; return a + (v - a) * q; });
+      }
+      hud.ftPrev = cur;
+      const pts = pOf(cur);
       g.beginPath(); pts.forEach(([a, b], i) => i ? g.lineTo(a, b) : g.moveTo(a, b)); g.lineTo(x1, y1); g.lineTo(x0, y1); g.closePath(); g.fillStyle = col + '18'; g.fill();
       glow(col, 8); path(pts, col, 2);
-      g.shadowBlur = 0; g.fillStyle = col; g.beginPath(); g.arc(X(P.cut), Yd(20 * Math.log10(H_(P.cut, P.cut))), 2.4 * d, 0, 6.2832); g.fill();
+      if (!hud.ftM) { const [re, im] = fResp(mdl(P.cut), P.cut); g.shadowBlur = 0; g.fillStyle = col; g.beginPath(); g.arc(X(P.cut), Yd(10 * Math.log10(re * re + im * im + 1e-30)), 2.4 * d, 0, 6.2832); g.fill(); }
       txt('20 Hz', x0, y1 + 3 * d); txt('20 kHz', x1, y1 + 3 * d, null, 'right'); txt('0 dB', x0, Yd(0) - 11 * d);
     }
   } else if (grp === 'o1' || grp === 'o2') {
@@ -5285,25 +5476,61 @@ function drawGram(s){
    The zero-delay-feedback filters are exact bilinear transforms of their analog prototypes, so the response the DSP
    really has at f is the prototype's H(s) at s = j·tan(πf/fs)/tan(πfc/fs). This is the small-signal (linear) model:
    Drive's gain is in it, its saturation is not, and the Measure dots show what the real, nonlinear filter does. */
-const FT_NAME = ['LP24', 'LP12', 'HP', 'BP', 'LP+BP', 'Notch', 'Comb'];
+// the fourteen filter types, in the engine's numbering (the picker shows them by family; see FT)
+// the vowel the vowel filter is on, from its position 0..4 (u o a e i)
+const VOWEL_OF = x => { const V = ['oo', 'oh', 'ah', 'eh', 'ee'], i = Math.round(x * 2) / 2; return i % 1 ? V[i - .5] + '–' + V[i + .5] : V[i]; };
+const FT_NAME = ['LP24', 'LP12', 'HP12', 'BP', 'LP+BP', 'Notch', 'Comb+', 'HP24', 'LP18', 'LP6', 'Peak', 'Vowel', 'Comb−', 'Phaser'];
 function fModel(P, fc, rs){
   // rs: the resonance right now, which the filter envelope's → Res route can be moving
-  const res = rs == null ? P.res : rs, k = res * 4.15, kq = 2 - 1.9 * res;
+  const res = rs == null ? P.res : rs, k = res * 4.15, kq = 2 - 1.9 * res, ft = P.ftype | 0;
   fc = Math.min(SR * 0.45, Math.max(16, fc));
   const gD = (1 + P.drive * 4) / (1 + P.drive * 1.5);   // Drive's gain into the filter, less the make-down after it
-  return {on:P.pwFlt !== 0, ft:P.ftype | 0, res, k, kq, m:Math.max(kq, .6), gS:gD / (1 + res), gL:gD * (1 + 0.45 * k), gD, fc, g:Math.tan(Math.PI * fc / SR), fb:0.3 + 0.67 * res};
+  const M = {on:P.pwFlt !== 0, ft, res, k, kq, m:Math.max(kq, .6), gS:gD / (1 + res), gL:gD * (1 + 0.45 * k), gD, fc, g:Math.tan(Math.PI * fc / SR), fb:0.3 + 0.67 * res};
+  if (ft === 7) { M.kA = 1.848; M.kB = 0.765 - 0.7 * res; }
+  else if (ft === 8) { M.k3 = res * 7.6; M.gL3 = gD * (1 + 0.45 * M.k3); }
+  else if (ft === 10) M.B = 0.5 + 3.5 * res;
+  else if (ft === 11) { M.vb = SynthDSP.vowel(fc, res, SR, new Float64Array(13)); M.gV = 2.4 * gD; }
+  else if (ft === 12) M.fb = -M.fb;
+  else if (ft === 13) M.kP = 2 - 1.85 * res;
+  return M;
 }
+// complex helpers for the responses: [re, im]
+const cMul = (a, b) => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]];
+const cDiv = (a, b) => { const d = b[0] * b[0] + b[1] * b[1] || 1e-30; return [(a[0] * b[0] + a[1] * b[1]) / d, (a[1] * b[0] - a[0] * b[1]) / d]; };
+// a state-variable section at s = jw: its denominator, and its lowpass, bandpass, highpass and all-pass outputs
+const svDen = (w, k) => [1 - w * w, k * w];
 function fResp(M, f){
   if (!M.on) return [1, 0];
-  if (M.ft === 6) {   // comb: y = x + fb·(damped y, one cutoff period ago) → 1.6(1 − fb) / (1 − fb·L(z)·z^−D)
-    const D = SR / M.fc, wd = 2 * Math.PI * f / SR, a = 0.55, lr = a / Math.hypot(1 - (1 - a) * Math.cos(wd), (1 - a) * Math.sin(wd)), lph = -Math.atan2((1 - a) * Math.sin(wd), 1 - (1 - a) * Math.cos(wd));
-    const ph = -wd * D + lph, dr = 1 - M.fb * lr * Math.cos(ph), di = -M.fb * lr * Math.sin(ph), gn = 1.6 * (1 - M.fb) * M.gD / 0.9, dd = dr * dr + di * di;
+  if (M.ft === 6 || M.ft === 12) {
+    // comb: y = x + fb·(damped y, one cutoff period ago) → 1.6(1 − |fb|) / (1 − fb·L(z)·z^−D). Comb− waits half a period and inverts
+    const D = SR / M.fc / (M.ft === 12 ? 2 : 1), wd = 2 * Math.PI * f / SR, a = 0.55, lr = a / Math.hypot(1 - (1 - a) * Math.cos(wd), (1 - a) * Math.sin(wd)), lph = -Math.atan2((1 - a) * Math.sin(wd), 1 - (1 - a) * Math.cos(wd));
+    const ph = -wd * D + lph, dr = 1 - M.fb * lr * Math.cos(ph), di = -M.fb * lr * Math.sin(ph), gn = 1.6 * (1 - Math.abs(M.fb)) * M.gD / 0.9, dd = dr * dr + di * di;
     return [gn * dr / dd, -gn * di / dd];
   }
-  const w = Math.tan(Math.PI * Math.min(f, SR * 0.4999) / SR) / M.g;
+  const wn = Math.tan(Math.PI * Math.min(f, SR * 0.4999) / SR);
+  if (M.ft === 11) {   // vowel: three bandpasses, k·s / (s² + k·s + 1) each at its own formant, summed
+    let re = 0, im = 0; const vb = M.vb;
+    for (let q = 0; q < 3; q++) { const w = wn / vb[q], k = vb[q + 3], h = cDiv([0, k * w], svDen(w, k)); re += vb[q + 6] * h[0]; im += vb[q + 6] * h[1]; }
+    return [re * M.gV, im * M.gV];
+  }
+  const w = wn / M.g;
   if (M.ft === 0) {   // ladder: four one-poles in a loop with gain k → gL / ((1+s)⁴ + k)
     const a = 1 - w * w, b = 2 * w, re = a * a - b * b + M.k, im = 2 * a * b, d = re * re + im * im;
     return [M.gL * re / d, -M.gL * im / d];
+  }
+  if (M.ft === 8) return cDiv([M.gL3, 0], [1 - 3 * w * w + M.k3, 3 * w - w * w * w]);   // three one-poles → gL / ((1+s)³ + k)
+  if (M.ft === 9) return cDiv([M.gD, 0], [1, w]);                                           // one pole → 1 / (1 + s)
+  if (M.ft === 7) {   // two highpass sections in series: s² / (s² + kA·s + 1) · s² / (s² + kB·s + 1)
+    const h = cMul(cDiv([-w * w, 0], svDen(w, M.kA)), cDiv([-w * w, 0], svDen(w, M.kB)));
+    return [h[0] * M.gS, h[1] * M.gS];
+  }
+  if (M.ft === 13) {  // phaser: (1 + A²) / 2, A = (s² − k·s + 1) / (s² + k·s + 1)
+    const A = cDiv([1 - w * w, -M.kP * w], svDen(w, M.kP)), A2 = cMul(A, A);
+    return [(1 + A2[0]) * 0.5 * M.gD, A2[1] * 0.5 * M.gD];
+  }
+  if (M.ft === 10) {  // peak: 1 + B·k·s / (s² + k·s + 1) = (s² + k(1+B)·s + 1) / (s² + k·s + 1)
+    const h = cDiv([1 - w * w, M.kq * (1 + M.B) * w], svDen(w, M.kq));
+    return [h[0] * M.gS, h[1] * M.gS];
   }
   // state-variable: N(s) / (s² + kq·s + 1), with the output scaling the DSP applies
   const dr = 1 - w * w, di = M.kq * w, d = dr * dr + di * di;
@@ -5326,23 +5553,60 @@ const dBat = (M, f) => { const [re, im] = fResp(M, f); return 10 * Math.log10(re
 // straight-line asymptotes |H| ≈ c·Ω^a below and above the corner (Ω = f/fc), as a hand-drawn Bode sketch has them
 function fAsym(M){
   if (!M.on) return null;
-  if (M.ft === 0) return [[0, M.gL / (1 + M.k)], [-4, M.gL]];
-  if (M.ft === 1) return [[0, M.gS], [-2, M.gS]];
-  if (M.ft === 2) return [[2, M.gS], [0, M.gS]];
-  if (M.ft === 3) return [[1, M.gS * M.m], [-1, M.gS * M.m]];
-  if (M.ft === 5 || M.ft === 6) return null;   // flat on both sides: nothing to sketch
-  return [[0, M.gS], [-1, 0.8 * M.m * M.gS]];
+  switch (M.ft) {
+    case 0: return [[0, M.gL / (1 + M.k)], [-4, M.gL]];
+    case 1: return [[0, M.gS], [-2, M.gS]];
+    case 2: return [[2, M.gS], [0, M.gS]];
+    case 3: return [[1, M.gS * M.m], [-1, M.gS * M.m]];
+    case 4: return [[0, M.gS], [-1, 0.8 * M.m * M.gS]];
+    case 7: return [[4, M.gS], [0, M.gS]];
+    case 8: return [[0, M.gL3 / (1 + M.k3)], [-3, M.gL3]];
+    case 9: return [[0, M.gD], [-1, M.gD]];
+  }
+  return null;   // notch, peak, combs, vowel and phaser are flat (or bumpy) on both sides: nothing to sketch
 }
+// a pole pair of s² + k·s + 1 (scaled by r)
+const pPair = (k, r = 1) => { const h = k / 2, w = Math.sqrt(Math.max(0, 1 - h * h)), e = Math.sqrt(Math.max(0, h * h - 1)); return w > 0 ? [[-h * r, w * r], [-h * r, -w * r]] : [[(-h + e) * r, 0], [(-h - e) * r, 0]]; };
+// roots of a real polynomial (coefficients highest power first), by Durand–Kerner
+function pRoots(c){
+  const n = c.length - 1; if (n < 1) return [];
+  const a = c.map(x => x / c[0]); let z = Array.from({length:n}, (_, i) => { const t = 0.4 + 0.9 * i; return [Math.cos(t) * 1.3, Math.sin(t) * 1.3]; });
+  const ev = x => a.reduce((acc, ci) => [acc[0] * x[0] - acc[1] * x[1] + ci, acc[0] * x[1] + acc[1] * x[0]], [0, 0]);
+  for (let it = 0; it < 200; it++) {
+    let mv = 0;
+    z = z.map((zi, i) => { let den = [1, 0]; z.forEach((zj, j) => { if (j !== i) den = cMul(den, [zi[0] - zj[0], zi[1] - zj[1]]); }); const dz = cDiv(ev(zi), den); mv = Math.max(mv, Math.hypot(dz[0], dz[1])); return [zi[0] - dz[0], zi[1] - dz[1]]; });
+    if (mv < 1e-12) break;
+  }
+  return z.map(([x, y]) => [x, Math.abs(y) < 1e-7 ? 0 : y]);
+}
+const pMul = (a, b) => { const o = new Array(a.length + b.length - 1).fill(0); a.forEach((x, i) => b.forEach((y, j) => { o[i + j] += x * y; })); return o; };
 // poles and zeros of the analog prototype, in units of the cutoff (s / ωc)
 function fPZ(M){
   if (!M.on) return {p:[], z:[]};
-  if (M.ft === 0) {
-    const r = Math.pow(M.k, .25), p = [];
-    for (let q = 0; q < 4; q++) { const a = Math.PI / 4 + q * Math.PI / 2; p.push([-1 + r * Math.cos(a), r * Math.sin(a)]); }
+  if (M.ft === 0 || M.ft === 8) {
+    // n one-poles in a loop: (1 + s)ⁿ = −k, so the poles sit on a circle of radius k^(1/n) around −1
+    const nP = M.ft === 0 ? 4 : 3, r = Math.pow(M.ft === 0 ? M.k : M.k3, 1 / nP), p = [];
+    for (let q = 0; q < nP; q++) { const a = Math.PI / nP + q * 2 * Math.PI / nP; p.push([-1 + r * Math.cos(a), Math.abs(Math.sin(a)) < 1e-9 ? 0 : r * Math.sin(a)]); }
     return {p, z:[]};
   }
-  // comb: a pole at every multiple of the cutoff, all the same distance from the axis (closer as the feedback rises)
+  if (M.ft === 9) return {p:[[-1, 0]], z:[]};
+  // combs: a pole at every peak, all the same distance from the axis (closer as the feedback rises)
   if (M.ft === 6) { const sg = Math.log(M.fb) / (2 * Math.PI), p = []; for (let q = 2; q >= -2; q--) if (q) p.push([sg, q]); return {p, z:[]}; }
+  if (M.ft === 12) { const sg = Math.log(-M.fb) / Math.PI, p = []; [3, 1, -1, -3].forEach(q => p.push([sg, q])); return {p, z:[]}; }
+  if (M.ft === 7) return {p:pPair(M.kA).concat(pPair(M.kB)), z:[[0, 0], [0, 0], [0, 0], [0, 0]]};
+  if (M.ft === 13) {
+    // 1 + A² = 0 puts four zeros right on the axis, either side of the cutoff: the two notches
+    const k = M.kP, r = Math.sqrt(k * k + 4), hi = (r + k) / 2, lo = (r - k) / 2;
+    return {p:pPair(k).concat(pPair(k)), z:[[0, hi], [0, -hi], [0, lo], [0, -lo]]};
+  }
+  if (M.ft === 10) return {p:pPair(M.kq), z:pPair(M.kq * (1 + M.B))};
+  if (M.ft === 11) {
+    // three formant pole pairs; the zeros are wherever the three bands' sum cancels
+    const vb = M.vb, W = [0, 1, 2].map(q => vb[q] / M.g), D = W.map((w, q) => [1, vb[q + 3] * w, w * w]);
+    let num = [0, 0, 0, 0, 0];
+    for (let q = 0; q < 3; q++) { const o = [0, 1, 2].filter(j => j !== q), t = pMul(D[o[0]], D[o[1]]).map(x => x * vb[q + 6] * vb[q + 3] * W[q]); num = num.map((x, i) => x + t[i]); }
+    return {p:W.flatMap((w, q) => pPair(vb[q + 3], w)), z:[[0, 0]].concat(pRoots(num))};
+  }
   const h = M.kq / 2, w = Math.sqrt(Math.max(0, 1 - h * h));
   return {p:[[-h, w], [-h, -w]], z:M.ft === 2 ? [[0, 0], [0, 0]] : M.ft === 3 ? [[0, 0]] : M.ft === 4 ? [[-1 / (0.8 * M.m), 0]] : M.ft === 5 ? [[0, 1], [0, -1]] : []};
 }
@@ -5355,29 +5619,42 @@ function fStep(M, T, P){
   if (!M.on) { out.fill(1); return out; }
   const g = M.g; let j = 0, y = 0;
   const put = i => { if (y > 40) y = 40; else if (y < -40) y = -40; while (j <= P && j * n / P <= i) out[j++] = y; };
-  if (M.ft === 6) {
-    const L = 8192, buf = new Float32Array(L), D = SR / M.fc, gn = 1.6 * (1 - M.fb) * M.gD / 0.9; let ci = 0, cl = 0;
+  // one state-variable step on st[i], st[i+1]: [lowpass, bandpass]
+  const sv = (st, i, gg, k, x) => { const a1 = 1 / (1 + gg * (gg + k)), a2 = gg * a1, a3 = gg * a2, v3 = x - st[i + 1], v1 = a1 * st[i] + a2 * v3, v2 = st[i + 1] + a2 * st[i] + a3 * v3; st[i] = 2 * v1 - st[i]; st[i + 1] = 2 * v2 - st[i + 1]; return [v2, v1]; };
+  if (M.ft === 6 || M.ft === 12) {
+    const L = 8192, buf = new Float32Array(L), D = SR / M.fc / (M.ft === 12 ? 2 : 1), gn = 1.6 * (1 - Math.abs(M.fb)) * M.gD / 0.9; let ci = 0, cl = 0;
     for (let i = 0; i < n; i++) {
       const rd = ci - D + L, i0 = Math.floor(rd), fr = rd - i0, a0 = buf[i0 % L], a1 = buf[(i0 + 1) % L];
       cl += (a0 + (a1 - a0) * fr - cl) * 0.55; const w = 1 + M.fb * cl; buf[ci] = w; ci = (ci + 1) % L;
       y = w * gn; put(i);
     }
-  } else if (M.ft === 0) {
-    const G = g / (1 + g), b = 1 - G, G4 = G * G * G * G, kk = M.k; let s0 = 0, s1 = 0, s2 = 0, s3 = 0;
+  } else if (M.ft === 0 || M.ft === 8) {
+    const G = g / (1 + g), b = 1 - G, four = M.ft === 0, kk = four ? M.k : M.k3, Gn = four ? G * G * G * G : G * G * G, gl = four ? M.gL : M.gL3; let s0 = 0, s1 = 0, s2 = 0, s3 = 0;
     for (let i = 0; i < n; i++) {
-      const S = G * G * G * b * s0 + G * G * b * s1 + G * b * s2 + b * s3, u = 1 - kk * (G4 + S) / (1 + kk * G4);
+      const S = four ? G * G * G * b * s0 + G * G * b * s1 + G * b * s2 + b * s3 : G * G * b * s0 + G * b * s1 + b * s2, u = 1 - kk * (Gn + S) / (1 + kk * Gn);
       let t = (u - s0) * G; const y1 = t + s0; s0 = y1 + t;
       t = (y1 - s1) * G; const y2 = t + s1; s1 = y2 + t;
       t = (y2 - s2) * G; const y3 = t + s2; s2 = y3 + t;
-      t = (y3 - s3) * G; const y4 = t + s3; s3 = y4 + t;
-      y = y4 * M.gL; put(i); if (Math.abs(y) >= 40) break;
+      if (four) { t = (y3 - s3) * G; const y4 = t + s3; s3 = y4 + t; y = y4 * gl; } else y = y3 * gl;
+      put(i); if (Math.abs(y) >= 40) break;
+    }
+  } else if (M.ft === 9) {
+    const G = g / (1 + g); let s = 0;
+    for (let i = 0; i < n; i++) { const t = (1 - s) * G, y1 = t + s; s = y1 + t; y = y1 * M.gD; put(i); }
+  } else if (M.ft === 7 || M.ft === 11 || M.ft === 13) {
+    const st = new Float64Array(6);
+    for (let i = 0; i < n; i++) {
+      if (M.ft === 7) { let [lp, bp] = sv(st, 0, g, M.kA, 1); const h1 = 1 - M.kA * bp - lp; [lp, bp] = sv(st, 2, g, M.kB, h1); y = (h1 - M.kB * bp - lp) * M.gS; }
+      else if (M.ft === 13) { const a1 = 1 - 2 * M.kP * sv(st, 0, g, M.kP, 1)[1], a2 = a1 - 2 * M.kP * sv(st, 2, g, M.kP, a1)[1]; y = 0.5 * (1 + a2) * M.gD; }
+      else { const vb = M.vb; let acc = 0; for (let q = 0; q < 3; q++) acc += vb[q + 6] * vb[q + 3] * sv(st, 2 * q, vb[q], vb[q + 3], 1)[1]; y = acc * M.gV; }
+      put(i);
     }
   } else {
     const kq = M.kq, a1 = 1 / (1 + g * (g + kq)), a2 = g * a1, a3 = g * a2; let ic1 = 0, ic2 = 0;
     for (let i = 0; i < n; i++) {
       const v3 = 1 - ic2, v1 = a1 * ic1 + a2 * v3, v2 = ic2 + a2 * ic1 + a3 * v3;
       ic1 = 2 * v1 - ic1; ic2 = 2 * v2 - ic2;
-      y = (M.ft === 1 ? v2 : M.ft === 2 ? 1 - kq * v1 - v2 : M.ft === 3 ? v1 * M.m : M.ft === 5 ? 1 - kq * v1 : v2 + 0.8 * v1 * M.m) * M.gS; put(i);
+      y = (M.ft === 1 ? v2 : M.ft === 2 ? 1 - kq * v1 - v2 : M.ft === 3 ? v1 * M.m : M.ft === 5 ? 1 - kq * v1 : M.ft === 10 ? 1 + M.B * kq * v1 : v2 + 0.8 * v1 * M.m) * M.gS; put(i);
     }
   }
   while (j <= P) out[j++] = y;
@@ -5514,9 +5791,15 @@ function drawBode(s){
     g.setLineDash([2 * d, 4 * d]); g.strokeStyle = 'rgba(242,245,248,0.22)'; g.beginPath(); g.arc(cx, cy, sc, 0, 6.2832); g.stroke();
     // root locus: the path the poles travel as Resonance goes from 0 to 100%
     g.strokeStyle = 'rgba(162,140,255,0.5)'; g.lineWidth = 1.1 * d; g.setLineDash([4 * d, 4 * d]); g.beginPath();
-    if (M.on && M.ft === 0) { const Rm = Math.pow(4.15, .25); for (let q = 0; q < 4; q++) { const a = Math.PI / 4 + q * Math.PI / 2; g.moveTo(X(-1), Y(0)); g.lineTo(X(-1 + Rm * Math.cos(a)), Y(Rm * Math.sin(a))); } }
+    // a pole pair on the unit circle travels from damping h0 down to h1 (h = k / 2)
+    const arcs = (h0, h1) => { const a0 = Math.acos(Math.min(1, h0)), a1 = Math.acos(h1); g.moveTo(cx + Math.cos(Math.PI + a0) * sc, cy + Math.sin(Math.PI + a0) * sc); g.arc(cx, cy, sc, Math.PI + a0, Math.PI + a1, false);
+      g.moveTo(cx + Math.cos(Math.PI - a0) * sc, cy + Math.sin(Math.PI - a0) * sc); g.arc(cx, cy, sc, Math.PI - a0, Math.PI - a1, true); };
+    if (M.on && (M.ft === 0 || M.ft === 8)) { const nP = M.ft === 0 ? 4 : 3, Rm = Math.pow(M.ft === 0 ? 4.15 : 7.6, 1 / nP); for (let q = 0; q < nP; q++) { const a = Math.PI / nP + q * 2 * Math.PI / nP; g.moveTo(X(-1), Y(0)); g.lineTo(X(-1 + Rm * Math.cos(a)), Y(Rm * Math.sin(a))); } }
     else if (M.on && M.ft === 6) { const s0 = Math.log(0.3) / (2 * Math.PI), s1 = Math.log(0.97) / (2 * Math.PI); for (let q = -3; q <= 3; q++) if (q) { g.moveTo(X(s0), Y(q)); g.lineTo(X(s1), Y(q)); } }
-    else if (M.on) { const a0 = Math.acos(0.05); g.moveTo(X(-1), Y(0)); g.arc(cx, cy, sc, Math.PI, Math.PI + a0, false); g.moveTo(X(-1), Y(0)); g.arc(cx, cy, sc, Math.PI, Math.PI - a0, true); }
+    else if (M.on && M.ft === 12) { const s0 = Math.log(0.3) / Math.PI, s1 = Math.log(0.97) / Math.PI; [-3, -1, 1, 3].forEach(q => { g.moveTo(X(s0), Y(q)); g.lineTo(X(s1), Y(q)); }); }
+    else if (M.on && M.ft === 7) arcs(0.3825, 0.0325);
+    else if (M.on && M.ft === 13) arcs(1, 0.075);
+    else if (M.on && M.ft !== 9 && M.ft !== 11) arcs(1, 0.05);
     g.stroke(); g.setLineDash([]);
     if (!mini) {
       g.fillStyle = C.text; font(); g.textAlign = 'center'; g.textBaseline = 'top';
@@ -5539,10 +5822,17 @@ function drawBode(s){
       const dp = domPole(pz), lines = [];
       if (!M.on) lines.push('filter bypassed', 'no poles: a straight wire');
       else {
-        lines.push(M.ft === 0 ? `4 poles · loop gain k ${M.k.toFixed(2)}` : M.ft === 6 ? `a pole per harmonic · fb ${Math.round(M.fb * 100)}%` : `2 poles · ζ ${(M.kq / 2).toFixed(2)} · Q ${(1 / M.kq).toFixed(2)}`);
-        lines.push(`${M.ft === 0 ? 'nearest ' : ''}${dp[0] < 0 ? '−' : '+'}${Math.abs(dp[0]).toFixed(2)} ± ${Math.abs(dp[1]).toFixed(2)}j`);
-        if (M.ft === 0) lines.push(dp[0] >= 0 ? 'k ≥ 4: past the axis' : `ζ ${(-dp[0] / Math.hypot(dp[0], dp[1])).toFixed(2)} · axis at k = 4`);
-        lines.push(dp[0] >= 0 ? 'self-oscillates at fc' : M.ft === 2 ? 'zeros ×2 at 0: cuts lows' : M.ft === 3 ? 'zero at 0: cuts lows' : M.ft === 4 ? 'zero on −σ: adds the band' : M.ft === 5 ? 'zeros on the axis at fc: the notch' : M.ft === 6 ? 'poles at fc, 2fc…: peaks' : 'no zeros: cuts highs');
+        const ft = M.ft, many = ft === 0 || ft === 8 || ft === 7 || ft === 11 || ft === 12 || ft === 13;
+        lines.push(ft === 0 ? `4 poles · loop gain k ${M.k.toFixed(2)}` : ft === 8 ? `3 poles · k ${M.k3.toFixed(2)} (max 7.6)` : ft === 9 ? '1 pole · it can\'t resonate'
+          : ft === 6 ? `a pole per harmonic · fb ${Math.round(M.fb * 100)}%` : ft === 12 ? `odd harmonics only · fb −${Math.round(-M.fb * 100)}%`
+          : ft === 7 ? `2 pairs · Q ${(1 / 1.848).toFixed(2)} & ${(1 / M.kB).toFixed(2)}` : ft === 11 ? `3 pole pairs · vowel "${VOWEL_OF(M.vb[12])}"`
+          : ft === 13 ? `2 stacked pairs · Q ${(1 / M.kP).toFixed(2)}` : `2 poles · ζ ${(M.kq / 2).toFixed(2)} · Q ${(1 / M.kq).toFixed(2)}`);
+        lines.push(`${many ? 'nearest ' : ''}${dp[0] < 0 ? '−' : '+'}${Math.abs(dp[0]).toFixed(2)}${Math.abs(dp[1]) > 0.005 ? ` ± ${Math.abs(dp[1]).toFixed(2)}j` : ''}`);
+        if (ft === 0) lines.push(dp[0] >= 0 ? 'k ≥ 4: past the axis' : `ζ ${(-dp[0] / Math.hypot(dp[0], dp[1])).toFixed(2)} · axis at k = 4`);
+        if (ft === 8) lines.push(`ζ ${(-dp[0] / Math.hypot(dp[0], dp[1])).toFixed(2)} · axis at k = 8`);
+        lines.push(dp[0] >= 0 ? 'self-oscillates at fc' : ft === 2 ? 'zeros ×2 at 0: cuts lows' : ft === 7 ? 'zeros ×4 at 0: cuts lows' : ft === 3 ? 'zero at 0: cuts lows' : ft === 4 ? 'zero on −σ: adds the band'
+          : ft === 5 ? 'zeros on the axis at fc: the notch' : ft === 13 ? 'axis zeros: the two notches' : ft === 10 ? 'zeros + poles: a bump at fc' : ft === 11 ? 'zeros between: the dips'
+          : ft === 6 ? 'poles at fc, 2fc…: peaks' : ft === 12 ? 'poles at fc, 3fc…: odd peaks' : ft === 9 ? 'no zeros: cuts highs gently' : 'no zeros: cuts highs');
       }
       font(10.5); g.textAlign = 'left'; g.textBaseline = 'top';
       lines.forEach((l, i) => { g.fillStyle = i ? C.text : C.ink; g.fillText(l, W * 0.56, lowTop + (20 + i * 16) * d); });
@@ -5569,8 +5859,9 @@ function drawBode(s){
       if (!M.on) lines.push('bypassed: out = in');
       else if (unstable) lines.push('unstable: grows until the', 'saturation holds it');
       else {
-        if ((M.ft === 0 || M.ft === 1 || M.ft === 4) && fin > 0.01) lines.push(`overshoot ${Math.max(0, Math.round((mx / fin - 1) * 100))}%`, `settles at ${fin.toFixed(2)}`);
-        else lines.push(M.ft === 2 ? 'jumps, then falls back to 0' : M.ft === 5 ? 'passes the jump, rings a little' : M.ft === 6 ? 'a staircase: one echo per period' : 'a kick that dies back to 0');
+        if ((M.ft === 0 || M.ft === 1 || M.ft === 4 || M.ft === 8 || M.ft === 9) && fin > 0.01) lines.push(`overshoot ${Math.max(0, Math.round((mx / fin - 1) * 100))}%`, `settles at ${fin.toFixed(2)}`);
+        else lines.push(M.ft === 2 || M.ft === 7 ? 'jumps, then falls back to 0' : M.ft === 5 ? 'passes the jump, rings a little' : M.ft === 6 ? 'a staircase: one echo per period'
+          : M.ft === 12 ? 'a see-saw: flips every half period' : M.ft === 10 ? 'passes the jump plus a ringing kick' : M.ft === 13 ? 'passes, dips, settles at 1' : M.ft === 11 ? 'three rings at once: the formants' : 'a kick that dies back to 0');
         if (ring > 0) lines.push(`rings ≈ ${fHz(ring)}`);
       }
       font(10.5); g.textAlign = 'right'; g.textBaseline = 'top';
@@ -5649,7 +5940,7 @@ function updateScopeText(win){
   } else if (state.mode === 'spec') info = `f0 ${fHz(tele.f0)} · fc ${fHz(tele.c)} · Nyquist ${fHz(SR / 2)}`;
   else if (state.mode === 'bode') {
     const b = bode.info;
-    info = !b ? '' : !b.M.on ? 'filter bypassed · flat: every frequency passes' : `${FT_NAME[b.M.ft]} · fc ${fHz(b.M.fc)} · ${b.M.ft === 0 && b.M.k >= 4 ? 'k ≥ 4: self-oscillating' : b.peaked ? `peak ${sgnDb(b.pk)} dB at ${fHz(b.pkF)}` : `${sgnDb(b.atFc)} dB at fc`}`;
+    info = !b ? '' : !b.M.on ? 'filter bypassed · flat: every frequency passes' : `${FT_NAME[b.M.ft]}${b.M.ft === 11 ? ` "${VOWEL_OF(b.M.vb[12])}"` : ''} · fc ${fHz(b.M.fc)} · ${b.M.ft === 0 && b.M.k >= 4 ? 'k ≥ 4: self-oscillating' : b.peaked ? `peak ${sgnDb(b.pk)} dB at ${fHz(b.pkF)}` : `${sgnDb(b.atFc)} dB at fc`}`;
   }
   else if (state.mode === 'gram') info = `≈8 s across · ${state.run ? 'Stop, then touch to scrub' : 'touch and drag to scrub'}`;
   else info = '4 s window · band = key held · touch for values';
@@ -6135,7 +6426,7 @@ const LESSONS = [
   {x:"Raise Resonance to about 70%. A whistly peak appears right at the cutoff.", focus:['res'], goal:S=>S.p.res>=.65,
    more:{h:'Resonance', b:['Resonance feeds part of the filter\'s output back into its input, so harmonics right at the cutoff get reinforced.', 'In controls terms you are lowering the damping: more resonance means a sharper, more underdamped peak (a higher Q). Push it far enough and the filter rings on its own. The Moog deep dive explores that.']}},
   {x:"Keep resonance up and sweep Cutoff slowly up and down. That vowel-like “wah” is one of the classic synth sounds.", focus:['cut'], goal:(S,E)=>moved(S.p.cut,E.p.cut,2)},
-  {x:"Change Type from LP24 to HP. Now the bottom is removed instead: thin and airy.", focus:['ftype'], goal:S=>S.p.ftype===2,
+  {x:"Change Type from LP24 to HP12. Now the bottom is removed instead: thin and airy.", focus:['ftype'], goal:S=>S.p.ftype===2,
    more:{h:'Types and slopes', b:['<b>LP</b> (lowpass) keeps the lows, <b>HP</b> (highpass) keeps the highs, <b>BP</b> (bandpass) keeps a band around the cutoff.', 'The number is the slope, how hard it cuts past the cutoff. LP24 removes 24 dB per octave: steep and smooth. LP12 removes 12 dB per octave: gentler and a bit brighter. At 24 dB/oct, one octave above cutoff a harmonic ends up about 16× smaller.']}},
   {nord:1, x:"On your Nord, find the filter's frequency and resonance controls and do the same slow sweep. Its filter offers LP12, LP24, HP and BP too, plus a ladder model called LP M."},
   ]},
@@ -6157,7 +6448,7 @@ const LESSONS = [
   {x:"On the Patch page's Filter tab, lower Cutoff to about 300 Hz. The spectrum now slopes down and the noise turns into a rumble, like distant surf.", focus:['cut'], goal:S=>S.p.cut<=400},
   {x:"That slope is 12 dB per octave, steeper than true brown noise's 6, but it shows the idea: tilting the spectrum changes the colour.",
    more:{h:'Noise in practice', b:['Pink noise is used to test speakers and rooms because it excites every octave equally. Filtered noise is the raw material for wind, surf, snares, hi-hats and breath.']}},
-  {x:"Switch the filter to HP and raise Cutoff to about 5 kHz: a thin, airy hiss, the basis of hi-hats and cymbals.", focus:['ftype','cut'], goal:S=>S.p.ftype===2&&S.p.cut>=4000},
+  {x:"Switch the filter to HP12 and raise Cutoff to about 5 kHz: a thin, airy hiss, the basis of hi-hats and cymbals.", focus:['ftype','cut'], goal:S=>S.p.ftype===2&&S.p.cut>=4000},
   ]},
 /* ============================ ENVELOPES & LFO ============================ */
 { id:'ampenv', g:2, t:'The amp envelope', s:'Attack, decay, sustain, release: shaping each note.',
@@ -6319,7 +6610,7 @@ const LESSONS = [
   {x:"This is LP24 at 800 Hz. Notice how fast the spikes fall past the dashed line.",
    more:{h:'Poles and slopes', b:['A single RC stage, one pole, rolls off at 6 dB per octave past its cutoff. LP12 behaves like two poles, LP24 like four. More poles, steeper wall.', 'Same idea as a first-order versus a fourth-order low-pass on a sensor signal: the higher the order, the sharper the transition.'], m:'slope ≈ −6 dB/oct × number of poles'}},
   {x:"Switch to LP12. Same cutoff, but more of the upper harmonics leak through: brighter and buzzier.", focus:['ftype'], goal:S=>S.p.ftype===1},
-  {x:"Switch to HP. Now the low spikes vanish and the sound goes thin. Highpass is handy for clearing mud from pads.", focus:['ftype'], goal:S=>S.p.ftype===2},
+  {x:"Switch to HP12. Now the low spikes vanish and the sound goes thin. Highpass is handy for clearing mud from pads.", focus:['ftype'], goal:S=>S.p.ftype===2},
   {x:"Switch to BP and raise Resonance to about 60%. Only a band near the cutoff survives: nasal, like a telephone.", focus:['ftype','res'], goal:S=>S.p.ftype===3&&S.p.res>=.55},
   {x:"Sweep Cutoff with BP on. It sounds like a moving vowel, the basis of wah-style sounds.", focus:['cut'], goal:(S,E)=>moved(S.p.cut,E.p.cut,1.5)},
   {x:"Pick LP+BP: a lowpass with a bandpass layered on top. You keep the full body plus a nasal, vocal edge at the cutoff.", focus:['ftype'], goal:S=>S.p.ftype===4,
@@ -6333,12 +6624,42 @@ const LESSONS = [
    more:{h:'Notch', b:['A notch (band-reject) filter is a lowpass and a highpass added together. Each one passes its own side of the cutoff, and right at the cutoff they cancel.', 'Here Resonance makes the notch narrower, the opposite of how it behaves on the other types.'], m:'H(s) = (s² + 1) / (s² + k·s + 1)'}},
   {x:"On the Patch page's Filter tab, sweep Cutoff slowly. The dip slides through the noise with a soft, phasey whoosh. A phaser is a few notches like this, swept by an LFO.", focus:['cut'], goal:(S,E)=>moved(S.p.cut,E.p.cut,1.5)},
   {x:"Change Resonance: higher makes the notch narrow and subtle, lower makes it a wide scoop.", focus:['res'], goal:(S,E)=>Math.abs(S.p.res-E.p.res)>=.3},
-  {x:"Now pick Comb. Instead of one dip there's a row of peaks, one at every multiple of the cutoff, like the teeth of a comb.", setup:{cut:500, res:.4}, focus:['ftype'], goal:S=>S.p.ftype===6,
+  {x:"Now pick Comb+. Instead of one dip there's a row of peaks, one at every multiple of the cutoff, like the teeth of a comb.", setup:{cut:500, res:.4}, focus:['ftype'], goal:S=>S.p.ftype===6,
    more:{h:'Comb filter', b:['A comb filter adds the sound to a copy of itself delayed by one period of the cutoff, and feeds that back. Frequencies whose cycles line up with the delay are reinforced; the ones in between cancel.', 'It is the same circuit as a flanger (a comb swept by an LFO) and the plucked-string model (a comb fed a noise burst). Resonance here is the feedback: more feedback, sharper teeth.'], m:'y[n] = x[n] + fb · y[n − D],   D = sample rate ÷ cutoff'}},
   {x:"Raise Resonance to about 85%. The noise now rings with a clear pitch: the cutoff's.", focus:['res'], goal:S=>S.p.res>=.8},
   {x:"Make it playable: set Key Track to 100% and Cutoff to about 220 Hz, then play. The comb follows the keys in tune, like a string or a pipe resonating.", hold:null, focus:['kt','cut'], goal:S=>S.p.kt>=.95&&inR(S.p.cut,150,330)},
   {x:"Give it motion: on the Filter Env pedal, raise Env Amt to about +2 oct. Each note's teeth zip down as the envelope falls.", setup:{fA:.002, fD:.4, fS:0, fR:.3, aS:.8, aR:.4}, focus:['fenv'], goal:S=>S.p.fenv>=1.5},
+  {x:"Pick Comb−. Half the delay, and the feedback flipped: now only the odd multiples of the cutoff ring. It sounds hollow and woody, like a clarinet, which also has only odd harmonics.", setup:{fenv:0}, focus:['ftype'], goal:S=>S.p.ftype===12,
+   more:{h:'Negative feedback', b:['With the feedback inverted, a frequency is reinforced when the delayed copy comes back upside down and half a cycle late, which flips it back in line. With a delay of half the cutoff\'s period, that happens at the cutoff, three times the cutoff, five times, and so on.', 'A flanger\'s Feedback knob does the same thing when it goes negative: the sweep turns hollow.'], m:'peaks at f = (2n + 1) · fc'}},
+  {x:"Switch back to Comb+ for the last step.", focus:['ftype'], goal:S=>S.p.ftype===6},
   {x:"On the Scope page, switch to Bode and pick Poles. The comb is a row of poles, one per tooth, all the same distance from the axis. More Resonance moves them all closer to it.", go:{page:1}, focus:['modeSeg','bodeSeg'], goal:S=>S.mode==='bode'&&S.low==='poles'},
+  ]},
+{ id:'filtfam', g:3, t:'The filter picker', s:'Fourteen filters in four families, compared by eye and by ear.',
+  setup:{...BASE, o1w:2, mix2:.6, o2fine:7, cut:900, res:.3, kt:0}, hold:45, go:{page:0, tab:'filter', mode:'bode', low:'phase', tap:'filter'},
+  steps:[
+  {x:"The Filter tab shows every type as a tile, grouped into families: low-pass, high-pass, band, and notch & comb. Each tile draws its own response, all at the same cutoff, so the shapes compare at a glance.", focus:['ftype'],
+   more:{h:'Reading a tile', b:['Each tile spans about a decade either side of the cutoff (the small tick at the bottom). The dotted line is 0 dB: above it the filter boosts, below it the filter cuts.', 'The tile you picked is lit and live: it moves with the filter envelope and the LFO while you play.']}},
+  {x:"Turn Resonance up slowly and watch the tiles: every curve changes at once. The low-pass peaks grow, the notch narrows, the comb's teeth sharpen. LP6 doesn't move at all.", focus:['res'], goal:(S,E)=>Math.abs(S.p.res-E.p.res)>=.3,
+   more:{h:'Why LP6 ignores it', b:['Resonance comes from feedback around two or more poles. A single pole (one RC stage) can lag at most 90°, so feedback can never bring it back in phase with itself. No peak is possible, and the knob goes dark.']}},
+  {x:"Keep the note held and slide your finger along the low-pass row, from LP24 to LP6. Each tile plays as your finger reaches it: the gentler the slope, the brighter the sound.", focus:['ftype'], goal:(S,E)=>(S.n.ftype||0)-(E.n.ftype||0)>=3},
+  {x:"Pick LP18: a three-pole ladder, 18 dB per octave, between LP12 and LP24. Its resonance stops just short of whistling, part of the TB-303's squelch.", focus:['ftype'], goal:S=>S.p.ftype===8,
+   more:{h:'Three poles', b:['A ladder self-oscillates when its loop gain pushes the poles onto the jω axis. Four poles get there at k = 4; three poles need k = 8.', 'LP18\'s Resonance tops out at k = 7.6, so it rings hard but never quite sings on its own. Try it on the Scope page\'s Poles view.'], m:'self-oscillation at k = 1 / cosⁿ(π/n):   n = 4 → 4,   n = 3 → 8'}},
+  {x:"Pick HP24, the mirror of LP24: it removes the lows twice as steeply as HP12. Handy for clearing a pad out of a bass line's way without thinning its middle.", focus:['ftype'], goal:S=>S.p.ftype===7},
+  {x:"Pick LP6 and turn Cutoff down to about 400 Hz. One RC stage, 6 dB per octave: a gentle tone control, like the treble knob on a guitar amp.", focus:['ftype','cut'], goal:S=>S.p.ftype===9&&S.p.cut<=600},
+  ]},
+{ id:'peakvowel', g:3, t:'Peak, vowel and phaser', s:'Filters that colour a sound instead of removing part of it.',
+  setup:{...BASE, o1w:2, mix2:.6, o2fine:7, ftype:10, cut:1000, res:.4, kt:0}, hold:45, go:{page:0, tab:'filter', mode:'spec', tap:'filter', lin:false, ghost:true},
+  steps:[
+  {x:"This is Peak: the whole sound passes, plus a boost around the cutoff, like one band of an EQ. Sweep Cutoff and the boost walks through the harmonics.", focus:['cut'], goal:(S,E)=>moved(S.p.cut,E.p.cut,1.5),
+   more:{h:'Peak', b:['A peak filter adds a bandpass back on top of the dry sound. Inside the band the two add up; everywhere else the dry sound passes untouched.', 'Resonance raises the boost and narrows it at the same time.'], m:'H(s) = 1 + B · k·s / (s² + k·s + 1)'}},
+  {x:"Raise Resonance to about 80%. The boost becomes a narrow, ringing whistle riding on the full sound.", focus:['res'], goal:S=>S.p.res>=.75},
+  {x:"Pick Vowel: three bandpasses at once, placed where a voice's formants sit. Cutoff now picks the vowel: low is 'oo', the middle 'ah', high 'ee'.", setup:{res:.35}, focus:['ftype'], goal:S=>S.p.ftype===11,
+   more:{h:'Formants', b:['Your mouth is a filter. Each vowel puts its resonances (formants) in different places: "ah" has its first two near 800 and 1150 Hz, "ee" near 270 and 2300 Hz.', 'The note you sing doesn\'t move them, which is why a vowel sounds the same on any pitch. Keep Key Track low with this filter for the same reason.']}},
+  {x:"Sweep Cutoff slowly from bottom to top: oo, oh, ah, eh, ee. The parameter display names the vowel as you go.", focus:['cut'], goal:(S,E)=>moved(S.p.cut,E.p.cut,2)},
+  {x:"Make it talk: on the Filter Env pedal, raise Env Amt to about +2 oct, then play a few notes. Each one says 'yah'.", setup:{cut:300, fA:.03, fD:.45, fS:.2, fR:.3}, hold:null, focus:['fenv'], goal:(S,E)=>S.p.fenv>=1.5&&S.gates>=E.gates+2},
+  {x:"Pick Phaser: two notches either side of the cutoff. Held still it's subtle, a slightly hollow tone.", setup:{fenv:0, cut:1000, res:.6}, hold:45, focus:['ftype'], goal:S=>S.p.ftype===13,
+   more:{h:'All-pass filters', b:['A phaser runs the sound through all-pass filters, which keep every frequency\'s level but delay some more than others. Mixed back with the dry sound, whatever comes out half a cycle late cancels: those are the notches.', 'Two all-pass stages give two notches. A phaser pedal is the same circuit with an LFO sweeping it.'], m:'H = (1 + A²) / 2,   A(s) = (s² − k·s + 1) / (s² + k·s + 1)'}},
+  {x:"Now make it a phaser pedal: on the LFO, set Rate to about 0.3 Hz and → Cutoff to about 1.5 oct. The notches sweep up and down: whoosh.", focus:['lrate','lcut'], goal:S=>S.p.lcut>=1&&inR(S.p.lrate,.1,.8)},
   ]},
 { id:'keytrack', g:3, t:'Key tracking', s:'Make the filter follow the keyboard.',
   setup:{...BASE, cut:500, res:.35, kt:0}, hold:null, go:{page:0, tab:'filter', mode:'spec', tap:'filter', lin:false, ghost:true},
@@ -6385,12 +6706,12 @@ const LESSONS = [
   setup:{...BASE, o1w:2, mix2:.6, o2fine:7, cut:700, res:.45, kt:.5, drive:.2, fenv:2, fD:.4, fS:.3}, hold:null, go:{page:0, tab:'filter', mode:'spec', tap:'filter', lin:false, ghost:true},
   steps:[
   {x:"Filters give synths much of their personality. This is a Moog-style ladder: LP24 with moderate resonance. Warm, smooth and round. Play a few notes.", goal:(S,E)=>S.gates>=E.gates+2,
-   more:{h:'Why filters differ', b:['Filter circuits differ in their slope, how resonance behaves, how much the bass drops as resonance rises, and how they distort when driven. Those details are what people mean by a filter\'s character.', 'This synth has two filter cores, a ladder and a state-variable, so these are flavours rather than exact copies.']}},
+   more:{h:'Why filters differ', b:['Filter circuits differ in their slope, how resonance behaves, how much the bass drops as resonance rises, and how they distort when driven. Those details are what people mean by a filter\'s character.', 'This synth builds its filters from a few cores: the ladder (LP24 and LP18), the state-variable (most of the rest), a single RC pole (LP6) and a comb, so these are flavours rather than exact copies.']}},
   {x:"Oberheim SEM style: switch to LP12. A gentler 12 dB slope keeps more brightness and body, great for brassy polysynth sounds.", focus:['ftype'], goal:S=>S.p.ftype===1,
-   more:{h:'State-variable filters', b:['The Oberheim SEM used a 12 dB state-variable filter that could morph between lowpass, notch and highpass. State-variable filters produce several outputs at once, which is how this synth offers LP12, HP, BP and LP+BP from one core.']}},
+   more:{h:'State-variable filters', b:['The Oberheim SEM used a 12 dB state-variable filter that could morph between lowpass, notch and highpass. State-variable filters produce several outputs at once, which is how this synth offers LP12, HP12, BP, LP+BP, Notch and Peak from one core.']}},
   {x:"Korg MS-20 style: aggressive and screaming. Set Resonance to about 85% and Drive to about 70%.", focus:['res','drive'], goal:S=>S.p.res>=.8&&S.p.drive>=.6},
-  {x:"TB-303 style: back to LP24, high resonance around 75%, and a short filter envelope. Squelchy and rubbery. The Acid bass recipe builds this fully.", focus:['ftype','res'], goal:S=>S.p.ftype===0&&inR(S.p.res,.65,.85),
-   more:{h:'The 303 filter', b:['The TB-303 used a diode ladder, a cousin of Moog\'s transistor ladder, often described as behaving like roughly an 18 dB/oct slope. Together with its accent circuit, that gave its distinctive squelch.']}},
+  {x:"TB-303 style: pick LP18 and set Resonance to about 75%. Three poles instead of four, and a resonance that squelches but never quite whistles. Squelchy and rubbery. The Acid bass recipe builds this fully.", focus:['ftype','res'], goal:S=>S.p.ftype===8&&inR(S.p.res,.65,.85),
+   more:{h:'The 303 filter', b:['The TB-303 used a diode ladder, a cousin of Moog\'s transistor ladder, often described as behaving like roughly an 18 dB/oct slope. Together with its accent circuit, that gave its distinctive squelch.', 'LP18 is a three-pole ladder: it falls 18 dB per octave, and its resonance stops just short of self-oscillation.']}},
   {x:"When you read about a synth, the filter is usually the first thing reviewers describe. Now you know what to listen for: slope, resonance, bass loss and drive."},
   ]},
 /* ============================ FREQUENCY RESPONSE ============================ */
@@ -6403,7 +6724,7 @@ const LESSONS = [
    more:{h:'Where is the cutoff?', b:['For a single pole, the cutoff is the −3 dB point. The ladder is four poles, each −3 dB at the cutoff, so together they are −12 dB there.', 'For resonant filters “cutoff” really means the natural frequency, where the resonance peak appears, rather than a −3 dB point.'], m:'4 × (−3 dB) = −12 dB at fc'}},
   {x:"Switch the filter to LP12. One grid line per octave now, and the phase only falls to −180°: two poles instead of four. More harmonics get through, so it's brighter and buzzier.", focus:['ftype'], goal:S=>S.p.ftype===1,
    more:{h:'Two poles', b:['With Resonance at 0, the LP12 is critically damped: no peak, and −6 dB at the cutoff (each of its two poles gives about −3 dB).']}},
-  {x:"Pick HP. It's the mirror image: the curve climbs 12 dB per octave up to the cutoff, then stays flat. Phase starts at +180° and falls to 0°.", focus:['ftype'], goal:S=>S.p.ftype===2,
+  {x:"Pick HP12. It's the mirror image: the curve climbs 12 dB per octave up to the cutoff, then stays flat. Phase starts at +180° and falls to 0°.", focus:['ftype'], goal:S=>S.p.ftype===2,
    more:{h:'Leading phase', b:['A highpass makes its output lead the input below the cutoff. That is the opposite of a lowpass, whose output lags.', 'Sound-wise it removes the fundamental and the low harmonics, so the note thins out but keeps its edge.']}},
   {x:"Pick BP: up 6 dB per octave, then down 6 dB per octave. That's one pole's worth on each side, so the band is wide unless Resonance narrows it.", focus:['ftype'], goal:S=>S.p.ftype===3},
   {x:"Pick LP+BP. It's a lowpass with the bandpass mixed in: the knee bulges and the top slope eases to 6 dB per octave.", focus:['ftype'], goal:S=>S.p.ftype===4},
@@ -6446,7 +6767,7 @@ const LESSONS = [
   {x:"Turn Cutoff. The ringing speeds up and slows down with it: a resonant filter always rings near its cutoff.", focus:['cut'], goal:(S,E)=>moved(S.p.cut,E.p.cut,1)},
   {x:"Listen: every edge of this low square wave is a step, and each one makes the filter ring. That's the resonant zap at the start of each half-cycle.",
    more:{h:'Seeing it on the wave', b:['Switch the Scope to Wave on the Filter test point to watch it: a decaying wiggle after every jump. The deep dive “Resonance in time” measures its frequency with the cursor.']}},
-  {x:"Switch to HP. Its step jumps straight up and then falls back to 0: a highpass passes sudden changes but not steady levels. That's why it thins a sound but keeps the attack.", focus:['ftype'], goal:S=>S.p.ftype===2},
+  {x:"Switch to HP12. Its step jumps straight up and then falls back to 0: a highpass passes sudden changes but not steady levels. That's why it thins a sound but keeps the attack.", focus:['ftype'], goal:S=>S.p.ftype===2},
   ]},
 { id:'splane', g:4, t:'Poles and the s-plane', s:'Where resonance lives: poles, the root locus and self-oscillation.',
   setup:{...BASE, o1w:2, ftype:0, cut:800, res:0, kt:0}, hold:45, go:{page:1, mode:'bode', low:'phase', meas:false},
@@ -6460,7 +6781,7 @@ const LESSONS = [
    more:{h:'Self-oscillation', b:['At k = 4 the poles reach the axis; past it they would grow without limit. In the circuit, and in this model, the transistors saturate (tanh here), which holds the oscillation at a steady level.', 'That is why a ladder at full resonance can be played as a sine oscillator. Set Key Track to 100% and it follows the keyboard.']}},
   {x:"Switch to LP12. Its two poles travel around the circle instead: close to the axis, but never across. It can ring for a long time but doesn't self-oscillate here.", focus:['ftype'], goal:S=>S.p.ftype===1,
    more:{h:'Damping from the angle', b:['For a pole pair on the circle, the damping ratio ζ is the cosine of the angle between a pole and the negative σ axis. Straight left: ζ = 1, no overshoot. Nearly vertical: ζ close to 0, a long ring.'], m:'ζ = cos θ        Q = 1 / (2ζ)'}},
-  {x:"Try HP and BP. The poles stay put; only the zeros (○) change. Poles set the resonance and zeros set what gets cut: HP's two zeros at 0 Hz remove the bass.", focus:['ftype'], goal:S=>S.p.ftype===2||S.p.ftype===3},
+  {x:"Try HP12 and BP. The poles stay put; only the zeros (○) change. Poles set the resonance and zeros set what gets cut: HP12's two zeros at 0 Hz remove the bass.", focus:['ftype'], goal:S=>S.p.ftype===2||S.p.ftype===3},
   ]},
 { id:'movefilt', g:4, t:'A filter that moves', s:'Key tracking, envelopes and LFOs as motion of the curve.',
   setup:{...BASE, o1w:2, mix1:.5, cut:600, res:.4, kt:0, fenv:0}, hold:null, go:{page:0, tab:'filter', mode:'bode', low:'phase', meas:true},
@@ -6901,7 +7222,7 @@ const LESSONS = [
   {x:"Tap the three keys again to release them. Then voice it open: tap a low C, go up two octaves (▲ ▲), and add E and G there.", goal:S=>S.nv>=3&&S.note>=60},
   {x:"Much clearer: a single low root, with the harmonies high up. Pianists call it an open voicing, and it matters even more on synths.",
    more:{h:'Voicing rules of thumb', b:['Keep intervals wide in the bass (octaves and fifths) and put thirds and colour notes higher up. Let one part own the low end. Synth pads often sound best voiced in the middle register with the bass played separately.']}},
-  {x:"Another fix is filtering: on the Patch page's Filter tab, pick HP and raise Cutoff to about 200 Hz. A pad with its lows trimmed leaves room for a bass part.", focus:['ftype','cut'], goal:S=>S.p.ftype===2&&S.p.cut>=150},
+  {x:"Another fix is filtering: on the Patch page's Filter tab, pick HP12 and raise Cutoff to about 200 Hz. A pad with its lows trimmed leaves room for a bass part.", focus:['ftype','cut'], goal:S=>S.p.ftype===2&&S.p.cut>=150},
   ]},
 { id:'glide', g:7, t:'Glide', s:'Slide between notes, mono-synth style.',
   setup:{...BASE, mix2:.5, o2w:2, o2fine:7, cut:1800, res:.25, glide:0}, hold:null, go:{page:0, tab:'osc1', mode:'wave', tap:'osc', zoom:10.5},
@@ -7005,7 +7326,7 @@ const LESSONS = [
   steps:[
   {x:"A full-range pad: low octave, bright top. On its own it sounds great. In a song it would fight with the bass, the vocals and the drums.",
    more:{h:'Masking', b:['When two sounds have energy in the same frequency range, the louder one hides, or masks, the other. Arranging is partly deciding which part owns which range.']}},
-  {x:"Trim the lows: on the Filter tab, pick HP and raise Cutoff to about 250 Hz. The pad gets lighter and leaves the bottom for a bass part.", focus:['ftype','cut'], goal:S=>S.p.ftype===2&&S.p.cut>=180},
+  {x:"Trim the lows: on the Filter tab, pick HP12 and raise Cutoff to about 250 Hz. The pad gets lighter and leaves the bottom for a bass part.", focus:['ftype','cut'], goal:S=>S.p.ftype===2&&S.p.cut>=180},
   {x:"Tame the top: on the FX tab's EQ pedal, turn Treble down about 6 dB, so cymbals and vocals have room.", focus:['eqHi'], goal:S=>S.p.eqHi<=-4},
   {x:"Carve the middle: cut Mid by about 4 dB around 1–3 kHz, where vocals are most present.", focus:['eqMid','eqFreq'], goal:S=>S.p.eqMid<=-3&&inR(S.p.eqFreq,900,3500)},
   {x:"Soloed, the pad now sounds thinner. In a mix it sounds clearer. Judge sounds in context whenever you can."},
@@ -7169,7 +7490,7 @@ const LESSONS = [
    more:{h:'Anatomy of a kick', b:['An electronic kick is a sine whose pitch dives from a few hundred hertz to around 50 Hz in tens of milliseconds. The dive is the punch; the low tail is the boom.']}},
   {x:"On the Mod Env's Shape page, change Decay: short is a tight click, long is a boomy 808-style drop.", focus:['mD'], goal:(S,E)=>changed(S,E,['mD'])},
   {x:"Snare: on the Mix tab, set Noise to about 60% and OSC 1 to about 40%, then shorten Amp Decay to about 150 ms.", setup:{mePitch:8}, focus:['noise','mix1','aD'], goal:S=>S.p.noise>=.5&&S.p.aD<=.2},
-  {x:"Hi-hat: OSC 1 to 0 and Noise to 100%. On the Filter tab, pick HP with Cutoff around 7 kHz, and set Amp Decay to about 60 ms.", focus:['mix1','ftype','cut'], goal:S=>S.p.mix1<=.02&&S.p.ftype===2&&S.p.cut>=5000},
+  {x:"Hi-hat: OSC 1 to 0 and Noise to 100%. On the Filter tab, pick HP12 with Cutoff around 7 kHz, and set Amp Decay to about 60 ms.", focus:['mix1','ftype','cut'], goal:S=>S.p.mix1<=.02&&S.p.ftype===2&&S.p.cut>=5000},
   {x:"Add a little Reverb for room sound. Classic drum machines built their sounds from parts much like these.", focus:['rvMix'], goal:S=>S.p.rvMix>=.1},
   ]},
 { id:'sfx', g:10, t:'Zaps and risers', s:'Sound effects from pitch and filter sweeps.',
@@ -8105,7 +8426,7 @@ function frame(){
   let win = 0;
   if (showBig) { win = drawScreen(screens[0]) || Math.pow(2, state.zoomL2); drawRail(); }
   if (showMini || frameN % 6 === 0) drawScreen(screens[1]);
-  if (showMini) { drawTabs(); if (FXB.cv) { drawFxBoard(); drawLib(); } }
+  if (showMini) { drawTabs(); if (FXB.cv) { drawFxBoard(); drawLib(); } if (FTP.tiles.length) drawFtPick(); }
   if (FXB.drag) drawGhost();
   if (tgtDirty && frameN % 4 === 0) { computeTargets(); if (hud.k) hudText(); }
   if (hud.k) { if (frameN % 30 === 0) hudResize(); if (coach.L && performance.now() > hud.until) hudHide(); else drawHud(); }
