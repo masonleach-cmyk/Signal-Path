@@ -3665,6 +3665,7 @@ let padHitAcc = 0;
 const envHist = [];
 function onTele(t){
   if (t.pm) padHitAcc |= t.pm;
+  Engine.lastTele = performance.now();
   Object.assign(tele, t);
   if (state.run) { envHist.push({t: performance.now(), a: t.a, f: t.f, m: t.m || 0, c: t.c, g: t.g, l: t.l}); if (envHist.length > 1200) envHist.splice(0, envHist.length - 1000); }
 }
@@ -3709,9 +3710,24 @@ const Engine = {
     this.an = [];
     [0, 1, 2, 3, 5, 6].forEach(i => { const a = ctx.createAnalyser(); a.fftSize = N; a.smoothingTimeConstant = 0.5; split.connect(a, i); a.connect(sink); this.an[i] = a; });
     this.post({t:'all', v:effP()});
-    this.ready = true;
+    this.ready = true; this.lastTele = performance.now();
+    // iOS stops the audio whenever its audio session changes (the microphone opening or closing, a call, Siri): the context
+    // goes "interrupted" or suspended and nothing brings it back. Ask for it back at once (allowed once audio has started)
+    ctx.onstatechange = () => { if (ctx.state !== 'running' && ctx.state !== 'closed' && !this.kicking && !document.hidden) ctx.resume().catch(() => {}); };
     probePost();
     smpResend(); padsResend();
+  },
+  /* waking the audio after iOS has stopped it. The context may say suspended or "interrupted", or still say running while
+     nothing renders (the engine's telemetry has stopped arriving): resume it, or for the silent kind stop and restart it,
+     the same thing leaving the app and coming back does */
+  lastTele:0, kicking:false,
+  stalled(){ return this.ready && !this.kicking && !document.hidden && this.ctx.state === 'running' && performance.now() - this.lastTele > 1000; },
+  wake(){
+    if (!this.ready) return; const c = this.ctx; if (c.state === 'closed') return;
+    if (c.state !== 'running') { c.resume().catch(() => {}); return; }
+    if (!this.stalled()) return;
+    this.kicking = true;
+    c.suspend().catch(() => {}).then(() => c.resume()).catch(() => {}).then(() => { this.kicking = false; this.lastTele = performance.now(); });
   },
   /* the recorder: hears the synth's own output (resampling) or the microphone, and hands blocks to fn until stopped */
   recNode(){
@@ -7886,6 +7902,9 @@ function allQuiet(){
 }
 const awake = () => { allQuiet(); const c = Engine.ctx; if (c && c.state !== 'running' && c.state !== 'closed') c.resume().catch(() => {}); };
 document.addEventListener('visibilitychange', () => document.hidden ? allQuiet() : awake());
+// any touch is a chance to bring stopped audio back (a tap counts as permission to play on iOS), wherever it lands:
+// the sample library, the pads, the keys
+['pointerdown', 'touchend', 'keydown'].forEach(t => addEventListener(t, () => Engine.wake(), true));
 addEventListener('pagehide', allQuiet);
 addEventListener('pageshow', e => { if (e.persisted) awake(); });
 // computer keyboard (desktop)
@@ -10812,7 +10831,14 @@ async function capStop(save){
   if (!CAP.mode) return;
   const R = Engine.rec; if (R) R.off();
   try { if (CAP.src) CAP.src.disconnect(R.node); } catch (e) {}
-  if (CAP.stream) { CAP.stream.getTracks().forEach(t => t.stop()); CAP.stream = null; try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {} try { Engine.ctx.resume(); } catch (e) {} }
+  if (CAP.stream) {
+    CAP.stream.getTracks().forEach(t => t.stop()); CAP.stream = null;
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+    // closing the microphone switches the phone's audio back from recording to playback, and iOS stops the audio while it
+    // does (the reason a fresh recording would not play until the app was left and reopened): wake it now, and again once
+    // the switch has settled
+    Engine.wake(); [250, 800, 1600].forEach(ms => setTimeout(() => Engine.wake(), ms));
+  }
   const mode = CAP.mode, ch = CAP.ch, had = CAP.phase === 'rec' && CAP.n > SR * 0.03;
   Object.assign(CAP, {mode:null, phase:null, ch:[], pre:[], n:0, src:null});
   sxCapUI();
