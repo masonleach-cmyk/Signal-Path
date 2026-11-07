@@ -1876,7 +1876,7 @@ class SynthDSP {
     if (d.ls != null) S.ls = d.ls; if (d.le != null) S.le = d.le;
     S.ls = cl(S.ls, S.ts, S.te - 2); S.le = cl(S.le, S.ls + 2, S.te);
     if (S.le - S.ls < 64) { S.ls = S.ts; S.le = S.te; }
-    if (d.root != null) S.rf = 440 * Math.pow(2, (d.root - 69) / 12);
+    if (d.root != null && isFinite(d.root)) S.rf = 440 * Math.pow(2, (d.root - 69) / 12);
     // the sound's own level (dB) and its slices (where each starts, in samples, in order)
     if (d.g != null) S.gn = Math.pow(10, Math.max(-24, Math.min(24, d.g)) / 20);
     if (d.sl !== undefined) S.sl = Array.isArray(d.sl) && d.sl.length ? d.sl.map(x => Math.max(0, Math.min(n - 1, Math.round(x)))).sort((a, b) => a - b) : null;
@@ -3103,6 +3103,12 @@ class SPProc extends AudioWorkletProcessor {
     this.d.fr = currentFrame; this.d.tk = this.d.tkOn ? [c(7), c(8)] : null;
     try { this.d.render(c(0), c(1), c(2), c(3), c(4), c(5), c(6), n); }
     catch (e) { for (let j = 0; j < 7; j++) c(j).fill(0); try { this.d.kill(); this.d.dcx = this.d.dcy = 0; } catch (er) {} if (!this.e) { this.e = 1; this.port.postMessage({t:'err', m:String(e && e.message)}); } }
+    // a NaN anywhere (a bad value reaching a filter or an echo) would stay in the engine's memory and silence everything for
+    // good: never let it out, and start a clean engine, which the page refills (at most once a second)
+    const o0 = c(0), o4 = c(4); let bad = false;
+    for (let j = 0; j < n; j++) if (!isFinite(o0[j]) || !isFinite(o4[j])) { bad = true; break; }
+    if (bad) { for (let j = 0; j < 9; j++) c(j).fill(0);
+      if (!(currentFrame - (this.rs || -1e9) < sampleRate)) { this.rs = currentFrame; this.d = new SynthDSP(sampleRate); this.port.postMessage({t:'reset'}); return true; } }
     const d = this.d; if (d.out.length) { for (const m of d.out) this.port.postMessage(m); d.out.length = 0; }
     if (++this.c >= 3) { this.c = 0; this.port.postMessage(d.tele); d.pmAcc = 0; }
     return true;
@@ -3665,14 +3671,20 @@ let padHitAcc = 0;
 const envHist = [];
 function onTele(t){
   if (t.pm) padHitAcc |= t.pm;
-  Engine.lastTele = performance.now();
+  Engine.lastTele = performance.now(); if (Engine.ctx) Engine.teleCt = Engine.ctx.currentTime;
   Object.assign(tele, t);
   if (state.run) { envHist.push({t: performance.now(), a: t.a, f: t.f, m: t.m || 0, c: t.c, g: t.g, l: t.l}); if (envHist.length > 1200) envHist.splice(0, envHist.length - 1000); }
 }
 const Engine = {
   ready:false, post: () => {},
-  async start(){
-    if (this.ready || this.starting) return; this.starting = true;
+  // starting twice, or waiting on a start already under way, gives the same promise: ready once it resolves
+  start(){
+    if (this.ready) return Promise.resolve();
+    if (this.starting) return this.boot;
+    this.starting = true;
+    return this.boot = this.build();
+  },
+  async build(){
     const AC = window.AudioContext || window.webkitAudioContext;
     const ctx = this.ctx = new AC({latencyHint:'interactive'});
     try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
@@ -3713,21 +3725,40 @@ const Engine = {
     this.ready = true; this.lastTele = performance.now();
     // iOS stops the audio whenever its audio session changes (the microphone opening or closing, a call, Siri): the context
     // goes "interrupted" or suspended and nothing brings it back. Ask for it back at once (allowed once audio has started)
-    ctx.onstatechange = () => { if (ctx.state !== 'running' && ctx.state !== 'closed' && !this.kicking && !document.hidden) ctx.resume().catch(() => {}); };
-    probePost();
-    smpResend(); padsResend();
+    ctx.onstatechange = () => { if (ctx.state !== 'running' && ctx.state !== 'closed' && !document.hidden) ctx.resume().catch(() => { this.stale = true; }); };
+    this.refill();
+    // anything played or changed while a fresh engine was being built goes in now, after the sounds and the pads
+    if (this.q) { const q = this.q; this.q = null; q.forEach(m => this.post(m)); }
+    this.starting = false;
   },
-  /* waking the audio after iOS has stopped it. The context may say suspended or "interrupted", or still say running while
-     nothing renders (the engine's telemetry has stopped arriving): resume it, or for the silent kind stop and restart it,
-     the same thing leaving the app and coming back does */
-  lastTele:0, kicking:false,
-  stalled(){ return this.ready && !this.kicking && !document.hidden && this.ctx.state === 'running' && performance.now() - this.lastTele > 1000; },
+  // everything the engine holds besides the knobs: the probes, the sounds, the pads and pattern, a take in progress
+  refill(){
+    if (!this.ready) return;   // a fresh engine still starting refills itself when it is ready
+    this.post({t:'all', v:effP()}); probePost(); smpResend(); padsResend();
+    if (TK.on) { this.post({t:'tk', on:1}); }
+  },
+  /* a brand-new engine (a fresh audio context, the same sound): what the iPhone needs once the microphone has closed,
+     since the switch from recording back to playback can leave the old context silent for good. Built inside a tap so
+     iOS lets it play; notes and sounds asked for while it starts are kept and played as soon as it is ready. */
+  restart(){
+    if (!this.ready || this.starting) return;
+    const old = this.ctx, q = this.q = [];
+    this.ready = false; this.starting = false; this.stale = false; this.kicking = false; this.rec = null;
+    this.post = m => q.push(m);
+    SMP.sent.clear();
+    try { old.onstatechange = null; old.close().catch(() => {}); } catch (e) {}
+    return this.start();   // the new context is made and asked to run right here, inside the tap
+  },
+  /* waking the audio after iOS has stopped it, on a tap. After the microphone (stale), or when the engine has stopped
+     rendering (no telemetry for a second and the audio clock standing still), or the context is closed: a fresh engine.
+     Merely suspended or "interrupted": resume it, and build a fresh one on the next tap if iOS refuses. */
+  lastTele:0, teleCt:0, kicking:false, stale:false, q:null,
+  stalled(){ const c = this.ctx; return this.ready && !document.hidden && c.state === 'running' && performance.now() - this.lastTele > 1000 && c.currentTime - this.teleCt < 0.5; },
   wake(){
-    if (!this.ready) return; const c = this.ctx; if (c.state === 'closed') return;
-    if (c.state !== 'running') { c.resume().catch(() => {}); return; }
-    if (!this.stalled()) return;
-    this.kicking = true;
-    c.suspend().catch(() => {}).then(() => c.resume()).catch(() => {}).then(() => { this.kicking = false; this.lastTele = performance.now(); });
+    if (!this.ready) return; const c = this.ctx;
+    const busy = CAP.mode || TK.on;   // never in the middle of a recording or a take
+    if (!busy && (this.stale || c.state === 'closed' || this.stalled())) { this.restart(); return; }
+    if (c.state !== 'running' && c.state !== 'closed') c.resume().catch(() => { this.stale = true; });
   },
   /* the recorder: hears the synth's own output (resampling) or the microphone, and hands blocks to fn until stopped */
   recNode(){
@@ -3745,7 +3776,7 @@ const Engine = {
   }
 };
 // what the engine reports back besides its telemetry: hits it recorded into the pattern
-function onDspEv(m){ if (m.t === 'rec') padsRecEv(m); else if (m.t === 'patsw') padsPatSw(m); else if (m.t === 'bar') takeBar(m); else if (m.t === 'cal') calEv(m); else if (m.t === 'err') Engine.err = m.m; }
+function onDspEv(m){ if (m.t === 'rec') padsRecEv(m); else if (m.t === 'patsw') padsPatSw(m); else if (m.t === 'bar') takeBar(m); else if (m.t === 'cal') calEv(m); else if (m.t === 'err') Engine.err = m.m; else if (m.t === 'reset') Engine.refill(); }
 
 /* =====================================================================
    UI state
@@ -10527,9 +10558,13 @@ function idbDo(st, mode, fn){
 const smpMeta = id => (id && SMP.meta.get(id)) || null;
 const smpBuilt = m => !!m && (m.src === 'kit' || m.src === 'cc0');
 const smpDur = m => m ? (m.te - m.ts) / m.sr : 0;
-const noteTxt = r => { const n = Math.round(r), c = Math.round((r - n) * 100); return nName(n).toLowerCase() + (c ? ' ' + (c > 0 ? '+' : '−') + Math.abs(c) + 'ct' : ''); };
+const noteTxt = r => { if (!Number.isFinite(r)) return '–'; const n = Math.round(r), c = Math.round((r - n) * 100); return nName(n).toLowerCase() + (c ? ' ' + (c > 0 ? '+' : '−') + Math.abs(c) + 'ct' : ''); };
 async function smpBoot(){
-  try { const all = await idbDo('smeta', 'readonly', s => s.getAll()); (all || []).forEach(m => SMP.meta.set(m.id, m)); }
+  try { const all = await idbDo('smeta', 'readonly', s => s.getAll());
+    (all || []).forEach(m => {
+      // repair: the old play-button bug saved roots as NaN; hear the root again when the sound loads, middle C until then
+      if (!Number.isFinite(m.root)) { m.root = 60; m.pitched = false; m.fixRoot = 1; idbDo('smeta', 'readwrite', s => s.put(m)).catch(() => {}); }
+      SMP.meta.set(m.id, m); }); }
   catch (e) { SMP.noDb = true; }
   SMP.booted = true; SMP.ver++;
   smpRefs(); if (SX.open) sxRender(); padsRender();
@@ -10548,7 +10583,10 @@ async function smpLoad(id){
   if (id.startsWith('k:')) { kitEnsure(); return SMP.pcm.get(id) || null; }
   if (id.startsWith('c:')) { await kitLoad(id.split(':')[1], true); return SMP.pcm.get(id) || null; }
   if (SMP.noDb) return null;
-  try { const r = await idbDo('spcm', 'readonly', s => s.get(id)); if (r) { SMP.pcm.set(id, {L:r.L, R:r.R || null}); return SMP.pcm.get(id); } } catch (e) {}
+  try { const r = await idbDo('spcm', 'readonly', s => s.get(id)); if (r) { SMP.pcm.set(id, {L:r.L, R:r.R || null});
+    const m = smpMeta(id);
+    if (m && m.fixRoot) { const rt = smpPitch(r.L, r.R || null, m.sr, m.ts, m.te); delete m.fixRoot; smpEdit(id, rt == null ? {} : {root:rt, pitched:true}); }
+    return SMP.pcm.get(id); } } catch (e) {}
   return null;
 }
 // the engine gets a sound once; after that only its trim, loop and root are sent when they change
@@ -10567,8 +10605,11 @@ function smpResend(){ SMP.sent.clear(); SMP.want.forEach(id => { if (SMP.pcm.has
 function smpMetaPost(id){ const m = smpMeta(id); if (m && SMP.sent.has(id)) Engine.post({t:'smeta', id, ts:m.ts, te:m.te, ls:m.ls, le:m.le, root:m.root, xfm:m.xfm == null ? 30 : m.xfm, g:m.g || 0, sl:m.sl || null}); }
 // built-in sounds keep their edits (trim, loop, root) in local storage, since they are rebuilt each time
 const KIT_ED = store.get('kitEd', {});
+// repair built-in sounds whose root was wiped by the old play-button bug (saved as null): they go back to their own root
+Object.values(KIT_ED).forEach(e => { if (e && 'root' in e && !Number.isFinite(e.root)) delete e.root; });
 function smpEdit(id, f){
   const m = smpMeta(id); if (!m) return;
+  if ('root' in f && !Number.isFinite(f.root)) { f = {...f}; delete f.root; }   // a root must be a real note
   Object.assign(m, f); SMP.ver++;
   if (smpBuilt(m)) { KIT_ED[id] = {ts:m.ts, te:m.te, ls:m.ls, le:m.le, root:m.root, name:m.name, xfm:m.xfm, g:m.g, sl:m.sl}; store.set('kitEd', KIT_ED); }
   else if (!SMP.noDb) idbDo('smeta', 'readwrite', s => s.put(m)).catch(() => {});
@@ -10834,10 +10875,9 @@ async function capStop(save){
   if (CAP.stream) {
     CAP.stream.getTracks().forEach(t => t.stop()); CAP.stream = null;
     try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
-    // closing the microphone switches the phone's audio back from recording to playback, and iOS stops the audio while it
-    // does (the reason a fresh recording would not play until the app was left and reopened): wake it now, and again once
-    // the switch has settled
-    Engine.wake(); [250, 800, 1600].forEach(ms => setTimeout(() => Engine.wake(), ms));
+    // closing the microphone switches the phone's audio back from recording to playback, which can pause the audio
+    // context: ask for it back now and once the switch has settled (a tap after that wakes it, or rebuilds it if iOS refuses)
+    [0, 300, 1000].forEach(ms => setTimeout(() => { const c = Engine.ctx; if (Engine.ready && c.state !== 'running' && c.state !== 'closed') c.resume().catch(() => { Engine.stale = true; }); }, ms));
   }
   const mode = CAP.mode, ch = CAP.ch, had = CAP.phase === 'rec' && CAP.n > SR * 0.03;
   Object.assign(CAP, {mode:null, phase:null, ch:[], pre:[], n:0, src:null});
@@ -11064,7 +11104,8 @@ function sxBuild(){
     inp.addEventListener('blur', () => { done(true); setTimeout(() => scrollTo(0, 0), 60); });
   });
   $('sxRoot').addEventListener('click', e => {
-    const b = e.target.closest('button'); if (!b) return; const m = smpMeta(SX.sel); if (!m) return;
+    // only the root buttons (− + detect): the play button shares this row and has its own handler
+    const b = e.target.closest('[data-r]'); if (!b) return; const m = smpMeta(SX.sel); if (!m) return;
     if (b.dataset.r === 'hear') { const P = SMP.pcm.get(m.id); if (!P) return; const r = smpPitch(P.L, P.R, m.sr, m.ts, m.te);
       if (r == null) sxMsg('no clear pitch in this sound'); else { smpEdit(m.id, {root:r, pitched:true}); sxMsg('root: ' + noteTxt(r)); } }
     else smpEdit(m.id, {root:Math.round(m.root) + +b.dataset.r});
